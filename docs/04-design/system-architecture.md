@@ -1,8 +1,8 @@
 # 系统架构、事件模型与运行状态机
 
-- 版本：0.1
+- 版本：0.2
 - 状态：候选架构
-- 日期：2026-07-23
+- 日期：2026-07-28
 
 ## 1. 架构目标
 
@@ -13,6 +13,7 @@
 - Client 实时看到状态，但不与 Agent 运行时强耦合。
 - MVP 可以使用 Docker Compose 在单机部署。
 - 后续能够扩展为多 Worker 和远程对象存储。
+- 运行内核同时符合 Harness Engineering、Loop Engineering 和 Graph Engineering，三者状态由平台领域层掌握。
 
 ## 2. 逻辑架构
 
@@ -26,6 +27,9 @@ flowchart TB
     TOOL["Tool Gateway"]
     KNOW["Knowledge & Retrieval Service"]
     EVAL["Evaluation Service"]
+    GRAPH["Graph Compiler / Query Service"]
+    HARNESS["Harness Compiler"]
+    LOOP["Loop Engine / Progress Ledger"]
     EVENT["Event Store"]
     DB["PostgreSQL"]
     BLOB["Artifact Storage"]
@@ -33,6 +37,14 @@ flowchart TB
 
     UI <-->|"REST + SSE/WebSocket"| API
     API --> ORCH
+    ORCH --> GRAPH
+    ORCH --> LOOP
+    LOOP --> HARNESS
+    HARNESS --> WORKER
+    KNOW --> GRAPH
+    GRAPH --> DB
+    LOOP --> DB
+    HARNESS --> DB
     ORCH <--> QUEUE
     QUEUE <--> WORKER
     WORKER --> MODEL
@@ -48,6 +60,8 @@ flowchart TB
     API --> DB
     API --> BLOB
 ```
+
+读图说明：`Workflow Orchestrator` 仍是一级业务协调者；`Graph Compiler` 负责证明流程图合法，`Loop Engine` 负责决定下一步和何时停止，`Harness Compiler` 负责冻结每次 Agent 执行条件。Worker 只执行平台下发的快照并返回事件与候选产物。PostgreSQL 保存三者的正式状态，队列只承担任务投递，不能成为运行真相源。
 
 ## 3. 组件职责
 
@@ -108,6 +122,31 @@ Worker 不直接改变全局运行阶段，由 Orchestrator 根据事件推进�
 - 保存产物到证据的引用关系。
 - 提供 Agent 和 Report/Judge Agent 查询接口。
 
+参考 MiroFish，将知识构建细分为：
+
+```text
+Source Ingestion
+-> Parser / Chunker
+-> Ontology Generator
+-> Entity & Relation Extractor
+-> Evidence Binder
+-> Hybrid Indexer
+-> Persona / Workflow Context Provider
+-> Runtime Memory Updater
+-> Report / Judge Query Tools
+```
+
+其中：
+
+- Ontology 根据 Project、Requirement 和知识版本动态生成；
+- Entity/Relation 必须尽可能绑定原始 Source Chunk；
+- Runtime Memory 与长期可信 Knowledge 分开；
+- Agent 行为写回先进入候选区，经去重、冲突、证据和审批后再发布；
+- Report/Judge Agent 可以执行快速检索、全景关系检索、深度分析和受控 Agent 采访；
+- 图谱用于知识检索、Persona 生成、Workflow 生成、江湖视图和最终来源追溯。
+
+存储上不复制 MiroFish 的 Zep Cloud 强依赖。MVP 使用 PostgreSQL 保存知识元数据、Ontology、Entity、Relation、Evidence Binding 和版本，通过 Knowledge Graph Service 投影图查询；后续可以接入 Neo4j、Nebula、Zep 等图后端。
+
 ### 3.8 Evaluation Service
 
 - 执行确定性规则检查。
@@ -127,6 +166,26 @@ Worker 不直接改变全局运行阶段，由 Orchestrator 根据事件推进�
 - 保存原始上传文件和大体积产物。
 - 数据库存储元数据、版本和引用。
 - 本地开发可使用文件目录，部署时切换兼容 S3 的对象存储。
+
+### 3.11 Graph Compiler / Query Service
+
+- 编译模型从零生成的 Workflow 图，检查类型、连通、数据流、有限循环、权限、预算和 Artifact Contract。
+- 保存结构化诊断，供自动修复使用；修复达到上限后进入 `generation_failed`。
+- 提供执行图、知识/社会图和生产溯源图的权限化查询与版本差异。
+- 图数据库只是可替换投影，PostgreSQL 领域对象仍是正式真相源。
+
+### 3.12 Harness Compiler
+
+- 把节点、Agent、Prompt、上下文、知识、工具、权限、模型、预算、工作区和沙箱编译成不可变 `ExecutionHarnessSnapshot`。
+- 在真实模型或工具调用前执行权限、依赖、预算、Schema 和敏感数据预检。
+- 将平台快照投影到 Native 或外部 Agent Adapter，不允许 Adapter 私有会话取代平台快照。
+
+### 3.13 Loop Engine / Progress Ledger
+
+- 持久化 Goal、Plan、Action、Observation、Evaluation、Revision 和 Checkpoint。
+- 评估每轮有效进展，检测重复调用、产物不变、缺陷不收敛和反复转交等停滞。
+- 控制重规划、返工、重试、人工等待、预算耗尽和明确终态。
+- Worker 或进程重启后从平台 Checkpoint 恢复，而不是依赖框架私有内存。
 
 ## 4. 候选技术栈
 
