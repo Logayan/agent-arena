@@ -19,6 +19,7 @@
 - [企业级 Agent 平台与社会模拟补充调研](01-research/enterprise-agent-platform-followup.md)
 - [OpenClaw 与多 Agent 技术方案选项分析](01-research/openclaw-and-multi-agent-technical-options.md)
 - [与江湖 Online 相似的多 Agent 开源方案调研](01-research/similar-open-source-multi-agent-projects.md)
+- [江湖 Online 开源实现调研与技术选型（2026-07-29）](01-research/open-source-implementation-selection-2026-07-29.md)
 - [项目范围与 Client 需求](02-requirements/project-scope.md)
 - [首个生产流：产品需求评审与方案攻防](02-requirements/first-production-flow.md)
 - [Agent Arena 平台愿景与课题边界](02-requirements/platform-vision.md)
