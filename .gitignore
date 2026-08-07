@@ -12,6 +12,7 @@ client/dist/
 
 .runtime/
 .data/
+.tmp/
 coverage/
 playwright-report/
 test-results/

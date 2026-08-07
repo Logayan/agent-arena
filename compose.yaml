@@ -1,14 +1,33 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agent_arena}
+      POSTGRES_USER: ${POSTGRES_USER:-agent_arena}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-production}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - agent-arena-postgres:/var/lib/postgresql/data
+
   agent-arena:
     build:
       context: .
       dockerfile: Dockerfile
     image: agent-arena:local
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "${AGENT_ARENA_PORT:-8000}:8000"
     environment:
       JIANGHU_DB_PATH: /app/.data/jianghu.db
+      JIANGHU_DATABASE_URL: postgresql://${POSTGRES_USER:-agent_arena}:${POSTGRES_PASSWORD:-change-me-in-production}@db:5432/${POSTGRES_DB:-agent_arena}
       JIANGHU_SECRET_KEY_FILE: /app/.data/.jianghu-secret.key
       JIANGHU_WORKSPACE_ROOT: /app/.data/workspaces
       JIANGHU_KNOWLEDGE_ROOT: /app/.data/knowledge
@@ -22,3 +41,5 @@ services:
 volumes:
   agent-arena-data:
     name: agent-arena-data
+  agent-arena-postgres:
+    name: agent-arena-postgres

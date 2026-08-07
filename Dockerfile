@@ -15,6 +15,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     JIANGHU_DB_PATH=/app/.data/jianghu.db \
     JIANGHU_SECRET_KEY_FILE=/app/.data/.jianghu-secret.key \
+    JIANGHU_DATA_ROOT=/app/.data \
     JIANGHU_WORKSPACE_ROOT=/app/.data/workspaces \
     JIANGHU_KNOWLEDGE_ROOT=/app/.data/knowledge \
     JIANGHU_OPENCLAW_STATE_ROOT=/app/.data/openclaw

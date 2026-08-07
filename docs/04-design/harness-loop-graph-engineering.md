@@ -1,7 +1,7 @@
 # Harness、Loop 与 Graph Engineering 设计基线
 
-- 版本：0.1
-- 日期：2026-07-28
+- 版本：0.2
+- 日期：2026-07-29
 - 状态：已确认的架构方向
 - 上游：`system-requirements-v1.md` 第 26 章、`ADR-0005-domain-runtime-and-pluggable-agent-adapters.md`
 
@@ -142,6 +142,48 @@ stateDiagram-v2
 - Agent 在相同参与者间重复转交任务。
 
 检测到停滞后按策略重规划、换 Agent/模型/工具、缩小问题、请求裁判或用户，最后进入明确终态。
+
+### 4.4 Progress Ledger 与有效进展
+
+每个 TaskAssignment 维护结构化 Progress Ledger，至少包含：
+
+- 目标和完成条件覆盖；
+- 新增 Artifact、Evidence、Claim 和已关闭 Defect；
+- 当前开放事项、阻塞和剩余预算；
+- 工具调用去重摘要；
+- 对关键路径的预计影响；
+- 下一步动作及停止理由。
+
+Agent 自报的进度百分比不是正式进展。Loop Engine 根据可验证增量判断 `continue`、`replan`、`scale_out`、`scale_in`、`replace`、`await_human` 或终止。
+
+### 4.5 Team Loop
+
+Node 级循环之上增加团队控制循环：
+
+```text
+评估节点目标、候选和依赖
+-> 形成 TeamPlanVersion
+-> 并行下发 TaskAssignment
+-> 收集结构化结论包和 Progress Ledger
+-> 评估验收覆盖、关键路径、同质化、停滞和预算
+-> 保持 / 扩容 / 缩容 / 替换 / 终止
+-> 汇总 CandidateArtifact
+```
+
+Team Loop 只能改变当前节点的实际编队和 Assignment，不能绕过 Workflow Gate 或直接发布正式 Artifact。
+
+### 4.6 上下文分片与结论包
+
+每个 AgentInstance 只获得完成 Assignment 所需的 `ContextManifest`：公共目标、必要上游 Artifact、授权 Evidence、角色规则、工具和预算。其他 Agent 的私有草稿、无关日志和未授权知识默认不可见。
+
+子 Agent 完成后提交结构化结论包：
+
+```text
+claim + evidence_refs + artifact_refs + confidence
++ open_questions + risks + recommended_next_action
+```
+
+协调者默认读取结论包；只有复核、冲突调和或审计需要时才按引用读取更深层过程，以减少上下文污染和汇总负担。
 
 ## 5. Graph Engineering
 
