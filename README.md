@@ -1,44 +1,93 @@
 # Agent Arena
 
-**中文名：多智能体协演场**
+**中文名：多智能体协演场（江湖 Online）**
 
-Agent Arena 是一套面向组织场景的**多 Agent 社会操作系统与工作流工厂**。
+Agent Arena 是一套面向组织场景的多 Agent 社会操作系统与工作流工厂。用户可以输入员工、研发、客户、运营等场景目标，连接自己的知识和工具，由平台构建可运行、可观察、可干预、可评估的多 Agent 协作与对抗工作流。
 
-用户可以输入员工、研发、客户、运营等场景目标，连接自己的知识和工具，由平台构建可运行、可观察、可干预、可评估的多 Agent 协作与对抗工作流。
+当前生产流为：
 
-平台长期能力包括：
+> 产品需求分析 → 方案设计 → 红队质疑 → 修订 → 裁判验收
 
-- 多 Agent 运行与任务编排引擎
-- 共享知识、记忆与证据追踪
-- 协作、质疑、红队攻击、返工与裁决机制
-- 报告、访谈和运行复盘能力
-- 类 MiroFish 的可视化 Web Client
-- Agent 蓝图、组织关系、权限制度和声誉体系
-- 场景理解与工作流生成
-- 可复现的示例生产流、基线对比及评估数据
+项目的调研、需求、设计决策与过程记录见 [docs/README.md](docs/README.md)。
 
-## 文档入口
+## Docker 部署
 
-项目调研、需求、设计决策与过程记录统一维护在 [docs/README.md](docs/README.md)。
+需要 Docker Engine 24+，并安装 Docker Compose v2。
 
-## 当前状态
+在项目根目录运行：
 
-项目已完成愿景与架构 0.1 设计，并实现第一版可运行纵向切片。当前生产流为：
+```bash
+docker compose up -d --build
+```
 
-> 产品需求分析 -> 方案设计 -> 红队质疑 -> 修订 -> 裁判验收
+启动后访问：
 
-当前版本使用内置模拟运行器演示完整事件流。“智能需求评审”是首个课题场景模板，不代表平台的最终业务边界。
+- Web：<http://localhost:8000>
+- API 文档：<http://localhost:8000/docs>
+- 健康检查：<http://localhost:8000/api/health>
 
-后续将逐步实现 Workspace、Knowledge Hub、Agent Library、Society Designer、Workflow Studio、真实 LLM Worker 和 Evaluation Lab。
+查看状态与日志：
 
-## 本地运行
+```bash
+docker compose ps
+docker compose logs -f agent-arena
+```
+
+停止服务：
+
+```bash
+docker compose down
+```
+
+业务数据保存在 Docker 命名卷 `agent-arena-data` 中，普通的 `docker compose down` 不会删除数据。只有确认不再需要数据库、知识库、运行产物及密钥后，才使用 `docker compose down -v` 删除该卷。
+
+### 配置模型服务
+
+可以在项目根目录创建不纳入 Git 的 `.env` 文件：
+
+```dotenv
+ANTHROPIC_BASE_URL=https://your-anthropic-compatible-endpoint.example.com
+ANTHROPIC_AUTH_TOKEN=your-token
+ANTHROPIC_DEFAULT_SONNET_MODEL=your-model-id
+AGENT_ARENA_PORT=8000
+```
+
+然后重新创建容器：
+
+```bash
+docker compose up -d --build
+```
+
+也可以启动后在 Web 界面的“模型与凭据”中配置。模型凭据使用 `/app/.data/.jianghu-secret.key` 加密，因此必须同时持久化整个 `/app/.data` 目录；不要只复制数据库文件做迁移或备份。
+
+### 备份与恢复
+
+备份数据卷：
+
+```bash
+docker run --rm -v agent-arena-data:/data -v "${PWD}:/backup" alpine \
+  tar czf /backup/agent-arena-data.tar.gz -C /data .
+```
+
+恢复前先停止服务，再将备份解压回同一个数据卷。恢复操作会覆盖卷中的同名文件，执行前请确认目标环境。
+
+### OpenClaw 说明
+
+Web、API、数据管理、知识库与模型配置可以直接通过上述镜像运行。真正启动 Agent 工作流还依赖 OpenClaw CLI；当前镜像没有锁定并内置特定 OpenClaw 版本，因此容器内的 OpenClaw 状态检查会显示不可用。需要正式运行工作流时，请在派生镜像中安装与项目兼容的 OpenClaw，并设置：
+
+```text
+JIANGHU_OPENCLAW_NODE_PATH=/path/to/node
+JIANGHU_OPENCLAW_ENTRY_PATH=/path/to/openclaw.mjs
+```
+
+## 本地开发
 
 环境要求：
 
 - Node.js 22+
-- Python 3.13
+- Python 3.13+
 
-首次安装：
+首次安装（PowerShell）：
 
 ```powershell
 python -m venv .venv
@@ -47,18 +96,20 @@ npm install
 npm --prefix client install
 ```
 
-启动 API 和 Client：
+启动 API 和前端开发服务器：
 
 ```powershell
 npm run dev
 ```
 
-- Client：http://127.0.0.1:5173
-- API：http://127.0.0.1:8000
-- API 文档：http://127.0.0.1:8000/docs
+- Client：<http://127.0.0.1:5173>
+- API：<http://127.0.0.1:8000>
+- API 文档：<http://127.0.0.1:8000/docs>
 
 验证：
 
 ```powershell
 npm test
 ```
+
+生产模式下，Vue 构建产物由 FastAPI 同源托管；Docker 镜像采用同样的运行方式。

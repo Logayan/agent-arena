@@ -1,0 +1,24 @@
+services:
+  agent-arena:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agent-arena:local
+    restart: unless-stopped
+    ports:
+      - "${AGENT_ARENA_PORT:-8000}:8000"
+    environment:
+      JIANGHU_DB_PATH: /app/.data/jianghu.db
+      JIANGHU_SECRET_KEY_FILE: /app/.data/.jianghu-secret.key
+      JIANGHU_WORKSPACE_ROOT: /app/.data/workspaces
+      JIANGHU_KNOWLEDGE_ROOT: /app/.data/knowledge
+      JIANGHU_OPENCLAW_STATE_ROOT: /app/.data/openclaw
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL:-}
+    volumes:
+      - agent-arena-data:/app/.data
+
+volumes:
+  agent-arena-data:
+    name: agent-arena-data
