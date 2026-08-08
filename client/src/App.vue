@@ -11,6 +11,7 @@ import {
 type Json = Record<string, any>
 type Screen = 'jianghu' | 'teams' | 'agents' | 'flows' | 'showcase' | 'runs' | 'settings'
 
+const showcaseEnabled = import.meta.env.VITE_ENABLE_SHOWCASE === 'true'
 const screen = ref<Screen>('jianghu')
 const loading = ref(true)
 const busy = ref(false)
@@ -1193,6 +1194,7 @@ async function openRun(runId: string): Promise<void> {
 }
 
 function go(next: Screen): void {
+  if (next === 'showcase' && !showcaseEnabled) return
   if (next !== 'runs') stopRunPolling()
   if (next !== 'showcase') stopShowcasePolling()
   screen.value = next
@@ -1219,7 +1221,7 @@ async function loadAll(): Promise<void> {
     const [o, orgs, a, t, w, r, c, configs, k, demo] = await Promise.all([
       api.platformOverview(), api.organizations(), api.platformAgents(), api.teams(),
       api.platformWorkflows(), api.platformRuns(), api.commissions(), api.modelConfigs(), api.knowledgeSources(),
-      api.productionFlowShowcase(),
+      showcaseEnabled ? api.productionFlowShowcase() : Promise.resolve({}),
     ])
     overview.value = o
     organizations.value = orgs
@@ -1796,7 +1798,7 @@ onUnmounted(() => {
         <button :class="{ active: screen === 'teams' }" @click="go('teams')"><Users />组织与队伍</button>
         <button :class="{ active: screen === 'agents' }" @click="go('agents')"><Bot />江湖人物</button>
         <button :class="{ active: screen === 'flows' }" @click="go('flows')"><Workflow />行事章法</button>
-        <button :class="{ active: screen === 'showcase' }" @click="go('showcase')"><Zap />实战擂台</button>
+        <button v-if="showcaseEnabled" :class="{ active: screen === 'showcase' }" @click="go('showcase')"><Zap />实战擂台</button>
         <button :class="{ active: screen === 'runs' }" @click="go('runs')"><Play />事件现场</button>
       </nav>
       <button class="sidebar-setting" @click="go('settings')"><Settings2 />模型与凭据</button>
@@ -1962,7 +1964,7 @@ onUnmounted(() => {
         <div v-if="workflowToDelete" class="confirm-mask"><section class="confirm-dialog"><span>🗃️</span><h2>删除“{{ workflowToDelete.name }}”吗？</h2><p>会归档这套生产流的全部版本，并从默认列表和后续选择中移除；历史 Run、流程快照、人物行动和产物不会删除。若仍有未结束的现场，系统会阻止删除。</p><div><button class="jh-secondary" :disabled="Boolean(workflowDeletingId)" @click="workflowToDelete = null">暂不删除</button><button class="danger-action" :disabled="Boolean(workflowDeletingId)" @click="confirmDeleteWorkflow"><LoaderCircle v-if="workflowDeletingId" class="spin" />{{ workflowDeletingId ? '正在归档…' : '确认删除' }}</button></div></section></div>
       </main>
 
-      <main v-else-if="screen === 'showcase'" class="jh-page showcase-page">
+      <main v-else-if="showcaseEnabled && screen === 'showcase'" class="jh-page showcase-page">
         <section class="page-heading showcase-heading">
           <div><span>真实生产流演示案例</span><h1>单 Agent vs 多 Agent 协作 / 对抗</h1><p>同一模型、同一开发任务、同一独立裁判和同一隐藏验收集。仓库只内置案例规范与生产流，不预置运行结果；差异必须由真实 OpenClaw Run 产生。</p></div>
           <span v-if="showcasePolling" class="live-badge"><i></i>对照实验进行中</span>
