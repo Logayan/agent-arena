@@ -18,6 +18,7 @@ from server.app.store import RunStore
 from server.app.platform_store import PlatformStore
 from server.app.platform_executor import _extract_initiator_note, _team_knowledge, execute_platform_run
 from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
+from server.app.showcase import CASE_ID, CASE_MANIFEST, CASE_TASK, comparison_report, ensure_showcase_assets
 
 
 @pytest.fixture
@@ -492,6 +493,57 @@ async def test_knowledge_folder_batches_share_collection_and_sources_page(monkey
     assert {item["metadata"]["collection_id"] for item in first_page.json()["items"] + second_page.json()["items"]} == {collection_id}
 
 
+@pytest.mark.anyio
+async def test_delete_managed_knowledge_removes_file_chunks_bindings_and_team_path(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "knowledge-delete.db"))
+    agent = platform.create_agent(
+        name="白归卷", role="知识管理员", description="维护知识删除闭环", persona="谨慎删除", capabilities=["知识管理"],
+    )
+    team = platform.create_team(
+        organization_id="org_jianghu", name="归卷阁", purpose="验证知识删除", operating_mode="collaborative",
+        members=[{"agent_id": agent["id"], "member_role": "leader", "responsibility": "维护知识"}],
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    payload = {
+        "folder_name": "待删除目录",
+        "collection_id": "folder_delete_test",
+        "files": [{
+            "filename": "待删除规则.md",
+            "relative_path": "待删除目录/待删除规则.md",
+            "media_type": "text/markdown",
+            "content_base64": base64.b64encode("# 删除验证\n\n此内容应连同 RAG 切片一起删除。".encode()).decode(),
+        }],
+    }
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        uploaded = await client.post(f"/api/platform/teams/{team['id']}/knowledge/folders", json=payload)
+        assert uploaded.status_code == 200
+        source = uploaded.json()["uploaded"][0]["source"]
+        managed_path = Path(source["uri"])
+        managed_directory = managed_path.parent
+        assert managed_path.is_file()
+        assert (managed_directory / "extracted.txt").is_file()
+        assert str(managed_path.resolve()) in platform.get_team(team["id"])["knowledge_paths"]
+        deleted = await client.delete(f"/api/platform/knowledge-sources/{source['id']}")
+        missing = await client.delete(f"/api/platform/knowledge-sources/{source['id']}")
+        page = await client.get(
+            "/api/platform/knowledge-sources/page",
+            params={"scope_type": "team", "scope_id": team["id"], "offset": 0, "limit": 20},
+        )
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+    assert deleted.json()["physical_file_deleted"] is True
+    assert missing.status_code == 404
+    assert page.json()["pagination"]["total"] == 0
+    assert not managed_directory.exists()
+    assert platform.get_knowledge_source(source["id"]) is None
+    assert str(managed_path.resolve()) not in platform.get_team(team["id"])["knowledge_paths"]
+    with platform._connect() as db:
+        chunk_count = db.execute("SELECT COUNT(*) AS value FROM knowledge_chunks WHERE source_id=?", (source["id"],)).fetchone()["value"]
+        binding_count = db.execute("SELECT COUNT(*) AS value FROM knowledge_bindings WHERE source_id=?", (source["id"],)).fetchone()["value"]
+    assert chunk_count == 0
+    assert binding_count == 0
+
+
 def test_run_workspace_is_isolated_and_artifact_is_materialized(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "workspace.db"))
     agent = platform.create_agent(
@@ -620,6 +672,48 @@ def test_team_knowledge_upload_is_platform_managed_and_bound_to_team(tmp_path) -
     document_search = platform.search_team_knowledge(team["id"], "executive notification fifteen minutes")
     assert document["source"]["metadata"]["parser"] == "docx-openxml"
     assert document_search["results"][0]["source_id"] == document["source"]["id"]
+
+
+def test_managed_knowledge_paths_are_repaired_after_data_directory_moves(tmp_path) -> None:
+    database_path = tmp_path / "portable.db"
+    platform = PlatformStore(str(database_path))
+    agent = platform.create_agent(
+        name="迁移校验员",
+        role="知识管理员",
+        description="校验知识文件迁移",
+        persona="谨慎",
+        capabilities=["知识管理"],
+    )
+    team = platform.create_team(
+        organization_id="org_jianghu",
+        name="迁移校验组",
+        purpose="校验 Docker 数据挂载",
+        operating_mode="collaborative",
+        members=[{"agent_id": agent["id"], "member_role": "leader", "responsibility": "校验路径"}],
+    )
+    source = platform.attach_team_knowledge_file(
+        team["id"], "portable.md", b"# portable\n", "text/markdown"
+    )["source"]
+    stale_metadata = dict(source["metadata"])
+    stale_metadata["managed_path"] = r"D:\old-host\.data\knowledge\content.md"
+    stale_metadata["extracted_path"] = r"D:\old-host\.data\knowledge\extracted.txt"
+    with platform._connect() as db:
+        db.execute(
+            "UPDATE knowledge_sources SET uri=?,metadata_json=? WHERE id=?",
+            (r"D:\old-host\.data\knowledge\content.md", json.dumps(stale_metadata, ensure_ascii=False), source["id"]),
+        )
+        db.execute(
+            "UPDATE agent_teams SET knowledge_paths_json=? WHERE id=?",
+            (json.dumps([r"D:\old-host\.data\knowledge\content.md"]), team["id"]),
+        )
+
+    restarted = PlatformStore(str(database_path))
+    repaired = restarted.knowledge_source_detail(source["id"])["source"]
+    repaired_path = Path(repaired["uri"])
+    assert repaired_path.is_file()
+    assert repaired_path.is_relative_to((tmp_path / "knowledge").resolve())
+    assert repaired["metadata"]["managed_path"] == str(repaired_path)
+    assert restarted.get_team(team["id"])["knowledge_paths"] == [str(repaired_path)]
 
 
 def test_agent_revision_preserves_frozen_workflow_and_continues_memory_and_knowledge(tmp_path) -> None:
@@ -1422,3 +1516,139 @@ async def test_openclaw_message_streams_public_tool_actions_before_turn_finishes
     assert all(item.get("live_emitted") is True for item in response["actions"])
     assert [item["path"] for item in response["file_changes"]] == ["calculator.py"]
     assert "must remain private" not in json.dumps(streamed, ensure_ascii=False)
+
+
+def test_showcase_assets_are_idempotent_fixed_and_form_a_real_dag(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "showcase-assets.db"))
+
+    first = ensure_showcase_assets(platform)
+    second = ensure_showcase_assets(platform)
+
+    assert first["changes"]["created_agent_ids"]
+    assert second["changes"]["created_agent_ids"] == []
+    assert second["changes"]["baseline_workflow_created"] is False
+    assert second["changes"]["multi_workflow_created"] is False
+    baseline = second["workflows"]["baseline"]
+    multi = second["workflows"]["multi_agent"]
+    assert baseline["definition"]["showcase"] == {"case_id": CASE_ID, "variant": "baseline"}
+    assert [node["key"] for node in baseline["definition"]["nodes"]] == ["solo_delivery", "judge"]
+    assert baseline["definition"]["nodes"][0]["agent_id"] != baseline["definition"]["nodes"][1]["agent_id"]
+    assert multi["definition"]["showcase"] == {"case_id": CASE_ID, "variant": "multi_agent"}
+    assert ["requirement", "implementation"] in multi["definition"]["edges"]
+    assert ["architecture", "implementation"] in multi["definition"]["edges"]
+    assert ["implementation", "quality"] in multi["definition"]["edges"]
+    assert ["implementation", "red_team"] in multi["definition"]["edges"]
+    assert multi["definition"]["nodes"][-1]["type"] == "judge"
+    participant_sets = {
+        tuple(node.get("participant_agent_ids", []))
+        for node in multi["definition"]["nodes"]
+        if node.get("type") == "team_task"
+    }
+    assert len(participant_sets) > 2
+    assert max(len(item) for item in participant_sets) < len(second["team"]["members"])
+
+
+def test_showcase_comparison_uses_real_code_hidden_acceptance_and_evidence(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "showcase-metrics.db"))
+    assets = ensure_showcase_assets(platform)
+    baseline_run = platform.create_run(assets["workflows"]["baseline"]["id"], CASE_TASK)
+    multi_run = platform.create_run(assets["workflows"]["multi_agent"]["id"], CASE_TASK)
+    comparison = platform.create_showcase_comparison(
+        case_id=CASE_ID,
+        baseline_run_id=baseline_run["id"],
+        multi_run_id=multi_run["id"],
+    )
+
+    baseline_code = Path(baseline_run["workspace"]["code"])
+    multi_code = Path(multi_run["workspace"]["code"])
+    for root in (baseline_code, multi_code):
+        (root / "README.md").write_text("# 事件优先级评估器\n\n运行自动化测试。", encoding="utf-8")
+        (root / "test_incident_priority.py").write_text("def test_delivery_exists():\n    assert True\n", encoding="utf-8")
+    (baseline_code / "incident_priority.py").write_text(
+        """def classify_incident(record):
+    severity = record['severity']
+    users = record['affected_users']
+    minutes = record['minutes_open']
+    if severity == 'critical' or (severity == 'high' and users >= 100):
+        priority = 'P0'
+    elif severity == 'high' or (severity == 'medium' and minutes >= 60):
+        priority = 'P1'
+    elif severity == 'medium':
+        priority = 'P2'
+    else:
+        priority = 'P3'
+    return {'incident_id': record['incident_id'], 'priority': priority, 'sla_minutes': {'P0':15,'P1':60,'P2':240,'P3':1440}[priority]}
+""",
+        encoding="utf-8",
+    )
+    (multi_code / "incident_priority.py").write_text(
+        """VALID = {'low', 'medium', 'high', 'critical'}
+SLA = {'P0': 15, 'P1': 60, 'P2': 240, 'P3': 1440}
+
+def classify_incident(record):
+    required = ('incident_id', 'severity', 'affected_users', 'minutes_open')
+    if not isinstance(record, dict) or any(key not in record for key in required):
+        raise ValueError('missing required field')
+    severity = record['severity']
+    users = record['affected_users']
+    minutes = record['minutes_open']
+    if severity not in VALID:
+        raise ValueError('invalid severity')
+    if type(users) is not int or type(minutes) is not int or users < 0 or minutes < 0:
+        raise ValueError('invalid numeric field')
+    if severity == 'critical' or (severity == 'high' and users >= 100):
+        priority = 'P0'
+    elif severity == 'high' or (severity == 'medium' and minutes >= 60):
+        priority = 'P1'
+    elif severity == 'medium':
+        priority = 'P2'
+    else:
+        priority = 'P3'
+    return {'incident_id': record['incident_id'], 'priority': priority, 'sla_minutes': SLA[priority]}
+""",
+        encoding="utf-8",
+    )
+
+    for run, risk_text, judge_score, token_count in (
+        (baseline_run, "自动化测试与输出结构", 72, 1000),
+        (multi_run, "缺字段、非法严重级别、类型错误、负数、边界 100 和 60、输出契约、确定性、自动化测试证据", 96, 2400),
+    ):
+        fresh = platform.get_run(run["id"])
+        assert fresh is not None
+        for task in fresh["tasks"]:
+            is_judge = task["node_key"] == "judge"
+            decision = {
+                "verdict": "pass",
+                "score": judge_score,
+                "summary": "隐藏验收前的独立裁决通过",
+                "remaining_risks": [],
+            } if is_judge else None
+            platform.update_task(task["id"], status="completed", output_data={"decision": decision} if decision else {})
+            platform.create_artifact(run["id"], task["id"], "workflow_output", task["node_name"], risk_text)
+        platform.append_run_event(
+            run["id"],
+            "artifact.validation.passed",
+            "validation",
+            "真实工程校验通过",
+            risk_text,
+            {
+                "engineering": True,
+                "code_files": [
+                    {"path": "incident_priority.py"},
+                    {"path": "README.md"},
+                    {"path": "test_incident_priority.py"},
+                ],
+                "successful_test_count": 1,
+                "command_count": 1,
+            },
+        )
+        platform.update_run(run["id"], status="completed", progress=100, stage="completed", token_count=token_count)
+
+    report = comparison_report(platform, comparison)
+    assert report["status"] == "completed"
+    assert report["baseline"]["hidden_acceptance"]["pass_rate"] < 100
+    assert report["multi_agent"]["hidden_acceptance"]["pass_rate"] == 100
+    assert report["multi_agent"]["risk_discovery"]["total"] == len(CASE_MANIFEST["risk_topics"])
+    assert report["multi_agent"]["risk_discovery"]["rate"] > report["baseline"]["risk_discovery"]["rate"]
+    assert report["delta"]["quality_score"] > 0
+    assert report["delta"]["token_count"] == 1400

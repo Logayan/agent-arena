@@ -1,0 +1,24 @@
+{
+  "schema_version": "jianghu.showcase-acceptance.v1",
+  "case_id": "single-vs-multi-runnable-delivery-v1",
+  "delivery_contract": {
+    "required_module": "incident_priority.py",
+    "required_callable": "classify_incident(record: dict) -> dict",
+    "required_output_fields": ["incident_id", "priority", "sla_minutes"],
+    "required_assets": ["README", "automated_tests"],
+    "dependency_policy": "python_standard_library_only"
+  },
+  "hidden_acceptance_count": 9,
+  "quality_formula": {
+    "hidden_acceptance_pass_rate": 0.6,
+    "artifact_completeness": 0.25,
+    "independent_judge_score": 0.15
+  },
+  "manual_effort_estimate": {
+    "reference_minutes": 180,
+    "launch_and_review_minutes": 3,
+    "minutes_per_user_intervention": 5,
+    "terminal_failure_handling_minutes": 10,
+    "is_measured_timesheet_data": false
+  }
+}

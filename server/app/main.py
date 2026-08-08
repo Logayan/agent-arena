@@ -24,6 +24,7 @@ from .llm_client import LLMConfigurationError, LLMRequestError, client_for_confi
 from .platform_executor import execute_platform_run
 from .openclaw_runtime import OpenClawRuntimeError, openclaw_runtime
 from .secret_store import SecretStorageError
+from .showcase import CASE_ID, CASE_TASK, comparison_report, ensure_showcase_assets, showcase_snapshot
 
 
 class WorkflowBuildRequest(BaseModel):
@@ -351,6 +352,78 @@ async def list_platform_organizations() -> list[dict[str, object]]:
 @app.get("/api/platform/runs")
 async def list_platform_runs() -> list[dict[str, object]]:
     return platform_store.list_runs()
+
+
+@app.get("/api/platform/showcases/production-flow-comparison")
+async def get_production_flow_showcase() -> dict[str, object]:
+    return showcase_snapshot(platform_store)
+
+
+@app.post("/api/platform/showcases/production-flow-comparison/install")
+async def install_production_flow_showcase() -> dict[str, object]:
+    return showcase_snapshot(platform_store, install=True)
+
+
+@app.post("/api/platform/showcases/production-flow-comparison/comparisons")
+async def create_production_flow_comparison() -> dict[str, object]:
+    assets = ensure_showcase_assets(platform_store)
+    baseline_run = platform_store.create_run(
+        str(assets["workflows"]["baseline"]["id"]),
+        CASE_TASK,
+        "project_jianghu",
+    )
+    multi_run = platform_store.create_run(
+        str(assets["workflows"]["multi_agent"]["id"]),
+        CASE_TASK,
+        "project_jianghu",
+    )
+    comparison = platform_store.create_showcase_comparison(
+        case_id=CASE_ID,
+        baseline_run_id=str(baseline_run["id"]),
+        multi_run_id=str(multi_run["id"]),
+    )
+    return {
+        "comparison": comparison_report(platform_store, comparison),
+        "message": "两套冻结生产流和独立 Run 已建立，尚未调用模型；确认启动后才会产生真实费用。",
+    }
+
+
+@app.get("/api/platform/showcases/production-flow-comparison/comparisons/{comparison_id}")
+async def get_production_flow_comparison(comparison_id: str) -> dict[str, object]:
+    comparison = platform_store.get_showcase_comparison(comparison_id)
+    if not comparison or comparison.get("case_id") != CASE_ID:
+        raise HTTPException(status_code=404, detail="showcase_comparison_not_found")
+    return {"comparison": comparison_report(platform_store, comparison)}
+
+
+@app.post("/api/platform/showcases/production-flow-comparison/comparisons/{comparison_id}/start")
+async def start_production_flow_comparison(comparison_id: str) -> dict[str, object]:
+    comparison = platform_store.get_showcase_comparison(comparison_id)
+    if not comparison or comparison.get("case_id") != CASE_ID:
+        raise HTTPException(status_code=404, detail="showcase_comparison_not_found")
+    runs = [
+        platform_store.get_run(str(comparison["baseline_run_id"])),
+        platform_store.get_run(str(comparison["multi_run_id"])),
+    ]
+    if any(run is None for run in runs):
+        raise HTTPException(status_code=404, detail="showcase_run_not_found")
+    invalid = [run for run in runs if run and run.get("status") not in {"draft", "running"}]
+    if invalid:
+        return {
+            "comparison": comparison_report(platform_store, comparison),
+            "message": "本轮对照已有 Run 进入终态；如需再次比较，请创建新一轮，不会覆盖历史证据。",
+        }
+    draft_runs = [run for run in runs if run and run.get("status") == "draft"]
+    # 两边均完成运行时准备后再启动，避免只启动一边导致不公平对照。
+    for run in draft_runs:
+        prepare_openclaw_run(run)
+    for run in draft_runs:
+        schedule_platform_execution(str(run["id"]))
+    return {
+        "comparison": comparison_report(platform_store, comparison),
+        "execution": {"mode": "real-openclaw", "started_run_ids": [run["id"] for run in draft_runs]},
+        "message": "单 Agent 基线与多 Agent 协作/对抗 Run 已使用真实 OpenClaw 和真实模型启动。",
+    }
 
 
 @app.get("/api/platform/agents")
@@ -1251,6 +1324,15 @@ async def create_platform_knowledge_source(request: KnowledgeSourceRequest) -> d
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"source": source}
+
+
+@app.delete("/api/platform/knowledge-sources/{source_id}")
+async def delete_platform_knowledge_source(source_id: str) -> dict[str, object]:
+    try:
+        return platform_store.delete_knowledge_source(source_id)
+    except ValueError as exc:
+        status = 404 if str(exc) == "knowledge_source_not_found" else 422
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @app.get("/api/platform/knowledge-sources/{source_id}")

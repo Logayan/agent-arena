@@ -9,7 +9,7 @@ import {
 } from '@lucide/vue'
 
 type Json = Record<string, any>
-type Screen = 'jianghu' | 'teams' | 'agents' | 'flows' | 'runs' | 'settings'
+type Screen = 'jianghu' | 'teams' | 'agents' | 'flows' | 'showcase' | 'runs' | 'settings'
 
 const screen = ref<Screen>('jianghu')
 const loading = ref(true)
@@ -27,6 +27,9 @@ const modelConfigs = ref<Json[]>([])
 const knowledgeSources = ref<Json[]>([])
 const openClawStatus = ref<Json>({ available: false, mode: 'embedded-local' })
 const knowledgeGraph = ref<Json>({ nodes: [], edges: [] })
+const showcase = ref<Json>({})
+const showcaseBusy = ref(false)
+const showcasePolling = ref(false)
 const currentTask = ref<Json | null>(null)
 const activeRun = ref<Json | null>(null)
 const runPolling = ref(false)
@@ -53,6 +56,7 @@ const knowledgeUploadPreviewLimits = ref<Record<string, number>>({})
 const selectedKnowledgeDetail = ref<Json | null>(null)
 const knowledgeDetailLoading = ref('')
 const knowledgeDetailLoadingMore = ref(false)
+const knowledgeDeletingSourceId = ref('')
 const knowledgeNoteTeam = ref<Json | null>(null)
 const knowledgeNoteForm = ref({ title: '', content: '' })
 const knowledgeNoteSaving = ref(false)
@@ -87,6 +91,7 @@ const workflowDeletingId = ref('')
 const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', token: '', active: true })
 const modelMessage = ref('')
 let runPollTimer: ReturnType<typeof setInterval> | null = null
+let showcasePollTimer: ReturnType<typeof setInterval> | null = null
 
 const organization = computed(() => organizations.value[0] ?? null)
 const organizationName = computed(() => {
@@ -105,6 +110,7 @@ const worldBroadcasts = computed(() => activeRunEvents.value
 const latestFailureEvent = computed(() => activeRunEvents.value.find((event: Json) => [
   'task.failed', 'run.failed', 'run.cancelled', 'run.budget_exhausted', 'run.revision_exhausted',
 ].includes(String(event.type))))
+const latestShowcaseComparison = computed(() => showcase.value?.latest_comparison ?? null)
 const workflowFamilies = computed(() => {
   const groups: Record<string, Json[]> = {}
   for (const flow of workflows.value) {
@@ -445,6 +451,48 @@ async function scrollKnowledgeDetail(event: Event): Promise<void> {
     error.value = cause instanceof Error ? cause.message : '继续读取知识内容失败'
   } finally {
     knowledgeDetailLoadingMore.value = false
+  }
+}
+
+async function deleteKnowledgeSource(source: Json): Promise<void> {
+  const sourceId = String(source.id ?? '')
+  const metadata = source.metadata ?? {}
+  const scopeType: 'organization' | 'team' = metadata.scope_type === 'organization' ? 'organization' : 'team'
+  const scopeId = String(metadata.scope_id || metadata.team_id || metadata.organization_id || '')
+  const displayName = String(metadata.relative_path || source.name || '该知识文件')
+  if (!sourceId || !scopeId) {
+    error.value = '该知识缺少归属信息，无法安全删除。'
+    return
+  }
+  if (!window.confirm(`确定删除“${displayName}”吗？\n\n平台保存的原文件、RAG 切片、知识图谱关系和授权记录会一并删除，此操作不可撤销。`)) return
+  knowledgeDeletingSourceId.value = sourceId
+  error.value = ''
+  try {
+    const result = await api.deleteKnowledgeSource(sourceId) as Json
+    if (selectedKnowledgeDetail.value?.source?.id === sourceId) selectedKnowledgeDetail.value = null
+    knowledgeSearchResults.value = Object.fromEntries(
+      Object.entries(knowledgeSearchResults.value).map(([teamId, items]) => [
+        teamId,
+        (items ?? []).filter((item: Json) => String(item.source_id) !== sourceId),
+      ]),
+    )
+    invalidateKnowledgeSourcePage(scopeType, scopeId)
+    const [sources, refreshedTeams, graph] = await Promise.all([
+      api.knowledgeSources(),
+      scopeType === 'team' ? api.teams(organization.value?.id) : Promise.resolve(null),
+      organization.value?.id ? api.knowledgeGraph(String(organization.value.id)) : Promise.resolve(null),
+    ])
+    knowledgeSources.value = sources as Json[]
+    if (refreshedTeams) teams.value = refreshedTeams as Json[]
+    if (graph) knowledgeGraph.value = graph as Json
+    await loadKnowledgeSourcePage(scopeType, scopeId, true)
+    notice.value = result.cleanup_pending
+      ? `“${displayName}”已从知识库移除；磁盘临时清理将在后台继续处理。`
+      : `已删除“${displayName}”，并同步清理 RAG 切片、知识图谱关系和授权记录。`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '删除知识文件失败'
+  } finally {
+    knowledgeDeletingSourceId.value = ''
   }
 }
 
@@ -1028,6 +1076,105 @@ function beginRunPolling(runId: string): void {
   runPollTimer = setInterval(() => { void refreshActiveRun(runId) }, 1500)
 }
 
+function stopShowcasePolling(): void {
+  if (showcasePollTimer) clearInterval(showcasePollTimer)
+  showcasePollTimer = null
+  showcasePolling.value = false
+}
+
+async function refreshShowcaseComparison(comparisonId: string): Promise<void> {
+  try {
+    const result = await api.getProductionFlowComparison(comparisonId)
+    const comparison = result.comparison as Json
+    showcase.value = { ...showcase.value, latest_comparison: comparison }
+    if (comparison.status === 'completed') {
+      stopShowcasePolling()
+      runs.value = await api.platformRuns()
+    }
+  } catch (cause) {
+    stopShowcasePolling()
+    error.value = cause instanceof Error ? cause.message : '对照实验状态读取失败'
+  }
+}
+
+function beginShowcasePolling(comparisonId: string): void {
+  stopShowcasePolling()
+  showcasePolling.value = true
+  void refreshShowcaseComparison(comparisonId)
+  showcasePollTimer = setInterval(() => { void refreshShowcaseComparison(comparisonId) }, 1800)
+}
+
+function formatDuration(seconds: number): string {
+  if (!seconds) return '尚未形成'
+  if (seconds < 60) return `${seconds} 秒`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest ? `${minutes} 分 ${rest} 秒` : `${minutes} 分钟`
+}
+
+function signedMetric(value: number, suffix = ''): string {
+  const numeric = Number(value || 0)
+  return `${numeric > 0 ? '+' : ''}${numeric}${suffix}`
+}
+
+function showcaseRun(variant: string): Json {
+  return latestShowcaseComparison.value?.[variant] ?? {}
+}
+
+function showcaseWorkflow(variant: string): Json {
+  return showcase.value?.assets?.workflows?.[variant] ?? {}
+}
+
+async function installShowcase(): Promise<void> {
+  showcaseBusy.value = true
+  error.value = ''
+  try {
+    showcase.value = await api.installProductionFlowShowcase()
+    const [a, t, w] = await Promise.all([api.platformAgents(), api.teams(), api.platformWorkflows()])
+    agents.value = a
+    teams.value = t
+    workflows.value = w
+    notice.value = '完整案例已经安装为真实人物、团队和两套冻结生产流；尚未调用模型，也未产生费用。'
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '案例安装失败'
+  } finally {
+    showcaseBusy.value = false
+  }
+}
+
+async function startShowcaseComparison(comparisonId?: string): Promise<void> {
+  const confirmed = window.confirm(
+    comparisonId
+      ? '将使用当前真实模型配置同时启动两个 Run。会产生真实 Token 与费用，是否继续？'
+      : '将创建并启动“单 Agent 基线”和“多 Agent 协作/对抗”两个真实 Run。会产生真实 Token 与费用，是否继续？',
+  )
+  if (!confirmed) return
+  showcaseBusy.value = true
+  error.value = ''
+  notice.value = ''
+  try {
+    if (!showcase.value.installed) showcase.value = await api.installProductionFlowShowcase()
+    let targetId = comparisonId
+    if (!targetId) {
+      const created = await api.createProductionFlowComparison()
+      const comparison = created.comparison as Json
+      showcase.value = { ...showcase.value, latest_comparison: comparison }
+      targetId = String(comparison.id)
+    }
+    const started = await api.startProductionFlowComparison(String(targetId))
+    const comparison = started.comparison as Json
+    showcase.value = { ...showcase.value, latest_comparison: comparison }
+    runs.value = await api.platformRuns()
+    beginShowcasePolling(String(targetId))
+    notice.value = String(started.message || '真实对照实验已经启动。')
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '真实对照实验启动失败；已创建的草稿 Run 会保留，可直接重试启动'
+    if (latestShowcaseComparison.value?.id) beginShowcasePolling(String(latestShowcaseComparison.value.id))
+  } finally {
+    showcaseBusy.value = false
+  }
+}
+
 async function hydrateRun(runId: string, navigate = false): Promise<void> {
   error.value = ''
   const result = await api.getPlatformRun(runId)
@@ -1047,6 +1194,7 @@ async function openRun(runId: string): Promise<void> {
 
 function go(next: Screen): void {
   if (next !== 'runs') stopRunPolling()
+  if (next !== 'showcase') stopShowcasePolling()
   screen.value = next
   error.value = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1059,15 +1207,19 @@ function go(next: Screen): void {
       beginRunPolling(String(activeRun.value?.id ?? ''))
     }
   }
+  if (next === 'showcase' && latestShowcaseComparison.value?.status === 'running') {
+    beginShowcasePolling(String(latestShowcaseComparison.value.id))
+  }
 }
 
 async function loadAll(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const [o, orgs, a, t, w, r, c, configs, k] = await Promise.all([
+    const [o, orgs, a, t, w, r, c, configs, k, demo] = await Promise.all([
       api.platformOverview(), api.organizations(), api.platformAgents(), api.teams(),
       api.platformWorkflows(), api.platformRuns(), api.commissions(), api.modelConfigs(), api.knowledgeSources(),
+      api.productionFlowShowcase(),
     ])
     overview.value = o
     organizations.value = orgs
@@ -1078,6 +1230,7 @@ async function loadAll(): Promise<void> {
     commissions.value = c
     modelConfigs.value = configs
     knowledgeSources.value = k
+    showcase.value = demo
     try {
       openClawStatus.value = await api.openClawStatus()
     } catch (cause) {
@@ -1628,7 +1781,10 @@ async function saveModel(): Promise<void> {
 }
 
 onMounted(loadAll)
-onUnmounted(stopRunPolling)
+onUnmounted(() => {
+  stopRunPolling()
+  stopShowcasePolling()
+})
 </script>
 
 <template>
@@ -1640,6 +1796,7 @@ onUnmounted(stopRunPolling)
         <button :class="{ active: screen === 'teams' }" @click="go('teams')"><Users />组织与队伍</button>
         <button :class="{ active: screen === 'agents' }" @click="go('agents')"><Bot />江湖人物</button>
         <button :class="{ active: screen === 'flows' }" @click="go('flows')"><Workflow />行事章法</button>
+        <button :class="{ active: screen === 'showcase' }" @click="go('showcase')"><Zap />实战擂台</button>
         <button :class="{ active: screen === 'runs' }" @click="go('runs')"><Play />事件现场</button>
       </nav>
       <button class="sidebar-setting" @click="go('settings')"><Settings2 />模型与凭据</button>
@@ -1689,14 +1846,14 @@ onUnmounted(stopRunPolling)
           <header><div><span>🌏</span><div><small>大江湖 · 社会级共同体</small><h2>{{ organizationName }}</h2><p>{{ organization?.description }}</p></div></div><b>{{ teams.length }} 个小江湖共享此上层边界</b></header>
           <div class="realm-knowledge-panel"><div><BookOpen /><span><strong>大江湖公共知识</strong><small>目录会被递归上传、解析、切片并保存；下属小江湖执行时自动继承，人物专属知识仍需单独授权。</small></span></div><label><input :key="organizationKnowledgeInputKey" type="file" multiple webkitdirectory directory @change="selectOrganizationKnowledgeFiles" /><FolderOpen /><span>{{ organizationKnowledgeFiles.length ? `已选择 ${organizationKnowledgeFiles.length} 个文件` : '选择一个完整知识目录' }}</span></label><button class="jh-primary" :disabled="organizationKnowledgeUploading || !organizationKnowledgeFiles.length" @click="uploadOrganizationKnowledge"><LoaderCircle v-if="organizationKnowledgeUploading" class="spin" /><UploadCloud v-else />{{ organizationKnowledgeUploading ? `分批保存 ${organizationKnowledgeUploadProgress.completed}/${organizationKnowledgeUploadProgress.total}` : '保存目录并建立 RAG' }}</button></div>
           <details v-if="organizationKnowledgeFiles.length" class="knowledge-selection-dropdown"><summary><FolderOpen /><span><strong>待上传目录 · {{ organizationKnowledgeFiles.length }} 个文件</strong><small>点击展开；列表按滚动逐批显示，不会一次铺满页面</small></span></summary><div class="knowledge-upload-file-scroll" @scroll="scrollUploadPreview($event, organizationKnowledgeFiles, 'organization')"><span v-for="file in uploadPreviewFiles(organizationKnowledgeFiles, 'organization')" :key="`${file.name}-${file.size}`"><FileText /><b>{{ fileRelativePath(file) }}</b><small>{{ fileSizeLabel(file.size) }}</small></span><em v-if="(knowledgeUploadPreviewLimits.organization ?? 30) < organizationKnowledgeFiles.length">继续向下滚动加载更多</em></div></details>
-          <details v-if="realmManagedKnowledge.length" class="knowledge-source-dropdown" @toggle="toggleKnowledgeSourceList($event, 'organization', organization.id)"><summary><BookOpen /><span><strong>已保存 {{ realmManagedKnowledge.length }} 份公共知识</strong><small>点击下拉查看，滚动时按 start/limit 继续加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'organization', organization.id)"><div v-for="source in knowledgePage('organization', organization.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a></div><div v-if="knowledgePage('organization', organization.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('organization', organization.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
+          <details v-if="realmManagedKnowledge.length" class="knowledge-source-dropdown" @toggle="toggleKnowledgeSourceList($event, 'organization', organization.id)"><summary><BookOpen /><span><strong>已保存 {{ realmManagedKnowledge.length }} 份公共知识</strong><small>点击下拉查看，滚动时按 start/limit 继续加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'organization', organization.id)"><div v-for="source in knowledgePage('organization', organization.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id || knowledgeDeletingSourceId === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a><button class="knowledge-delete" :disabled="knowledgeDeletingSourceId === source.id" :aria-label="`删除知识 ${source.metadata?.relative_path || source.name}`" title="删除知识文件" @click.stop="deleteKnowledgeSource(source)"><LoaderCircle v-if="knowledgeDeletingSourceId === source.id" class="spin" /><Trash2 v-else /></button></div><div v-if="knowledgePage('organization', organization.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('organization', organization.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
           <KnowledgeRelationGraph :graph="knowledgeGraph" @open-source="openKnowledgeDetail" />
         </section>
         <section class="assembly-camp"><div class="assembly-scroll"><div class="scroll-title"><span>📜</span><div><small>小江湖组建契约</small><h2>建立新的小江湖</h2></div></div><label>小江湖名称<input v-model="teamForm.name" placeholder="例如：观澜营造社、青禾调解会" /></label><label>共同使命<textarea v-model="teamForm.purpose" placeholder="这个小江湖为何存在，愿意独立承接什么事情？"></textarea></label><label>行事方式<select v-model="teamForm.operating_mode"><option value="collaborative">同心协作</option><option value="debate">议事争辩</option><option value="red_team">攻守对抗</option><option value="hierarchical">统领协作</option></select></label><div class="knowledge-create-note"><UploadCloud /><div><strong>继承大江湖知识，也可拥有自己的知识</strong><small>小江湖可补充仅本组织使用的文件；执行时按大江湖 → 小江湖 → 人物授权依次检索。</small></div></div><button class="jh-primary" :disabled="busy || !teamForm.name || !teamForm.member_ids.length" @click="createTeam"><Plus />立下小江湖契约</button></div><div class="roster-board"><header><div><small>人物名册</small><h3>邀请同行者</h3></div><div class="roster-actions"><strong>已选 {{ teamForm.member_ids.length }} 人</strong><button @click="go('agents')"><Plus />创建新人物</button></div></header><p class="roster-hint">第一位被选中的人物担任召集人；人物可加入多个小江湖，但每次执行仍使用自己的独立 Memory 与会话。</p><div class="member-picker"><label v-for="agent in agents" :key="agent.id" :class="{ chosen: teamForm.member_ids.includes(agent.id) }"><input v-model="teamForm.member_ids" type="checkbox" :value="agent.id" /><span class="mini-avatar">{{ initials(agent.name) }}</span><div><strong>{{ agent.name }}</strong><small>{{ agent.role }}</small><em>{{ agent.capabilities.slice(0, 2).join(' · ') }}</em></div></label><div v-if="!agents.length" class="empty-roster"><span>👤</span><p>江湖人物册为空</p><button class="jh-primary" @click="go('agents')"><Plus />创建第一个人物</button></div></div></div></section>
         <section v-if="!teams.length" class="empty-settlement"><span>🏕️</span><h2>这里还是一片空地</h2><p>从上方人物名册邀请同行者，建立江湖中的第一个组织。</p></section><section v-else class="settlement-grid"><article v-for="(team, index) in teams" :key="team.id" class="settlement-card"><div class="settlement-scene"><span class="settlement-icon">{{ teamIcon(Number(index)) }}</span><i v-for="member in team.members.slice(0, 5)" :key="member.id" :title="`${member.name} · ${member.role}`">{{ initials(member.name) }}</i></div><header><div><span>{{ modeLabel(team.operating_mode) }}</span><h2>{{ team.name }}</h2></div><b>{{ team.members.length }} 人</b></header><p>{{ team.purpose || '这个组织还没有写下共同使命。' }}</p>
           <section class="team-knowledge-vault">
             <header><div><BookOpen /><span><strong>组织公共知识库</strong><small>平台解析、切片并检索相关知识，Agent 不再盲目读取全部文件</small></span></div><div class="knowledge-vault-actions"><b>{{ teamManagedKnowledge(team.id).length }} 份</b><button @click="openKnowledgeNote(team)"><Plus />补充知识</button></div></header>
-            <details v-if="teamManagedKnowledge(team.id).length" class="knowledge-source-dropdown compact" @toggle="toggleKnowledgeSourceList($event, 'team', team.id)"><summary><BookOpen /><span><strong>查看已保存的 {{ teamManagedKnowledge(team.id).length }} 份知识</strong><small>下拉后滚动分页加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'team', team.id)"><div v-for="source in knowledgePage('team', team.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a></div><div v-if="knowledgePage('team', team.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('team', team.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
+            <details v-if="teamManagedKnowledge(team.id).length" class="knowledge-source-dropdown compact" @toggle="toggleKnowledgeSourceList($event, 'team', team.id)"><summary><BookOpen /><span><strong>查看已保存的 {{ teamManagedKnowledge(team.id).length }} 份知识</strong><small>下拉后滚动分页加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'team', team.id)"><div v-for="source in knowledgePage('team', team.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id || knowledgeDeletingSourceId === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a><button class="knowledge-delete" :disabled="knowledgeDeletingSourceId === source.id" :aria-label="`删除知识 ${source.metadata?.relative_path || source.name}`" title="删除知识文件" @click.stop="deleteKnowledgeSource(source)"><LoaderCircle v-if="knowledgeDeletingSourceId === source.id" class="spin" /><Trash2 v-else /></button></div><div v-if="knowledgePage('team', team.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('team', team.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
             <div v-else class="knowledge-vault-empty">尚未上传公共知识。可以上传文件或直接补充文字，平台会建立可检索的组织 RAG。</div>
             <div class="knowledge-rag-search"><Search /><input v-model="knowledgeSearchQuery[team.id]" placeholder="验证 Agent 能否检索到某项知识" @keyup.enter="searchTeamKnowledge(team)" /><button :disabled="knowledgeSearchingTeamId === team.id || !knowledgeSearchQuery[team.id]?.trim()" @click="searchTeamKnowledge(team)"><LoaderCircle v-if="knowledgeSearchingTeamId === team.id" class="spin" />检索</button></div>
             <div v-if="knowledgeSearchResults[team.id]" class="knowledge-search-results"><span v-if="!knowledgeSearchResults[team.id].length">没有找到相关片段，可以继续补充知识或换个问法。</span><button v-for="result in knowledgeSearchResults[team.id]" :key="result.id" @click="openKnowledgeDetail({ id: result.source_id })"><strong>{{ result.source_name }}</strong><small>{{ result.locator }} · 相关度 {{ Number(result.score).toFixed(3) }}</small><p>{{ result.content }}</p></button></div>
@@ -1705,7 +1862,7 @@ onUnmounted(stopRunPolling)
           </section>
           <div class="team-members"><span v-for="member in team.members" :key="member.id"><i>{{ initials(member.name) }}</i><small><b>{{ member.name }}</b>{{ member.role }} · {{ member.member_role === 'leader' ? '召集人' : '成员' }}</small></span></div><div class="capability-tags"><span v-for="capability in team.capabilities" :key="capability">{{ capability }}</span></div><footer class="settlement-actions"><button @click="teamToDisband = team">解散组织</button></footer></article></section>
         <div v-if="teamToDisband" class="confirm-mask"><section class="confirm-dialog"><span>⚠️</span><h2>确认解散“{{ teamToDisband.name }}”吗？</h2><p>组织会从当前江湖和后续流程选择中移除；已经产生的 Workflow 版本、Run、人物贡献和产物证据不会删除。</p><div><button class="jh-secondary" :disabled="Boolean(disbandingTeamId)" @click="teamToDisband = null">暂不解散</button><button class="danger-action" :disabled="Boolean(disbandingTeamId)" @click="confirmDisbandTeam"><LoaderCircle v-if="disbandingTeamId" class="spin" />{{ disbandingTeamId ? '正在解散…' : '确认解散' }}</button></div></section></div>
-        <div v-if="selectedKnowledgeDetail" class="knowledge-modal-mask" @click.self="selectedKnowledgeDetail = null"><section class="knowledge-detail-dialog"><header><div><BookOpen /><span><small>组织知识详情</small><h2>{{ selectedKnowledgeDetail.source.name }}</h2></span></div><button @click="selectedKnowledgeDetail = null"><XCircle /></button></header><div class="knowledge-detail-meta"><span>{{ knowledgeStatusLabel(selectedKnowledgeDetail.source) }}</span><span>{{ fileSizeLabel(selectedKnowledgeDetail.source.metadata?.size_bytes ?? 0) }}</span><span>{{ selectedKnowledgeDetail.source.metadata?.parser ?? '未解析' }}</span><span>版本 {{ selectedKnowledgeDetail.source.version }}</span></div><p v-if="selectedKnowledgeDetail.source.status === 'index_failed'" class="knowledge-index-error">索引失败：{{ selectedKnowledgeDetail.source.metadata?.index_error }}</p><div class="knowledge-chunk-list" @scroll="scrollKnowledgeDetail"><article v-for="chunk in selectedKnowledgeDetail.chunks" :key="chunk.id"><header><strong>{{ chunk.title }}</strong><small>{{ chunk.locator }} · 约 {{ chunk.token_estimate }} tokens</small></header><p>{{ chunk.content }}</p></article><p v-if="!selectedKnowledgeDetail.chunks.length">该文件暂时没有可预览的知识片段。</p><div v-if="knowledgeDetailLoadingMore" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取更多片段</div></div><footer><span>已显示 {{ selectedKnowledgeDetail.chunks.length }}/{{ selectedKnowledgeDetail.pagination.total }} 个知识片段，向下滚动继续加载。</span><a :href="api.knowledgeDownloadUrl(selectedKnowledgeDetail.source.id)"><Download />下载原文件</a></footer></section></div>
+        <div v-if="selectedKnowledgeDetail" class="knowledge-modal-mask" @click.self="selectedKnowledgeDetail = null"><section class="knowledge-detail-dialog"><header><div><BookOpen /><span><small>组织知识详情</small><h2>{{ selectedKnowledgeDetail.source.name }}</h2></span></div><button @click="selectedKnowledgeDetail = null"><XCircle /></button></header><div class="knowledge-detail-meta"><span>{{ knowledgeStatusLabel(selectedKnowledgeDetail.source) }}</span><span>{{ fileSizeLabel(selectedKnowledgeDetail.source.metadata?.size_bytes ?? 0) }}</span><span>{{ selectedKnowledgeDetail.source.metadata?.parser ?? '未解析' }}</span><span>版本 {{ selectedKnowledgeDetail.source.version }}</span></div><p v-if="selectedKnowledgeDetail.source.status === 'index_failed'" class="knowledge-index-error">索引失败：{{ selectedKnowledgeDetail.source.metadata?.index_error }}</p><div class="knowledge-chunk-list" @scroll="scrollKnowledgeDetail"><article v-for="chunk in selectedKnowledgeDetail.chunks" :key="chunk.id"><header><strong>{{ chunk.title }}</strong><small>{{ chunk.locator }} · 约 {{ chunk.token_estimate }} tokens</small></header><p>{{ chunk.content }}</p></article><p v-if="!selectedKnowledgeDetail.chunks.length">该文件暂时没有可预览的知识片段。</p><div v-if="knowledgeDetailLoadingMore" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取更多片段</div></div><footer><span>已显示 {{ selectedKnowledgeDetail.chunks.length }}/{{ selectedKnowledgeDetail.pagination.total }} 个知识片段，向下滚动继续加载。</span><button v-if="selectedKnowledgeDetail.source.metadata?.managed" class="knowledge-detail-delete" :disabled="knowledgeDeletingSourceId === selectedKnowledgeDetail.source.id" @click="deleteKnowledgeSource(selectedKnowledgeDetail.source)"><LoaderCircle v-if="knowledgeDeletingSourceId === selectedKnowledgeDetail.source.id" class="spin" /><Trash2 v-else />删除知识</button><a :href="api.knowledgeDownloadUrl(selectedKnowledgeDetail.source.id)"><Download />下载原文件</a></footer></section></div>
         <div v-if="knowledgeNoteTeam" class="knowledge-modal-mask" @click.self="knowledgeNoteTeam = null"><section class="knowledge-note-dialog"><header><div><Plus /><span><small>补充组织公共知识</small><h2>{{ knowledgeNoteTeam.name }}</h2></span></div><button @click="knowledgeNoteTeam = null"><XCircle /></button></header><label>知识标题<input v-model="knowledgeNoteForm.title" placeholder="例如：生产发布与回滚规则" /></label><label>知识正文<textarea v-model="knowledgeNoteForm.content" placeholder="写下组织成员都应了解的背景、规范、事实或经验。平台会保存来源、切片并建立检索索引。"></textarea></label><footer><button class="jh-secondary" @click="knowledgeNoteTeam = null">取消</button><button class="jh-primary" :disabled="knowledgeNoteSaving || !knowledgeNoteForm.title.trim() || !knowledgeNoteForm.content.trim()" @click="saveKnowledgeNote"><LoaderCircle v-if="knowledgeNoteSaving" class="spin" /><Plus v-else />保存并建立 RAG</button></footer></section></div>
       </main>
 
@@ -1803,6 +1960,68 @@ onUnmounted(stopRunPolling)
           </section>
         </div>
         <div v-if="workflowToDelete" class="confirm-mask"><section class="confirm-dialog"><span>🗃️</span><h2>删除“{{ workflowToDelete.name }}”吗？</h2><p>会归档这套生产流的全部版本，并从默认列表和后续选择中移除；历史 Run、流程快照、人物行动和产物不会删除。若仍有未结束的现场，系统会阻止删除。</p><div><button class="jh-secondary" :disabled="Boolean(workflowDeletingId)" @click="workflowToDelete = null">暂不删除</button><button class="danger-action" :disabled="Boolean(workflowDeletingId)" @click="confirmDeleteWorkflow"><LoaderCircle v-if="workflowDeletingId" class="spin" />{{ workflowDeletingId ? '正在归档…' : '确认删除' }}</button></div></section></div>
+      </main>
+
+      <main v-else-if="screen === 'showcase'" class="jh-page showcase-page">
+        <section class="page-heading showcase-heading">
+          <div><span>真实生产流演示案例</span><h1>单 Agent vs 多 Agent 协作 / 对抗</h1><p>同一模型、同一开发任务、同一独立裁判和同一隐藏验收集。仓库只内置案例规范与生产流，不预置运行结果；差异必须由真实 OpenClaw Run 产生。</p></div>
+          <span v-if="showcasePolling" class="live-badge"><i></i>对照实验进行中</span>
+        </section>
+
+        <section class="showcase-contract">
+          <div class="showcase-scroll-mark">⚔️</div>
+          <div><small>{{ showcase.case?.id }}</small><h2>{{ showcase.case?.name }}</h2><p>{{ showcase.case?.summary }}</p></div>
+          <aside><b>真实 LLM</b><b>真实 OpenClaw</b><b>真实文件与测试</b><b>独立裁判 Loop</b></aside>
+        </section>
+
+        <section class="showcase-task-card">
+          <header><div><span>同题任务</span><h3>开发事件优先级评估器</h3></div><b>隐藏验收 9 项</b></header>
+          <pre>{{ showcase.case?.task }}</pre>
+          <details><summary>查看公平性与指标口径</summary><div class="showcase-method-grid"><article><strong>公平性规则</strong><p v-for="item in showcase.case?.fairness_rules ?? []" :key="item">{{ item }}</p></article><article><strong>质量指标</strong><span v-for="item in showcase.case?.quality_dimensions ?? []" :key="item">{{ item }}</span></article><article><strong>效能指标</strong><span v-for="item in showcase.case?.efficiency_dimensions ?? []" :key="item">{{ item }}</span></article></div></details>
+        </section>
+
+        <section v-if="!showcase.installed" class="showcase-install">
+          <div><span>📦</span><div><strong>案例尚未安装到你的江湖</strong><p>安装只会创建或复用人物、团队和两套可编辑复用的 WorkflowVersion，不会调用模型，不会写入演示结果。</p></div></div>
+          <button class="jh-primary" :disabled="showcaseBusy" @click="installShowcase"><LoaderCircle v-if="showcaseBusy" class="spin" /><Plus v-else />安装完整案例</button>
+        </section>
+
+        <section v-else class="showcase-flow-arena">
+          <header><div><span>生产流对照</span><h2>相同任务，两种生产组织方式</h2><p>卡片展示冻结 DAG；节点实际人物绑定、并行关系、讨论轮次和裁判返工都可以进入“行事章法”查看与另存新版本。</p></div><button class="jh-primary" :disabled="showcaseBusy || latestShowcaseComparison?.status === 'running'" @click="startShowcaseComparison()"><LoaderCircle v-if="showcaseBusy" class="spin" /><Play v-else />发起新一轮真实对照</button></header>
+          <div class="showcase-flow-grid">
+            <article v-for="variant in ['baseline','multi_agent']" :key="variant" :data-variant="variant">
+              <header><div><small>{{ variant === 'baseline' ? '生产基线' : '协作 / 对抗组' }}</small><h3>{{ showcaseWorkflow(variant)?.name }}</h3><p>{{ showcaseWorkflow(variant)?.description }}</p></div><b>{{ showcaseWorkflow(variant)?.definition?.nodes?.length ?? 0 }} 节点</b></header>
+              <div v-if="showcaseWorkflow(variant).id" v-for="graph in [workflowGraph(showcaseWorkflow(variant))]" :key="`${variant}-showcase-graph`" class="showcase-graph-viewport">
+                <div class="workflow-graph-canvas" :style="{ width: `${graph.width}px`, height: `${graph.height}px`, transform: variant === 'multi_agent' ? 'scale(.72)' : 'scale(.82)' }">
+                  <div v-for="stage in graph.stages" :key="`${variant}-stage-${stage.level}`" class="workflow-stage-band" :style="{ left: `${stage.x}px`, width: `${stage.width}px` }"><span>第 {{ stage.level + 1 }} 阶段</span><small>{{ stage.count > 1 ? `${stage.count} 节点并行` : '单节点' }}</small></div>
+                  <svg class="workflow-links" :width="graph.width" :height="graph.height"><defs><marker :id="`showcase-arrow-${variant}`" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs><path v-for="edge in graph.edges" :key="edge.id" :d="edge.path" :marker-end="`url(#showcase-arrow-${variant})`" /></svg>
+                  <article v-for="node in graph.nodes" :key="node.key" class="workflow-graph-node" :style="{ left: `${node.x}px`, top: `${node.y}px`, width: `${node.width}px`, height: `${node.height}px` }"><header><span>{{ Number(node.originalIndex) + 1 }}</span><small>{{ node.type === 'judge' ? '独立裁判' : (graph.nodes.filter((item: Json) => item.level === node.level).length > 1 ? '可并行' : '生产节点') }}</small></header><h3>{{ node.name }}</h3><p>{{ node.purpose }}</p><b>{{ node.team_name ?? node.agent_role }}</b><div class="graph-node-people"><i v-for="member in nodeParticipants(node).slice(0, 4)" :key="member.id">{{ initials(member.name) }}</i></div></article>
+                </div>
+              </div>
+              <footer><span v-if="variant === 'baseline'">1 位生产 Agent 独立闭环；裁判只评审不创作</span><span v-else>需求 / 架构并行，开发协作，质量 / 红队并行挑战，失败自动返工</span><button class="jh-secondary" @click="go('flows')">查看与编辑生产流</button></footer>
+            </article>
+          </div>
+        </section>
+
+        <section v-if="latestShowcaseComparison" class="showcase-result-board">
+          <header><div><span>最近一轮 · {{ latestShowcaseComparison.id }}</span><h2>真实对照运行与证据</h2><p>{{ latestShowcaseComparison.interpretation }}</p></div><div><b :data-status="latestShowcaseComparison.status">{{ latestShowcaseComparison.status === 'completed' ? '已形成对照结论' : (latestShowcaseComparison.status === 'running' ? '真实运行中' : '等待启动') }}</b><button v-if="latestShowcaseComparison.status === 'draft'" class="jh-primary" :disabled="showcaseBusy" @click="startShowcaseComparison(latestShowcaseComparison.id)"><Play />启动这轮实验</button></div></header>
+          <div class="showcase-run-pair">
+            <article v-for="variant in ['baseline','multi_agent']" :key="`run-${variant}`" :data-variant="variant">
+              <header><div><small>{{ variant === 'baseline' ? '单 Agent 生产基线' : '多 Agent 协作 / 对抗' }}</small><strong>{{ showcaseRun(variant).workflow_name }}</strong><code>{{ showcaseRun(variant).run_id }}</code></div><b :data-status="showcaseRun(variant).status">{{ runStatusLabel(showcaseRun(variant).status) }}</b></header>
+              <progress :value="showcaseRun(variant).progress ?? 0" max="100"></progress>
+              <div class="showcase-score-row"><span><b>{{ showcaseRun(variant).quality_score ?? 0 }}</b><small>综合质量</small></span><span><b>{{ showcaseRun(variant).hidden_acceptance?.pass_rate ?? 0 }}%</b><small>隐藏验收</small></span><span><b>{{ showcaseRun(variant).risk_discovery?.rate ?? 0 }}%</b><small>问题发现</small></span><span><b>{{ showcaseRun(variant).completeness?.score ?? 0 }}%</b><small>产出完整</small></span></div>
+              <div class="showcase-evidence-strip"><span>{{ showcaseRun(variant).evidence?.agent_count ?? 0 }} 人真实行动</span><span>{{ showcaseRun(variant).evidence?.message_count ?? 0 }} 条公开通信</span><span>{{ showcaseRun(variant).evidence?.successful_test_count ?? 0 }} 次测试通过</span><span>{{ showcaseRun(variant).evidence?.loop_count ?? 0 }} 次自动返工</span></div>
+              <dl><div><dt>真实耗时</dt><dd>{{ formatDuration(showcaseRun(variant).efficiency?.elapsed_seconds ?? 0) }}</dd></div><div><dt>Token</dt><dd>{{ showcaseRun(variant).efficiency?.token_count ?? 0 }}</dd></div><div><dt>人工介入</dt><dd>{{ showcaseRun(variant).evidence?.intervention_count ?? 0 }} 次</dd></div><div><dt>人工耗时估算</dt><dd>{{ showcaseRun(variant).efficiency?.estimated_human_minutes ?? 0 }} 分钟</dd></div></dl>
+              <details><summary>查看隐藏验收与完整度明细</summary><div class="showcase-checks"><span v-for="item in showcaseRun(variant).hidden_acceptance?.results ?? []" :key="item.name" :class="{ passed: item.passed }"><i>{{ item.passed ? '✓' : '×' }}</i><b>{{ item.name }}</b><small>{{ item.detail }}</small></span><span v-for="item in showcaseRun(variant).completeness?.checks ?? []" :key="`complete-${item.name}`" :class="{ passed: item.passed }"><i>{{ item.passed ? '✓' : '×' }}</i><b>{{ item.name }}</b><small>产物完整度检查</small></span></div></details>
+              <button class="jh-secondary" :disabled="!showcaseRun(variant).run_id" @click="openRun(showcaseRun(variant).run_id)">进入真实事件现场</button>
+            </article>
+          </div>
+
+          <section v-if="latestShowcaseComparison.comparable" class="showcase-delta">
+            <header><div><span>多 Agent 相对单 Agent</span><h3>效果差异与代价同时展示</h3></div><small>质量类正数代表提升；耗时 / Token 正数代表成本增加</small></header>
+            <div><article><b>{{ signedMetric(latestShowcaseComparison.delta.quality_score, ' 分') }}</b><span>综合质量</span></article><article><b>{{ signedMetric(latestShowcaseComparison.delta.hidden_acceptance_rate, 'pp') }}</b><span>隐藏验收通过率</span></article><article><b>{{ signedMetric(latestShowcaseComparison.delta.risk_discovery_rate, 'pp') }}</b><span>问题发现率</span></article><article><b>{{ signedMetric(latestShowcaseComparison.delta.completeness, 'pp') }}</b><span>产出完整度</span></article><article data-cost><b>{{ signedMetric(latestShowcaseComparison.delta.elapsed_seconds, ' 秒') }}</b><span>真实耗时差</span></article><article data-cost><b>{{ signedMetric(latestShowcaseComparison.delta.token_count) }}</b><span>Token 差</span></article></div>
+            <p>人工耗时降低采用公开估算口径：以本案例人工完成参考值 {{ showcaseRun('multi_agent').efficiency?.manual_reference_minutes }} 分钟为基准，启动与复核计 3 分钟、每次用户介入计 5 分钟、终态未通过后的人工处置计 10 分钟。页面会明确标注它不是工时系统实测值。</p>
+          </section>
+        </section>
       </main>
 
       <main v-else-if="screen === 'runs'" class="jh-page run-scene-page">

@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import re
+import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +72,15 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
 
+def _row_value(row: Any, key: str, index: int = 0) -> Any:
+    if isinstance(row, dict):
+        return row[key]
+    try:
+        return row[key]
+    except (IndexError, KeyError, TypeError):
+        return row[index]
+
+
 class PlatformStore:
     """Local durable domain store.
 
@@ -97,6 +107,7 @@ class PlatformStore:
         self.knowledge_root.mkdir(parents=True, exist_ok=True)
         self._init_schema()
         self._ensure_workspace()
+        self._repair_managed_file_locations()
         self._backfill_knowledge_indexes()
         self._backfill_run_workspaces()
 
@@ -396,15 +407,27 @@ class PlatformStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_run_interventions_run
                 ON run_interventions(run_id,status,created_at);
+                CREATE TABLE IF NOT EXISTS showcase_comparisons (
+                    id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL,
+                    baseline_run_id TEXT NOT NULL,
+                    multi_run_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(baseline_run_id) REFERENCES runs(id),
+                    FOREIGN KEY(multi_run_id) REFERENCES runs(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_showcase_comparisons_case
+                ON showcase_comparisons(case_id,created_at DESC);
                 """
             )
-            run_columns = {row[1] for row in db.execute("PRAGMA table_info(runs)").fetchall()}
+            run_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(runs)").fetchall()}
             if "clarification_id" not in run_columns:
                 db.execute("ALTER TABLE runs ADD COLUMN clarification_id TEXT")
-            task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
+            task_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
             if "team_id" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN team_id TEXT")
-            artifact_columns = {row[1] for row in db.execute("PRAGMA table_info(artifacts)").fetchall()}
+            artifact_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(artifacts)").fetchall()}
             if "relative_path" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN relative_path TEXT NOT NULL DEFAULT ''")
             if "sha256" not in artifact_columns:
@@ -413,10 +436,10 @@ class PlatformStore:
                 db.execute("ALTER TABLE artifacts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'text/markdown'")
             if "size_bytes" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0")
-            team_columns = {row[1] for row in db.execute("PRAGMA table_info(agent_teams)").fetchall()}
+            team_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_teams)").fetchall()}
             if "knowledge_paths_json" not in team_columns:
                 db.execute("ALTER TABLE agent_teams ADD COLUMN knowledge_paths_json TEXT NOT NULL DEFAULT '[]'")
-            agent_columns = {row[1] for row in db.execute("PRAGMA table_info(agent_blueprints)").fetchall()}
+            agent_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_blueprints)").fetchall()}
             if "status" not in agent_columns:
                 db.execute("ALTER TABLE agent_blueprints ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
             if "merged_into_agent_id" not in agent_columns:
@@ -432,18 +455,18 @@ class PlatformStore:
             if "memory_policy_json" not in agent_columns:
                 db.execute("ALTER TABLE agent_blueprints ADD COLUMN memory_policy_json TEXT NOT NULL DEFAULT '{}'")
             db.execute("UPDATE agent_blueprints SET family_id=id WHERE family_id IS NULL OR family_id='' ")
-            workflow_columns = {row[1] for row in db.execute("PRAGMA table_info(workflows)").fetchall()}
+            workflow_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(workflows)").fetchall()}
             if "family_id" not in workflow_columns:
                 db.execute("ALTER TABLE workflows ADD COLUMN family_id TEXT")
             if "parent_workflow_id" not in workflow_columns:
                 db.execute("ALTER TABLE workflows ADD COLUMN parent_workflow_id TEXT")
             db.execute("UPDATE workflows SET family_id=id WHERE family_id IS NULL OR family_id='' ")
-            commission_columns = {row[1] for row in db.execute("PRAGMA table_info(company_tasks)").fetchall()}
+            commission_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(company_tasks)").fetchall()}
             if "workflow_id" not in commission_columns:
                 db.execute("ALTER TABLE company_tasks ADD COLUMN workflow_id TEXT")
             if "run_id" not in commission_columns:
                 db.execute("ALTER TABLE company_tasks ADD COLUMN run_id TEXT")
-            organization_columns = {row[1] for row in db.execute("PRAGMA table_info(organizations)").fetchall()}
+            organization_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(organizations)").fetchall()}
             if "world_type" not in organization_columns:
                 db.execute("ALTER TABLE organizations ADD COLUMN world_type TEXT NOT NULL DEFAULT 'open_society'")
             if "user_identity" not in organization_columns:
@@ -983,7 +1006,7 @@ class PlatformStore:
             else knowledge_source_ids
         )
         with self._connect() as db:
-            versions = [str(row[0]) for row in db.execute("SELECT version FROM agent_blueprints WHERE family_id=?", (family_id,)).fetchall()]
+            versions = [str(_row_value(row, "version")) for row in db.execute("SELECT version FROM agent_blueprints WHERE family_id=?", (family_id,)).fetchall()]
         latest = max(versions or [str(parent.get("version") or "1.0.0")], key=lambda value: tuple(int(part) for part in value.split(".")))
         major, minor, _ = (int(part) for part in latest.split("."))
         next_version = f"{major}.{minor + 1}.0"
@@ -1170,7 +1193,8 @@ class PlatformStore:
             return team
         now = utc_now()
         with self._connect() as db:
-            position_no = db.execute("SELECT COALESCE(MAX(position_no),-1)+1 FROM team_members WHERE team_id=?", (team_id,)).fetchone()[0]
+            position_row = db.execute("SELECT COALESCE(MAX(position_no),-1)+1 AS value FROM team_members WHERE team_id=?", (team_id,)).fetchone()
+            position_no = int(_row_value(position_row, "value"))
             db.execute(
                 "INSERT INTO team_members(team_id,agent_id,member_role,responsibility,position_no) VALUES(?,?,?,?,?)",
                 (team_id, agent_id, "member", responsibility, position_no),
@@ -1497,6 +1521,57 @@ class PlatformStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def create_showcase_comparison(
+        self,
+        *,
+        case_id: str,
+        baseline_run_id: str,
+        multi_run_id: str,
+    ) -> dict[str, Any]:
+        if not self.get_run(baseline_run_id) or not self.get_run(multi_run_id):
+            raise ValueError("showcase_run_not_found")
+        comparison_id = new_id("comparison")
+        now = utc_now()
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO showcase_comparisons
+                (id,case_id,baseline_run_id,multi_run_id,created_at,updated_at)
+                VALUES(?,?,?,?,?,?)""",
+                (comparison_id, case_id, baseline_run_id, multi_run_id, now, now),
+            )
+            db.execute(
+                "INSERT INTO operation_logs(id,entity_type,entity_id,action,payload_json,created_at) VALUES(?,?,?,?,?,?)",
+                (
+                    new_id("log"),
+                    "showcase_comparison",
+                    comparison_id,
+                    "created",
+                    json.dumps(
+                        {
+                            "case_id": case_id,
+                            "baseline_run_id": baseline_run_id,
+                            "multi_run_id": multi_run_id,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    now,
+                ),
+            )
+        return self.get_showcase_comparison(comparison_id)  # type: ignore[return-value]
+
+    def get_showcase_comparison(self, comparison_id: str) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM showcase_comparisons WHERE id=?", (comparison_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_showcase_comparisons(self, case_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM showcase_comparisons WHERE case_id=? ORDER BY created_at DESC LIMIT ?",
+                (case_id, max(1, min(limit, 100))),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def list_knowledge_sources(self, project_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
             if project_id:
@@ -1561,6 +1636,100 @@ class PlatformStore:
     def get_knowledge_source(self, source_id: str) -> dict[str, Any] | None:
         return next((item for item in self.list_knowledge_sources() if item["id"] == source_id), None)
 
+    def delete_knowledge_source(self, source_id: str) -> dict[str, Any]:
+        source = self.get_knowledge_source(source_id)
+        if not source:
+            raise ValueError("knowledge_source_not_found")
+        metadata = dict(source.get("metadata") or {})
+        scope_type = str(metadata.get("scope_type") or ("team" if metadata.get("team_id") else "organization"))
+        scope_id = str(metadata.get("scope_id") or metadata.get("team_id") or metadata.get("organization_id") or "")
+        managed_path: Path | None = None
+        managed_directory: Path | None = None
+        tombstone: Path | None = None
+        if metadata.get("managed"):
+            raw_path = str(source.get("uri") or metadata.get("managed_path") or "").strip()
+            if raw_path:
+                managed_path = Path(raw_path).resolve()
+                if not managed_path.is_relative_to(self.knowledge_root):
+                    raise ValueError("invalid_knowledge_path")
+                managed_directory = managed_path.parent.resolve()
+                if managed_directory == self.knowledge_root or not managed_directory.is_relative_to(self.knowledge_root):
+                    raise ValueError("invalid_knowledge_path")
+
+        team_knowledge_paths: list[str] | None = None
+        if scope_type == "team" and scope_id:
+            team = self.get_team(scope_id)
+            if team:
+                team_knowledge_paths = []
+                for item in team.get("knowledge_paths") or []:
+                    try:
+                        if managed_path and Path(str(item)).resolve() == managed_path:
+                            continue
+                    except (OSError, ValueError):
+                        pass
+                    team_knowledge_paths.append(str(item))
+
+        now = utc_now()
+        try:
+            if managed_directory and managed_directory.exists():
+                trash_root = (self.knowledge_root / ".trash").resolve()
+                if not trash_root.is_relative_to(self.knowledge_root):
+                    raise ValueError("invalid_knowledge_path")
+                trash_root.mkdir(parents=True, exist_ok=True)
+                tombstone = (trash_root / f"{self._safe_segment(source_id, 'source')}-{uuid4().hex}").resolve()
+                if not tombstone.is_relative_to(trash_root):
+                    raise ValueError("invalid_knowledge_path")
+                managed_directory.replace(tombstone)
+            with self._connect() as db:
+                db.execute("DELETE FROM knowledge_bindings WHERE source_id=?", (source_id,))
+                db.execute("DELETE FROM knowledge_chunks WHERE source_id=?", (source_id,))
+                if team_knowledge_paths is not None:
+                    db.execute(
+                        "UPDATE agent_teams SET knowledge_paths_json=?,updated_at=? WHERE id=?",
+                        (json.dumps(team_knowledge_paths, ensure_ascii=False), now, scope_id),
+                    )
+                db.execute("DELETE FROM knowledge_sources WHERE id=?", (source_id,))
+                db.execute(
+                    "INSERT INTO operation_logs(id,entity_type,entity_id,action,payload_json,created_at) VALUES(?,?,?,?,?,?)",
+                    (
+                        new_id("log"),
+                        scope_type or "knowledge_source",
+                        scope_id or source_id,
+                        "knowledge_deleted",
+                        json.dumps(
+                            {
+                                "knowledge_source_id": source_id,
+                                "filename": source.get("name"),
+                                "relative_path": metadata.get("relative_path"),
+                                "scope_type": scope_type,
+                                "scope_id": scope_id,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        now,
+                    ),
+                )
+        except Exception:
+            if tombstone and managed_directory and tombstone.exists() and not managed_directory.exists():
+                tombstone.replace(managed_directory)
+            raise
+
+        cleanup_pending = False
+        if tombstone and tombstone.exists():
+            try:
+                shutil.rmtree(tombstone)
+            except OSError:
+                cleanup_pending = True
+        return {
+            "deleted": True,
+            "source_id": source_id,
+            "name": source.get("name"),
+            "scope_type": scope_type,
+            "scope_id": scope_id,
+            "physical_file_deleted": tombstone is not None,
+            "cleanup_pending": cleanup_pending,
+        }
+
     def knowledge_source_detail(self, source_id: str, offset: int = 0, limit: int = 12) -> dict[str, Any]:
         source = self.get_knowledge_source(source_id)
         if not source:
@@ -1568,7 +1737,8 @@ class PlatformStore:
         safe_offset = max(0, offset)
         safe_limit = max(1, min(limit, 100))
         with self._connect() as db:
-            total = int(db.execute("SELECT COUNT(*) FROM knowledge_chunks WHERE source_id=?", (source_id,)).fetchone()[0])
+            total_row = db.execute("SELECT COUNT(*) AS value FROM knowledge_chunks WHERE source_id=?", (source_id,)).fetchone()
+            total = int(_row_value(total_row, "value"))
             rows = db.execute(
                 """SELECT id,source_id,chunk_index,title,locator,content,token_estimate,metadata_json
                 FROM knowledge_chunks WHERE source_id=? ORDER BY chunk_index LIMIT ? OFFSET ?""",
@@ -1699,6 +1869,62 @@ class PlatformStore:
                 )
         return self.get_knowledge_source(source_id)  # type: ignore[return-value]
 
+    def _repair_managed_file_locations(self) -> None:
+        """Rebind managed files after moving the data directory or OS.
+
+        Knowledge source URIs are persisted for auditability, but a Docker
+        bind mount changes an original Windows path into /app/.data. The
+        source id and managed directory layout are stable, so the platform can
+        safely rediscover the same bytes and update only the local projection.
+        """
+        paths_by_team: dict[str, list[str]] = {}
+        for source in self.list_knowledge_sources():
+            if source.get("source_type") not in {"managed_upload", "managed_note"}:
+                continue
+            metadata = dict(source.get("metadata") or {})
+            organization_id = str(metadata.get("organization_id") or "org_jianghu")
+            team_id = str(metadata.get("team_id") or "")
+            source_directory = (
+                self.knowledge_root
+                / self._safe_segment(organization_id, "organization")
+                / self._safe_segment(team_id or "_realm", "scope")
+                / self._safe_segment(source["id"], "source")
+            ).resolve()
+            candidates = sorted(source_directory.glob("content.*")) if source_directory.is_dir() else []
+            if not candidates:
+                candidates = sorted(self.knowledge_root.glob(f"**/{self._safe_segment(source['id'], 'source')}/content.*"))
+            managed_path = next((path.resolve() for path in candidates if path.is_file()), None)
+            if managed_path is None or not managed_path.is_relative_to(self.knowledge_root):
+                continue
+            extracted_path = managed_path.parent / "extracted.txt"
+            metadata["managed"] = True
+            metadata["managed_path"] = str(managed_path)
+            if extracted_path.is_file():
+                metadata["extracted_path"] = str(extracted_path.resolve())
+            with self._connect() as db:
+                db.execute(
+                    "UPDATE knowledge_sources SET uri=?,metadata_json=? WHERE id=?",
+                    (str(managed_path), json.dumps(metadata, ensure_ascii=False), source["id"]),
+                )
+            if team_id:
+                paths_by_team.setdefault(team_id, []).append(str(managed_path))
+
+        if not paths_by_team:
+            return
+        now = utc_now()
+        with self._connect() as db:
+            for team_id, managed_paths in paths_by_team.items():
+                row = db.execute("SELECT knowledge_paths_json FROM agent_teams WHERE id=?", (team_id,)).fetchone()
+                if not row:
+                    continue
+                raw_paths = json.loads(str(_row_value(row, "knowledge_paths_json")) or "[]")
+                existing_paths = [str(Path(item).resolve()) for item in raw_paths if Path(str(item)).is_file()]
+                normalized = list(dict.fromkeys([*existing_paths, *managed_paths]))
+                db.execute(
+                    "UPDATE agent_teams SET knowledge_paths_json=?,updated_at=? WHERE id=?",
+                    (json.dumps(normalized, ensure_ascii=False), now, team_id),
+                )
+
     def _backfill_knowledge_indexes(self) -> None:
         for source in self.list_knowledge_sources():
             if source.get("source_type") not in {"managed_upload", "managed_note"}:
@@ -1778,7 +2004,7 @@ class PlatformStore:
                 "SELECT source_id FROM knowledge_bindings WHERE entity_type=? AND entity_id=? ORDER BY created_at",
                 (entity_type, entity_id),
             ).fetchall()
-        return [str(row[0]) for row in rows]
+        return [str(_row_value(row, "source_id")) for row in rows]
 
     def attach_team_knowledge_note(
         self,
@@ -2356,9 +2582,10 @@ class PlatformStore:
     ) -> dict[str, Any]:
         now = utc_now()
         workflow_id = new_id("workflow")
+        workflow_source = source
         with self._connect() as db:
             agent_rows = db.execute("SELECT id FROM agent_blueprints ORDER BY created_at").fetchall()
-            agent_ids = [row[0] for row in agent_rows]
+            agent_ids = [str(_row_value(row, "agent_id")) for row in agent_rows]
             definition = definition or self._default_definition(agent_ids)
             if not isinstance(definition.get("nodes"), list) or not definition["nodes"]:
                 raise ValueError("workflow_definition_has_no_nodes")
@@ -2392,8 +2619,8 @@ class PlatformStore:
                 if not isinstance(edge, list) or len(edge) != 2 or str(edge[0]) not in node_keys or str(edge[1]) not in node_keys:
                     raise ValueError("workflow_definition_edge_invalid")
             dependency_map = {key: set() for key in node_keys}
-            for source, target in definition["edges"]:
-                dependency_map[str(target)].add(str(source))
+            for edge_source, edge_target in definition["edges"]:
+                dependency_map[str(edge_target)].add(str(edge_source))
             resolved: set[str] = set()
             while len(resolved) < len(node_keys):
                 ready = {key for key, dependencies in dependency_map.items() if key not in resolved and dependencies.issubset(resolved)}
@@ -2404,7 +2631,7 @@ class PlatformStore:
                 """INSERT INTO workflows
                 (id,name,description,version,status,source,definition_json,agent_ids_json,created_at,updated_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                (workflow_id, name, description, "1.0.0", "ready", source, json.dumps(definition), json.dumps(bound_ids), now, now),
+                (workflow_id, name, description, "1.0.0", "ready", workflow_source, json.dumps(definition), json.dumps(bound_ids), now, now),
             )
             db.execute("UPDATE workflows SET family_id=? WHERE id=?", (workflow_id, workflow_id))
         return self.get_workflow(workflow_id)  # type: ignore[return-value]
@@ -2424,7 +2651,7 @@ class PlatformStore:
         revision = self.create_workflow(name, description, source=source, definition=definition)
         family_id = str(parent.get("family_id") or parent["id"])
         with self._connect() as db:
-            family_versions = [row[0] for row in db.execute("SELECT version FROM workflows WHERE family_id=?", (family_id,)).fetchall()]
+            family_versions = [str(_row_value(row, "version")) for row in db.execute("SELECT version FROM workflows WHERE family_id=?", (family_id,)).fetchall()]
         latest_version = max(family_versions or [str(parent.get("version", "1.0.0"))], key=lambda value: tuple(int(part) for part in str(value).split(".")))
         major, minor, patch = (int(part) for part in latest_version.split("."))
         next_version = f"{major}.{minor + 1}.0"
@@ -2944,7 +3171,8 @@ class PlatformStore:
 
     def create_artifact(self, run_id: str, task_id: str, kind: str, title: str, content: str, status: str = "candidate") -> dict[str, Any]:
         with self._connect() as db:
-            next_version = int(db.execute("SELECT COALESCE(MAX(version),0)+1 FROM artifacts WHERE run_id=? AND task_id=?", (run_id, task_id)).fetchone()[0])
+            version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=?", (run_id, task_id)).fetchone()
+            next_version = int(_row_value(version_row, "value"))
         artifact = {"id": new_id("artifact"), "run_id": run_id, "task_id": task_id, "kind": kind, "title": title, "content": content, "version": next_version, "status": status, "created_at": utc_now()}
         with self._connect() as db:
             task = db.execute("SELECT node_key FROM tasks WHERE id=? AND run_id=?", (task_id, run_id)).fetchone()
@@ -2966,7 +3194,8 @@ class PlatformStore:
         return artifact
 
     def _event(self, db: sqlite3.Connection, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> None:
-        sequence = db.execute("SELECT COALESCE(MAX(sequence),0)+1 FROM events WHERE run_id=?", (run_id,)).fetchone()[0]
+        sequence_row = db.execute("SELECT COALESCE(MAX(sequence),0)+1 AS value FROM events WHERE run_id=?", (run_id,)).fetchone()
+        sequence = int(_row_value(sequence_row, "value"))
         now = utc_now()
         db.execute("INSERT INTO events(id,run_id,sequence,type,category,title,summary,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?,?)", (new_id("evt"), run_id, sequence, type_, category, title, summary, json.dumps(payload or {}), now))
         db.execute("UPDATE runs SET updated_at=? WHERE id=?", (now, run_id))
@@ -2979,11 +3208,11 @@ class PlatformStore:
         result["knowledge_source_ids"] = self.list_knowledge_bindings("agent", str(result["id"]))
         with self._connect() as db:
             result["memory_count"] = int(
-                db.execute(
-                    """SELECT COUNT(*) FROM agent_memories m
+                _row_value(db.execute(
+                    """SELECT COUNT(*) AS value FROM agent_memories m
                     JOIN agent_blueprints a ON a.id=m.agent_id WHERE a.family_id=?""",
                     (str(result.get("family_id") or result["id"]),),
-                ).fetchone()[0]
+                ).fetchone(), "value")
             )
         return result
 
@@ -2995,11 +3224,11 @@ class PlatformStore:
         result["knowledge_source_ids"] = self.list_knowledge_bindings("agent", str(result["id"]))
         with self._connect() as db:
             result["memory_count"] = int(
-                db.execute(
-                    """SELECT COUNT(*) FROM agent_memories m
+                _row_value(db.execute(
+                    """SELECT COUNT(*) AS value FROM agent_memories m
                     JOIN agent_blueprints a ON a.id=m.agent_id WHERE a.family_id=?""",
                     (str(result.get("family_id") or result["id"]),),
-                ).fetchone()[0]
+                ).fetchone(), "value")
             )
         return result
 

@@ -23,6 +23,16 @@ export const api = {
   organizations: () => request<Record<string, unknown>[]>('/api/platform/organizations'),
   platformProjects: () => request<Record<string, unknown>[]>('/api/platform/projects'),
   platformRuns: () => request<Record<string, unknown>[]>('/api/platform/runs'),
+  productionFlowShowcase: () =>
+    request<Record<string, unknown>>('/api/platform/showcases/production-flow-comparison'),
+  installProductionFlowShowcase: () =>
+    request<Record<string, unknown>>('/api/platform/showcases/production-flow-comparison/install', { method: 'POST' }),
+  createProductionFlowComparison: () =>
+    request<Record<string, unknown>>('/api/platform/showcases/production-flow-comparison/comparisons', { method: 'POST' }),
+  getProductionFlowComparison: (comparisonId: string) =>
+    request<Record<string, unknown>>(`/api/platform/showcases/production-flow-comparison/comparisons/${encodeURIComponent(comparisonId)}`),
+  startProductionFlowComparison: (comparisonId: string) =>
+    request<Record<string, unknown>>(`/api/platform/showcases/production-flow-comparison/comparisons/${encodeURIComponent(comparisonId)}/start`, { method: 'POST' }),
   platformAgents: () => request<Record<string, unknown>[]>('/api/platform/agents'),
   createAgent: (agent: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/agents', { method: 'POST', body: JSON.stringify(agent) }),
@@ -97,6 +107,8 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/knowledge-sources/page?scope_type=${encodeURIComponent(scopeType)}&scope_id=${encodeURIComponent(scopeId)}&offset=${offset}&limit=${limit}`),
   knowledgeSourceDetail: (sourceId: string, offset = 0, limit = 50) =>
     request<Record<string, unknown>>(`/api/platform/knowledge-sources/${encodeURIComponent(sourceId)}?offset=${offset}&limit=${limit}`),
+  deleteKnowledgeSource: (sourceId: string) =>
+    request<Record<string, unknown>>(`/api/platform/knowledge-sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' }),
   createKnowledgeSource: (source: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/knowledge-sources', {
       method: 'POST',

@@ -624,11 +624,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "model_config": model_config,
                             "timeout_seconds": min(600, max_run_minutes * 60),
                         }
-                        if is_engineering:
+                        if (is_engineering or is_judge) and hasattr(run_runtime, "workspace_path"):
                             message_arguments.update(
                                 {
                                     "seed_directory": run.get("workspace", {}).get("code"),
-                                    "capture_workspace": True,
+                                    # 裁判获得候选代码的隔离副本用于检查和复验，但其修改永不回写正式交付区。
+                                    "capture_workspace": is_engineering,
                                 }
                             )
                         if getattr(run_runtime, "supports_live_actions", False):
@@ -775,8 +776,27 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 if is_judge:
                     judge_knowledge, judge_matches = _team_knowledge(store, team, knowledge_query, agent["id"]) if team else ("", [])
                     allowed_targets = sorted(dependencies.get(node_key, set()))
+                    judge_run_snapshot = store.get_run(run_id) or run
+                    validation_evidence = [
+                        {
+                            "type": event.get("type"),
+                            "title": event.get("title"),
+                            "summary": event.get("summary"),
+                            "payload": event.get("payload", {}),
+                        }
+                        for event in judge_run_snapshot.get("events", [])
+                        if str(event.get("type", "")).startswith("artifact.validation.")
+                    ][-12:]
+                    judge_delivery_root = (
+                        run_runtime.workspace_path(agent) / "delivery"
+                        if hasattr(run_runtime, "workspace_path")
+                        else Path(str(run.get("workspace", {}).get("code") or "候选工程交付区"))
+                    )
                     judge_prompt = (
                         f"{base_prompt}\n\n你是独立裁判。你没有参与候选产物创作，必须使用独立身份、独立会话和独立 Prompt。"
+                        f"候选工程已经以隔离副本放在 {judge_delivery_root}。你可以读取文件、运行构建或测试复验，"
+                        "但不得把自己的修改回写为候选产物，也不得以参与者自述替代真实证据。\n"
+                        f"平台交付校验证据：\n{json.dumps(validation_evidence, ensure_ascii=False)[:12000]}\n\n"
                         "只返回 JSON 对象，不要返回 Markdown 围栏。\n"
                         "Schema: {\"verdict\":\"pass|revise\",\"score\":0-100,\"summary\":\"裁判结论\","
                         "\"feedback\":\"可执行修改意见\",\"target_node_keys\":[\"应返工的上游节点 key\"],"
