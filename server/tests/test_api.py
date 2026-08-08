@@ -15,7 +15,7 @@ from server.app.main import app, bounded_score, capability_overlap_ratio
 from server.app.models import RunStatus
 from server.app.simulator import run_demo
 from server.app.store import RunStore
-from server.app.platform_store import PlatformStore
+from server.app.platform_store import PlatformStore, STARTER_STRATEGIST
 from server.app.platform_executor import _extract_initiator_note, _team_knowledge, execute_platform_run
 from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
 from server.app.showcase import CASE_ID, CASE_MANIFEST, CASE_TASK, comparison_report, ensure_showcase_assets
@@ -159,6 +159,24 @@ def test_bounded_score_accepts_model_friendly_score_text() -> None:
     assert bounded_score("82/100") == 82
     assert bounded_score("评分：120") == 100
     assert bounded_score("unknown", 70) == 70
+
+
+def test_new_workspace_contains_one_idempotent_high_capability_starter(tmp_path) -> None:
+    database = tmp_path / "starter.db"
+    first = PlatformStore(str(database))
+    first_agents = first.list_agents()
+    assert len(first_agents) == 1
+    starter = first_agents[0]
+    assert starter["id"] == STARTER_STRATEGIST["id"]
+    assert starter["name"] == "沈砺川"
+    assert starter["role"] == "科技产品与产业经营者"
+    assert starter["visibility"] == "public"
+    assert len(starter["capabilities"]) == 10
+    assert len(starter["skills"]) == 6
+    assert starter["memory_policy"]["review_before_promote"] is True
+
+    restarted = PlatformStore(str(database))
+    assert [agent["id"] for agent in restarted.list_agents()] == [STARTER_STRATEGIST["id"]]
 
 
 def test_commission_survives_hiring_workflow_and_run_linking(tmp_path) -> None:
