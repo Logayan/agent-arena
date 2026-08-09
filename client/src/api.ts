@@ -130,6 +130,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
+  deleteModelConfig: (configId: string) =>
+    request<Record<string, unknown>>(`/api/platform/model-configs/${encodeURIComponent(configId)}`, { method: 'DELETE' }),
   testModelConfig: (config: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/model-configs/test', {
       method: 'POST',

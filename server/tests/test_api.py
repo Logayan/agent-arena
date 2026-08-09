@@ -366,6 +366,63 @@ def test_model_tier_lookup_does_not_silently_downgrade_when_strict(tmp_path) -> 
     assert platform.get_model_config_for_tier("high", include_secret=True)["model"] == "gpt-medium"
 
 
+def test_multiple_model_configs_can_coexist_and_inactive_secret_is_addressable(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "multiple-models.db"))
+    active = platform.save_model_config(
+        config_id=None,
+        name="primary",
+        provider="openai-responses",
+        base_url="https://example.test",
+        model="gpt-primary",
+        tier="medium",
+        token="primary-token",
+        active=True,
+    )
+    standby = platform.save_model_config(
+        config_id=None,
+        name="standby",
+        provider="openai-responses",
+        base_url="https://standby.example.test",
+        model="gpt-standby",
+        tier="medium",
+        token="standby-token",
+        active=False,
+    )
+    listed = platform.list_model_configs()
+    assert {item["id"] for item in listed} == {active["id"], standby["id"]}
+    assert next(item for item in listed if item["id"] == active["id"])["active"] is True
+    stored_standby = platform.get_model_config(standby["id"], include_secret=True)
+    assert stored_standby is not None
+    assert stored_standby["token"] == "standby-token"
+
+
+def test_deleting_active_model_config_promotes_latest_same_tier_config(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "delete-model.db"))
+    first = platform.save_model_config(
+        config_id=None,
+        name="first",
+        provider="openai-responses",
+        base_url="https://example.test",
+        model="gpt-first",
+        tier="high",
+        token="first-token",
+        active=True,
+    )
+    second = platform.save_model_config(
+        config_id=None,
+        name="second",
+        provider="openai-responses",
+        base_url="https://example.test",
+        model="gpt-second",
+        tier="high",
+        token="second-token",
+        active=True,
+    )
+    deleted = platform.delete_model_config(second["id"])
+    assert deleted["promoted_config_id"] == first["id"]
+    assert platform.get_model_config_for_tier("high")["id"] == first["id"]
+
+
 def test_new_workspace_contains_one_idempotent_high_capability_starter(tmp_path) -> None:
     database = tmp_path / "starter.db"
     first = PlatformStore(str(database))

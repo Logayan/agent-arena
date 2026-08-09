@@ -103,8 +103,9 @@ const teamToDisband = ref<Json | null>(null)
 const disbandingTeamId = ref('')
 const workflowToDelete = ref<Json | null>(null)
 const workflowDeletingId = ref('')
-const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', tier: 'medium', token: '', active: true })
+const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', tier: 'medium', token: '', token_hint: '', active: true })
 const modelMessage = ref('')
+const modelDeletingId = ref('')
 let runPollTimer: ReturnType<typeof setInterval> | null = null
 let showcasePollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -1319,8 +1320,11 @@ async function loadAll(): Promise<void> {
       ?? r.find(item => item.id === restored?.run_id)
       ?? r.find(item => item.status !== 'draft')
     if (preferredRun?.id) await hydrateRun(String(preferredRun.id), false)
-    const active = configs.find(item => item.active)
-    if (active && !modelForm.value.id) selectModel(active)
+    const selected = configs.find(item => item.id === modelForm.value.id)
+      ?? configs.find(item => item.active)
+      ?? configs[0]
+    if (selected) selectModel(selected)
+    else beginNewModel()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '平台数据加载失败'
   } finally {
@@ -1926,8 +1930,13 @@ async function saveWorkflowRevision(): Promise<void> {
 }
 
 function selectModel(config: Json): void {
-  modelForm.value = { id: config.id, name: config.name, provider: config.provider, base_url: config.base_url, model: config.model, tier: config.tier ?? 'medium', token: '', active: Boolean(config.active) }
+  modelForm.value = { id: config.id, name: config.name, provider: config.provider, base_url: config.base_url, model: config.model, tier: config.tier ?? 'medium', token: '', token_hint: config.token_hint ?? '', active: Boolean(config.active) }
   modelMessage.value = ''
+}
+
+function beginNewModel(): void {
+  modelForm.value = { id: '', name: '', provider: 'openai-responses', base_url: '', model: '', tier: 'medium', token: '', token_hint: '', active: true }
+  modelMessage.value = '正在新建模型配置；保存后原有配置仍会保留。'
 }
 
 async function testModel(): Promise<void> {
@@ -1946,15 +1955,33 @@ async function saveModel(): Promise<void> {
     const saved = await api.saveModelConfig({ ...modelForm.value, id: modelForm.value.id || undefined, token: modelForm.value.token || undefined })
     modelConfigs.value = await api.modelConfigs()
     const config = saved.config as Json
-    modelForm.value = {
-      ...modelForm.value,
-      id: config?.id ?? modelForm.value.id,
-      token: '',
-    }
+    const refreshed = modelConfigs.value.find(item => item.id === config?.id) ?? config
+    if (refreshed) selectModel(refreshed)
     modelMessage.value = '模型配置已安全保存'
   } catch (cause) {
     modelMessage.value = cause instanceof Error ? cause.message : '保存失败'
   } finally { busy.value = false }
+}
+
+async function deleteModel(config: Json): Promise<void> {
+  if (!config?.id || modelDeletingId.value) return
+  const warning = config.active
+    ? `“${config.name}”当前处于启用状态。删除后，同档位最近更新的配置会自动接替；确认删除吗？`
+    : `确认删除模型配置“${config.name}”吗？`
+  if (!window.confirm(warning)) return
+  modelDeletingId.value = String(config.id)
+  try {
+    await api.deleteModelConfig(String(config.id))
+    modelConfigs.value = await api.modelConfigs()
+    const next = modelConfigs.value.find(item => item.active) ?? modelConfigs.value[0]
+    if (next) selectModel(next)
+    else beginNewModel()
+    modelMessage.value = '模型配置已删除'
+  } catch (cause) {
+    modelMessage.value = cause instanceof Error ? cause.message : '删除失败'
+  } finally {
+    modelDeletingId.value = ''
+  }
 }
 
 onMounted(() => {
@@ -2319,7 +2346,48 @@ onUnmounted(() => {
         </section>
       </main>
 
-      <main v-else class="jh-page"><section class="page-heading"><div><span>模型与执行设置</span><h1>模型、凭据与执行底座</h1><p>人物的思考能力决定默认模型档位；权力等级只影响结论的组织采纳程度，不决定数据访问范围。</p></div></section><section class="openclaw-runtime-card" :data-ready="openClawStatus.available"><Settings2 /><div><small>执行底座状态</small><h2>{{ openClawStatus.available ? '运行正常，可开始人物任务' : '暂不可用，将阻断新人物任务' }}</h2><p>{{ openClawStatus.available ? '独立会话、工具和经历空间已准备就绪。' : '请稍后重新检查运行状态。' }}</p></div><button class="jh-secondary" @click="loadAll"><RefreshCw />重新检查</button></section><section class="model-tier-notice"><b>三档模型可独立配置</b><span>高档用于高阶判断，中档用于综合协作，低档用于执行与格式化；生产流会按人物思考能力自动选择，也允许在节点上显式调整。</span></section><section class="model-layout"><aside><button v-for="config in modelConfigs" :key="config.id" :class="{ active: modelForm.id === config.id }" @click="selectModel(config)"><strong>{{ config.name }} · {{ ({ high: '高', medium: '中', low: '低' } as Json)[config.tier ?? 'medium'] }}</strong><small>{{ config.provider }} · {{ config.model }}</small></button></aside><div class="model-form"><label>配置名称<input v-model="modelForm.name" /></label><label>模型档位<select v-model="modelForm.tier"><option value="high">高：复杂判断与裁决</option><option value="medium">中：综合协作与规划</option><option value="low">低：执行、提取与格式化</option></select></label><label>协议<input v-model="modelForm.provider" /></label><label>Base URL<input v-model="modelForm.base_url" /></label><label>模型<input v-model="modelForm.model" /></label><label>Token<input v-model="modelForm.token" type="password" placeholder="留空保留已加密凭据" /></label><div><button class="jh-secondary" @click="testModel"><Zap />测试</button><button class="jh-primary" @click="saveModel">安全保存</button></div><p>{{ modelMessage }}</p></div></section></main>
+      <main v-else class="jh-page">
+        <section class="page-heading">
+          <div><span>模型与执行设置</span><h1>模型、凭据与执行底座</h1><p>可保存多份真实模型配置，并按高、中、低档分别选择当前启用项。</p></div>
+        </section>
+        <section class="openclaw-runtime-card" :data-ready="openClawStatus.available">
+          <Settings2 />
+          <div><small>执行底座状态</small><h2>{{ openClawStatus.available ? '运行正常，可开始人物任务' : '暂不可用，将阻断新人物任务' }}</h2><p>{{ openClawStatus.available ? '独立会话、工具和经历空间已准备就绪。' : '请稍后重新检查运行状态。' }}</p></div>
+          <button class="jh-secondary" @click="loadAll"><RefreshCw />重新检查</button>
+        </section>
+        <section class="model-tier-notice"><b>支持多配置并存</b><span>同一档位可以保存多份配置，其中一份处于启用状态；切换配置不会覆盖其他配置的地址、模型或加密凭据。</span></section>
+        <section class="model-layout">
+          <aside class="model-config-list">
+            <header>
+              <div><strong>已保存配置</strong><small>{{ modelConfigs.length }} 份</small></div>
+              <button class="model-new-button" @click="beginNewModel"><Plus />新建</button>
+            </header>
+            <p v-if="!modelConfigs.length" class="model-list-empty">还没有配置，请新建并填写真实模型连接信息。</p>
+            <button v-for="config in modelConfigs" :key="config.id" :class="{ active: modelForm.id === config.id }" @click="selectModel(config)">
+              <span class="model-config-title"><strong>{{ config.name }}</strong><em v-if="config.active">已启用</em></span>
+              <small>{{ ({ high: '高档', medium: '中档', low: '低档' } as Json)[config.tier ?? 'medium'] }} · {{ config.provider }}</small>
+              <small>{{ config.model }}</small>
+            </button>
+          </aside>
+          <div class="model-form">
+            <div class="model-form-heading"><div><small>{{ modelForm.id ? '编辑已保存配置' : '创建新配置' }}</small><strong>{{ modelForm.name || '未命名模型配置' }}</strong></div><span v-if="modelForm.id">{{ modelForm.token_hint || '凭据已加密保存' }}</span></div>
+            <label>配置名称<input v-model="modelForm.name" placeholder="例如：主力推理模型" /></label>
+            <label>模型档位<select v-model="modelForm.tier"><option value="high">高：复杂判断与裁决</option><option value="medium">中：综合协作与规划</option><option value="low">低：执行、提取与格式化</option></select></label>
+            <label>协议<select v-model="modelForm.provider"><option value="openai-responses">OpenAI Responses API</option><option value="anthropic-compatible">Anthropic Messages API</option></select></label>
+            <label>Base URL<input v-model="modelForm.base_url" placeholder="https://api.example.com" /></label>
+            <label>模型<input v-model="modelForm.model" placeholder="模型标识" /></label>
+            <label>Token<input v-model="modelForm.token" type="password" :placeholder="modelForm.id ? '留空保留当前加密凭据' : '请输入真实 Token'" /></label>
+            <label class="model-active-toggle"><input v-model="modelForm.active" type="checkbox" /><span><b>保存后启用此配置</b><small>同档位原先启用的配置会保留，但切换为未启用。</small></span></label>
+            <div class="model-form-actions">
+              <button v-if="modelForm.id" class="model-delete-button" :disabled="modelDeletingId === modelForm.id" @click="deleteModel(modelForm)"><Trash2 />{{ modelDeletingId === modelForm.id ? '删除中' : '删除配置' }}</button>
+              <span />
+              <button class="jh-secondary" :disabled="busy" @click="testModel"><Zap />测试真实连接</button>
+              <button class="jh-primary" :disabled="busy || !modelForm.name || !modelForm.base_url || !modelForm.model || (!modelForm.id && !modelForm.token)" @click="saveModel">安全保存</button>
+            </div>
+            <p class="model-message">{{ modelMessage }}</p>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
 </template>

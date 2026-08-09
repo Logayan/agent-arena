@@ -447,3 +447,33 @@ body{font-weight:500;letter-spacing:.01em}
 .organization-editor-dialog>label{display:flex;flex-direction:column;gap:6px;margin-top:13px;color:#445b53;font-size:12px;font-weight:900}.organization-editor-dialog input,.organization-editor-dialog textarea,.organization-editor-dialog select{width:100%;padding:10px;border:3px solid #72877c;border-radius:9px;background:#fffdf0;color:#334942;font-size:13px;line-height:1.55}.organization-editor-dialog textarea{min-height:110px;resize:vertical}.organization-editor-dialog>footer{display:flex;justify-content:flex-end;gap:9px;margin-top:18px;padding-top:14px;border-top:3px dashed #837347}
 @media(max-width:760px){.realm-header-actions{align-items:flex-start;width:100%}.organization-editor-mask{padding:0}.organization-editor-dialog{width:100vw;min-height:100vh;border-radius:0}.settlement-card-header-actions{align-items:flex-end}.team-edit-button,.organization-edit-button{font-size:10px}}
 .openclaw-runtime-card>svg{width:38px;height:38px;flex:0 0 38px;color:#2f6556}
+.model-layout .model-config-list{display:block;max-height:610px;overflow-y:auto;padding:12px}
+.model-config-list>header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:4px 3px 10px;border-bottom:2px dashed #9baa9e}
+.model-config-list>header>div{display:flex;flex-direction:column;gap:2px}
+.model-config-list>header strong{font-size:10px}
+.model-config-list>header small{color:#718078;font-size:7px}
+.model-config-list>header .model-new-button{width:auto;min-height:32px;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 9px;border:2px solid #315f52;border-radius:9px;background:#fff2ad;color:#315f52;font-size:8px;font-weight:900}
+.model-config-list>header .model-new-button svg{width:12px}
+.model-config-list>button:not(.model-new-button){margin-bottom:7px;border:2px solid transparent!important;background:#fffaf0!important}
+.model-config-list>button:not(.model-new-button).active{border-color:#2f6957!important;background:#dff0d4!important;box-shadow:0 3px 0 #315f52}
+.model-config-title{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%}
+.model-config-title em{padding:3px 5px;border-radius:7px;background:#2f7d64;color:#fff;font-size:6px;font-style:normal;white-space:nowrap}
+.model-list-empty{margin:12px 4px;padding:12px;border:2px dashed #8b998e;border-radius:10px;color:#68766f;font-size:8px;line-height:1.6}
+.model-form-heading{align-items:center!important;justify-content:space-between!important;padding-bottom:12px;border-bottom:2px dashed #9eaa9f}
+.model-form-heading>div{display:flex;flex-direction:column;gap:3px}
+.model-form-heading small{color:#6c7b73;font-size:7px}
+.model-form-heading strong{font:900 14px 'Noto Serif SC'}
+.model-form-heading>span{padding:5px 7px;border:2px solid #829489;border-radius:8px;background:#edf0d5;color:#586a61;font:7px ui-monospace,SFMono-Regular,Consolas,monospace}
+.model-form input,.model-form select{width:100%;padding:11px;border:3px solid #7a8e86;border-radius:11px;background:#fffdf2;box-shadow:inset 0 2px 0 #0000000b}
+.model-form .model-active-toggle{grid-column:1/-1;display:flex;flex-direction:row;align-items:center;gap:9px;padding:10px;border:2px solid #789080;border-radius:10px;background:#edf2d8}
+.model-active-toggle>input{width:auto;flex:0 0 auto}
+.model-active-toggle>span{display:flex;flex-direction:column;gap:2px}
+.model-active-toggle b{color:#3d5e52;font-size:9px}
+.model-active-toggle small{color:#69786f;font-size:7px}
+.model-form-actions{align-items:center!important;justify-content:flex-end!important}
+.model-form-actions>span{flex:1}
+.model-delete-button{min-height:38px;display:inline-flex;align-items:center;gap:5px;padding:0 11px;border:3px solid #8c453f;border-radius:10px;background:#ffe0d4;color:#8c453f;font-size:8px;font-weight:900;box-shadow:0 3px 0 #8c453f}
+.model-delete-button svg{width:13px}
+.model-delete-button:disabled{opacity:.5}
+.model-message{min-height:18px;margin:0;color:#3e6959;font-size:8px;font-weight:900}
+@media(max-width:720px){.model-layout .model-config-list{max-height:330px;border-right:0;border-bottom:3px solid var(--outline)}.model-form-heading{align-items:flex-start!important;flex-direction:column}.model-form-actions{align-items:stretch!important;flex-direction:column}.model-form-actions>span{display:none}.model-form-actions button{width:100%}}

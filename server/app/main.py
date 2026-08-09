@@ -65,6 +65,7 @@ class ModelConfigRequest(BaseModel):
 
 class ModelConnectionTestRequest(BaseModel):
     id: str | None = None
+    provider: str | None = None
     base_url: str | None = None
     model: str | None = None
     token: str | None = None
@@ -1593,21 +1594,26 @@ async def save_model_config(request: ModelConfigRequest) -> dict[str, object]:
     return {"config": saved}
 
 
+@app.delete("/api/platform/model-configs/{config_id}")
+async def delete_model_config(config_id: str) -> dict[str, object]:
+    try:
+        return platform_store.delete_model_config(config_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @app.post("/api/platform/model-configs/test")
 async def test_model_config(request: ModelConnectionTestRequest) -> dict[str, object]:
     if request.id and not request.token:
-        listed = next((item for item in platform_store.list_model_configs() if item["id"] == request.id), None)
-        active = platform_store.get_model_config_for_tier(str((listed or {}).get("tier") or "medium"), include_secret=True)
-        if not active or active["id"] != request.id:
-            raise HTTPException(status_code=404, detail="active_model_config_not_found")
-        base_url, model, token = active["base_url"], active["model"], active["token"]
+        stored = platform_store.get_model_config(request.id, include_secret=True)
+        if not stored:
+            raise HTTPException(status_code=404, detail="model_config_not_found")
+        provider = str(stored["provider"])
+        base_url, model, token = stored["base_url"], stored["model"], stored["token"]
     else:
+        provider = str(request.provider or "anthropic-compatible")
         base_url, model, token = request.base_url, request.model, request.token
     try:
-        provider = "anthropic-compatible"
-        if request.id:
-            configs = {item["id"]: item for item in platform_store.list_model_configs()}
-            provider = str(configs.get(request.id, {}).get("provider", provider))
         client = client_for_config(provider=provider, base_url=str(base_url), model=str(model), token=str(token))
         response = await client.message("Return exactly REAL_LLM_OK", max_tokens=32)
         return {"ok": True, "model": client.model, "usage": response.get("usage", {}), "response_id": response.get("id")}

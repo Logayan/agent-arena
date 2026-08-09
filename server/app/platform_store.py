@@ -2647,6 +2647,22 @@ class PlatformStore:
             ).fetchall()
         return [dict(row) | {"active": bool(row["active"])} for row in rows]
 
+    def get_model_config(self, config_id: str, include_secret: bool = False) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM model_configs WHERE id=?", (config_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["active"] = bool(result["active"])
+        encrypted = result.pop("encrypted_token")
+        if include_secret:
+            result["token"] = unprotect_secret(encrypted, key_path=self.secret_key_path)
+            if not str(encrypted).startswith("fernet:v1:"):
+                migrated = protect_secret(result["token"], key_path=self.secret_key_path)
+                with self._connect() as db:
+                    db.execute("UPDATE model_configs SET encrypted_token=? WHERE id=?", (migrated, result["id"]))
+        return result
+
     def get_active_model_config(self, include_secret: bool = False) -> dict[str, Any] | None:
         with self._connect() as db:
             row = db.execute(
@@ -2741,6 +2757,30 @@ class PlatformStore:
                     (model_id, name, provider, base_url.rstrip("/"), model, tier, encrypted_token, token_hint, int(active), now, now),
                 )
         return next(item for item in self.list_model_configs() if item["id"] == model_id)
+
+    def delete_model_config(self, config_id: str) -> dict[str, Any]:
+        with self._connect() as db:
+            existing = db.execute("SELECT id,name,tier,active FROM model_configs WHERE id=?", (config_id,)).fetchone()
+            if not existing:
+                raise ValueError("model_config_not_found")
+            was_active = bool(existing["active"])
+            tier = str(existing["tier"] or "medium")
+            db.execute("DELETE FROM model_configs WHERE id=?", (config_id,))
+            promoted_id: str | None = None
+            if was_active:
+                replacement = db.execute(
+                    "SELECT id FROM model_configs WHERE tier=? ORDER BY updated_at DESC LIMIT 1",
+                    (tier,),
+                ).fetchone()
+                if replacement:
+                    promoted_id = str(replacement["id"])
+                    db.execute("UPDATE model_configs SET active=1 WHERE id=?", (promoted_id,))
+        return {
+            "deleted": True,
+            "id": config_id,
+            "name": str(existing["name"]),
+            "promoted_config_id": promoted_id,
+        }
 
     def get_agent(self, agent_id: str) -> dict[str, Any] | None:
         with self._connect() as db:
