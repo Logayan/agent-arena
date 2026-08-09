@@ -177,9 +177,9 @@ class PlatformStore:
         default_secret_key = data_root / ".jianghu-secret.key" if self.is_postgres else (self.path.parent / ".jianghu-secret.key" if self.path != Path(":memory:") else data_root / ".jianghu-secret.key")
         self.secret_key_path = Path(os.getenv("JIANGHU_SECRET_KEY_FILE", str(default_secret_key))).resolve()
         default_workspace_root = data_root / "workspaces" if self.is_postgres else (self.path.parent / "workspaces" if self.path != Path(":memory:") else data_root / "workspaces")
-        self.workspace_root = Path(os.getenv("JIANGHU_WORKSPACE_ROOT", str(default_workspace_root))).resolve()
+        self.workspace_root = Path(os.getenv("JIANGHU_WORKSPACE_ROOT", str(default_workspace_root))).resolve() if self.is_postgres else default_workspace_root.resolve()
         default_knowledge_root = data_root / "knowledge" if self.is_postgres else (self.path.parent / "knowledge" if self.path != Path(":memory:") else data_root / "knowledge")
-        self.knowledge_root = Path(os.getenv("JIANGHU_KNOWLEDGE_ROOT", str(default_knowledge_root))).resolve()
+        self.knowledge_root = Path(os.getenv("JIANGHU_KNOWLEDGE_ROOT", str(default_knowledge_root))).resolve() if self.is_postgres else default_knowledge_root.resolve()
         if not self.is_postgres and self.path != Path(":memory:"):
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.workspace_root.mkdir(parents=True, exist_ok=True)
@@ -228,11 +228,14 @@ class PlatformStore:
                     id TEXT PRIMARY KEY,
                     family_id TEXT,
                     parent_agent_id TEXT,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     name TEXT NOT NULL,
                     role TEXT NOT NULL,
                     description TEXT NOT NULL DEFAULT '',
                     persona TEXT NOT NULL DEFAULT '',
                     capabilities_json TEXT NOT NULL DEFAULT '[]',
+                    cognitive_level INTEGER NOT NULL DEFAULT 2,
+                    authority_level INTEGER NOT NULL DEFAULT 1,
                     skills_json TEXT NOT NULL DEFAULT '[]',
                     runtime TEXT NOT NULL DEFAULT 'openclaw',
                     memory_policy_json TEXT NOT NULL DEFAULT '{}',
@@ -355,6 +358,7 @@ class PlatformStore:
                     provider TEXT NOT NULL,
                     base_url TEXT NOT NULL,
                     model TEXT NOT NULL,
+                    tier TEXT NOT NULL DEFAULT 'medium',
                     encrypted_token TEXT NOT NULL,
                     token_hint TEXT NOT NULL,
                     active INTEGER NOT NULL DEFAULT 0,
@@ -519,6 +523,8 @@ class PlatformStore:
             if "knowledge_paths_json" not in team_columns:
                 db.execute("ALTER TABLE agent_teams ADD COLUMN knowledge_paths_json TEXT NOT NULL DEFAULT '[]'")
             agent_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_blueprints)").fetchall()}
+            if "organization_id" not in agent_columns:
+                db.execute("ALTER TABLE agent_blueprints ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
             if "status" not in agent_columns:
                 db.execute("ALTER TABLE agent_blueprints ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
             if "merged_into_agent_id" not in agent_columns:
@@ -550,6 +556,17 @@ class PlatformStore:
                 db.execute("ALTER TABLE organizations ADD COLUMN world_type TEXT NOT NULL DEFAULT 'open_society'")
             if "user_identity" not in organization_columns:
                 db.execute("ALTER TABLE organizations ADD COLUMN user_identity TEXT NOT NULL DEFAULT '发起人'")
+            model_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(model_configs)").fetchall()}
+            if "tier" not in model_columns:
+                db.execute("ALTER TABLE model_configs ADD COLUMN tier TEXT NOT NULL DEFAULT 'medium'")
+            db.execute("UPDATE model_configs SET tier='medium' WHERE tier IS NULL OR tier NOT IN ('high','medium','low')")
+            agent_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_blueprints)").fetchall()}
+            if "cognitive_level" not in agent_columns:
+                db.execute("ALTER TABLE agent_blueprints ADD COLUMN cognitive_level INTEGER NOT NULL DEFAULT 2")
+            if "authority_level" not in agent_columns:
+                db.execute("ALTER TABLE agent_blueprints ADD COLUMN authority_level INTEGER NOT NULL DEFAULT 1")
+            db.execute("UPDATE agent_blueprints SET cognitive_level=2 WHERE cognitive_level IS NULL OR cognitive_level NOT BETWEEN 1 AND 3")
+            db.execute("UPDATE agent_blueprints SET authority_level=1 WHERE authority_level IS NULL OR authority_level NOT BETWEEN 1 AND 3")
             db.execute("UPDATE organizations SET owner_name='发起人' WHERE owner_name='老板'")
             db.execute("UPDATE model_configs SET token_hint=REPLACE(token_hint,'••••','****')")
 
@@ -787,7 +804,7 @@ class PlatformStore:
                             "max_parallel_agents": 5,
                             "max_debate_rounds": 3,
                             "max_revision_rounds": 3,
-                            "max_run_minutes": 60,
+                            "max_run_minutes": 180,
                         },
                     }
                     workflow_id = new_id("workflow")
@@ -1018,6 +1035,23 @@ class PlatformStore:
     def list_agents(self) -> list[dict[str, Any]]:
         with self._connect() as db:
             rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
+            renamed = False
+            name_pools = {
+                "召集人": ["沈砚舟", "顾知衡", "林观澜", "程墨安", "陆行远"],
+                "实践者": ["顾行知", "苏砚秋", "周予安", "许明川", "叶知行"],
+                "质询者": ["陆闻达", "谢清衡", "裴知远", "唐谨言", "秦见微"],
+            }
+            for row in rows:
+                role = str(row["role"] or "")
+                current_name = str(row["name"] or "")
+                if role not in name_pools or not (current_name.startswith("需要") or current_name.endswith(role)):
+                    continue
+                pool = name_pools[role]
+                index = int(hashlib.sha1(str(row["id"]).encode("utf-8")).hexdigest()[:8], 16) % len(pool)
+                db.execute("UPDATE agent_blueprints SET name=?,updated_at=? WHERE id=?", (pool[index], utc_now(), row["id"]))
+                renamed = True
+            if renamed:
+                rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
         return [self._agent(row) for row in rows]
 
     def create_agent(
@@ -1032,6 +1066,9 @@ class PlatformStore:
         skills: list[dict[str, Any]] | None = None,
         runtime: str = "openclaw",
         memory_policy: dict[str, Any] | None = None,
+        cognitive_level: int = 2,
+        authority_level: int = 1,
+        organization_id: str = "org_jianghu",
     ) -> dict[str, Any]:
         now = utc_now()
         agent_id = new_id("agent")
@@ -1045,11 +1082,11 @@ class PlatformStore:
         with self._connect() as db:
             db.execute(
                 """INSERT INTO agent_blueprints
-                (id,family_id,parent_agent_id,name,role,description,persona,capabilities_json,skills_json,runtime,memory_policy_json,version,visibility,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (id,family_id,parent_agent_id,organization_id,name,role,description,persona,capabilities_json,cognitive_level,authority_level,skills_json,runtime,memory_policy_json,version,visibility,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    agent_id, agent_id, None, name, role, description, persona,
-                    json.dumps(capabilities, ensure_ascii=False), json.dumps(normalized_skills, ensure_ascii=False),
+                    agent_id, agent_id, None, organization_id, name, role, description, persona,
+                    json.dumps(capabilities, ensure_ascii=False), max(1, min(3, int(cognitive_level))), max(1, min(3, int(authority_level))), json.dumps(normalized_skills, ensure_ascii=False),
                     runtime, json.dumps(normalized_memory_policy, ensure_ascii=False),
                     "1.0.0", visibility, now, now,
                 ),
@@ -1090,6 +1127,8 @@ class PlatformStore:
         runtime: str,
         memory_policy: dict[str, Any],
         knowledge_source_ids: list[str] | None = None,
+        cognitive_level: int = 2,
+        authority_level: int = 1,
     ) -> dict[str, Any]:
         parent = self.get_agent(agent_id)
         if not parent:
@@ -1110,12 +1149,13 @@ class PlatformStore:
         with self._connect() as db:
             db.execute(
                 """INSERT INTO agent_blueprints
-                (id,family_id,parent_agent_id,name,role,description,persona,capabilities_json,skills_json,runtime,memory_policy_json,
+                (id,family_id,parent_agent_id,organization_id,name,role,description,persona,capabilities_json,cognitive_level,authority_level,skills_json,runtime,memory_policy_json,
                 version,visibility,status,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)""",
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)""",
                 (
-                    revision_id, family_id, agent_id, name, role, description, persona,
+                    revision_id, family_id, agent_id, str(parent.get("organization_id") or "org_jianghu"), name, role, description, persona,
                     json.dumps(capabilities, ensure_ascii=False),
+                    max(1, min(3, int(cognitive_level))), max(1, min(3, int(authority_level))),
                     json.dumps(self._normalize_skills(skills), ensure_ascii=False),
                     runtime, json.dumps(memory_policy, ensure_ascii=False), next_version, visibility, now, now,
                 ),
@@ -1197,6 +1237,23 @@ class PlatformStore:
             rows = db.execute("SELECT * FROM organizations ORDER BY created_at").fetchall()
         return [dict(row) for row in rows]
 
+    def update_organization(self, organization_id: str, *, name: str, description: str) -> dict[str, Any]:
+        organization = next((item for item in self.list_organizations() if str(item["id"]) == str(organization_id)), None)
+        if not organization:
+            raise ValueError("organization_not_found")
+        now = utc_now()
+        with self._connect() as db:
+            db.execute(
+                "UPDATE organizations SET name=?,description=?,updated_at=? WHERE id=?",
+                (name.strip(), description.strip(), now, organization_id),
+            )
+            db.execute(
+                "INSERT INTO operation_logs(id,entity_type,entity_id,action,payload_json,created_at) VALUES(?,?,?,?,?,?)",
+                (new_id("log"), "organization", organization_id, "updated", json.dumps({"name": name.strip()}, ensure_ascii=False), now),
+            )
+        updated = next((item for item in self.list_organizations() if str(item["id"]) == str(organization_id)), None)
+        return updated or organization
+
     def list_teams(self, organization_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
             if organization_id:
@@ -1234,6 +1291,22 @@ class PlatformStore:
         team["capabilities"] = sorted({capability for member in team["members"] for capability in member["capabilities"]})
         team["knowledge_paths"] = json.loads(team.pop("knowledge_paths_json", "[]"))
         return team
+
+    def update_team(self, team_id: str, *, name: str, purpose: str, operating_mode: str) -> dict[str, Any]:
+        team = self.get_team(team_id)
+        if not team or team["status"] == "disbanded":
+            raise ValueError("team_not_found")
+        now = utc_now()
+        with self._connect() as db:
+            db.execute(
+                "UPDATE agent_teams SET name=?,purpose=?,operating_mode=?,updated_at=? WHERE id=?",
+                (name.strip(), purpose.strip(), operating_mode, now, team_id),
+            )
+            db.execute(
+                "INSERT INTO operation_logs(id,entity_type,entity_id,action,payload_json,created_at) VALUES(?,?,?,?,?,?)",
+                (new_id("log"), "agent_team", team_id, "updated", json.dumps({"name": name.strip(), "operating_mode": operating_mode}, ensure_ascii=False), now),
+            )
+        return self.get_team(team_id) or team
 
     def disband_team(self, team_id: str) -> dict[str, Any]:
         team = self.get_team(team_id)
@@ -2566,15 +2639,42 @@ class PlatformStore:
     def list_model_configs(self) -> list[dict[str, Any]]:
         with self._connect() as db:
             rows = db.execute(
-                "SELECT id,name,provider,base_url,model,token_hint,active,created_at,updated_at FROM model_configs ORDER BY active DESC,updated_at DESC"
+                """SELECT id,name,provider,base_url,model,tier,token_hint,active,created_at,updated_at
+                   FROM model_configs
+                   ORDER BY active DESC,
+                            CASE tier WHEN 'medium' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,
+                            updated_at DESC"""
             ).fetchall()
         return [dict(row) | {"active": bool(row["active"])} for row in rows]
 
     def get_active_model_config(self, include_secret: bool = False) -> dict[str, Any] | None:
         with self._connect() as db:
-            row = db.execute("SELECT * FROM model_configs WHERE active=1 ORDER BY updated_at DESC LIMIT 1").fetchone()
+            row = db.execute(
+                """SELECT * FROM model_configs
+                   WHERE active=1
+                   ORDER BY CASE tier WHEN 'medium' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,
+                            updated_at DESC LIMIT 1"""
+            ).fetchone()
         if not row:
-            return None
+            base_url = os.getenv("ANTHROPIC_BASE_URL", "").strip()
+            token = os.getenv("ANTHROPIC_AUTH_TOKEN", "").strip()
+            model = os.getenv("ANTHROPIC_DEFAULT_SONNET_MODEL", "").strip()
+            if not (base_url and token and model):
+                return None
+            result = {
+                "id": "env-default",
+                "name": "环境默认模型",
+                "provider": "anthropic-compatible",
+                "base_url": base_url.rstrip("/"),
+                "model": model,
+                "tier": "medium",
+                "active": True,
+            }
+            if include_secret:
+                result["token"] = token
+            else:
+                result["token_hint"] = self._token_hint(token)
+            return result
         result = dict(row)
         result["active"] = bool(result["active"])
         encrypted = result.pop("encrypted_token")
@@ -2586,7 +2686,34 @@ class PlatformStore:
                     db.execute("UPDATE model_configs SET encrypted_token=? WHERE id=?", (migrated, result["id"]))
         return result
 
-    def save_model_config(self, *, config_id: str | None, name: str, provider: str, base_url: str, model: str, token: str | None, active: bool) -> dict[str, Any]:
+    def get_model_config_for_tier(
+        self,
+        tier: str = "medium",
+        include_secret: bool = False,
+        allow_fallback: bool = True,
+    ) -> dict[str, Any] | None:
+        normalized = tier if tier in {"high", "medium", "low"} else "medium"
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM model_configs WHERE tier=? AND active=1 ORDER BY updated_at DESC LIMIT 1",
+                (normalized,),
+            ).fetchone()
+        if not row and allow_fallback and normalized != "medium":
+            return self.get_model_config_for_tier("medium", include_secret)
+        if not row and allow_fallback:
+            return self.get_active_model_config(include_secret)
+        if not row:
+            return None
+        result = dict(row)
+        result["active"] = bool(result["active"])
+        result["tier"] = str(result.get("tier") or normalized)
+        encrypted = result.pop("encrypted_token")
+        if include_secret:
+            result["token"] = unprotect_secret(encrypted, key_path=self.secret_key_path)
+        return result
+
+    def save_model_config(self, *, config_id: str | None, name: str, provider: str, base_url: str, model: str, tier: str = "medium", token: str | None, active: bool) -> dict[str, Any]:
+        tier = tier if tier in {"high", "medium", "low"} else "medium"
         now = utc_now()
         with self._connect() as db:
             existing = db.execute("SELECT * FROM model_configs WHERE id=?", (config_id,)).fetchone() if config_id else None
@@ -2600,18 +2727,18 @@ class PlatformStore:
                 raise ValueError("model_token_required")
             model_id = config_id or new_id("model")
             if active:
-                db.execute("UPDATE model_configs SET active=0")
+                db.execute("UPDATE model_configs SET active=0 WHERE tier=?", (tier,))
             if existing:
                 db.execute(
-                    "UPDATE model_configs SET name=?,provider=?,base_url=?,model=?,encrypted_token=?,token_hint=?,active=?,updated_at=? WHERE id=?",
-                    (name, provider, base_url.rstrip("/"), model, encrypted_token, token_hint, int(active), now, model_id),
+                    "UPDATE model_configs SET name=?,provider=?,base_url=?,model=?,tier=?,encrypted_token=?,token_hint=?,active=?,updated_at=? WHERE id=?",
+                    (name, provider, base_url.rstrip("/"), model, tier, encrypted_token, token_hint, int(active), now, model_id),
                 )
             else:
                 db.execute(
                     """INSERT INTO model_configs
-                    (id,name,provider,base_url,model,encrypted_token,token_hint,active,created_at,updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                    (model_id, name, provider, base_url.rstrip("/"), model, encrypted_token, token_hint, int(active), now, now),
+                    (id,name,provider,base_url,model,tier,encrypted_token,token_hint,active,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                    (model_id, name, provider, base_url.rstrip("/"), model, tier, encrypted_token, token_hint, int(active), now, now),
                 )
         return next(item for item in self.list_model_configs() if item["id"] == model_id)
 
@@ -2791,6 +2918,70 @@ class PlatformStore:
                 ),
             )
         return {"family_id": family_id, "workflow_ids": workflow_ids, "status": "archived"}
+
+    def extend_run_time(self, run_id: str, minutes: int) -> dict[str, Any]:
+        """Extend a runtime-limited run and put it back into the recovery queue.
+
+        Extensions are event-backed so the original run start time, completed
+        tasks, and artifacts remain immutable and recoverable.
+        """
+        if minutes not in {30, 60, 120}:
+            raise ValueError("invalid_extension_minutes")
+        run = self.get_run(run_id)
+        if not run:
+            raise ValueError("run_not_found")
+        if str(run.get("status")) != "budget_exhausted":
+            raise ValueError("run_time_extension_not_allowed")
+        budget_event = next(
+            (
+                event
+                for event in reversed(run.get("events", []))
+                if event.get("type") == "run.budget_exhausted"
+            ),
+            None,
+        )
+        error_detail = str((budget_event or {}).get("payload", {}).get("error_detail") or "")
+        if "run_time_limit" not in error_detail:
+            raise ValueError("run_time_extension_not_allowed")
+        workflow = self.get_workflow(str(run["workflow_id"]))
+        if not workflow:
+            raise ValueError("workflow_not_found")
+        policies = workflow.get("definition", {}).get("policies", {})
+        base_minutes = int(policies.get("max_run_minutes", 180) or 180)
+        previous_extensions = sum(
+            int((event.get("payload") or {}).get("minutes", 0) or 0)
+            for event in run.get("events", [])
+            if event.get("type") == "run.time_extended"
+        )
+        effective_before = base_minutes + previous_extensions
+        effective_after = effective_before + minutes
+        if effective_after > 360:
+            raise ValueError("run_time_extension_limit_exceeded")
+        now = utc_now()
+        with self._connect() as db:
+            updated = db.execute(
+                "UPDATE runs SET status='running',stage='resuming_after_time_extension',updated_at=? WHERE id=? AND status='budget_exhausted'",
+                (now, run_id),
+            )
+            if getattr(updated, "rowcount", 0) != 1:
+                raise ValueError("run_time_extension_not_allowed")
+            self._event(
+                db,
+                run_id,
+                "run.time_extended",
+                "intervention",
+                "运行时限已延长",
+                f"本次现场增加 {minutes} 分钟，总运行时限为 {effective_after} 分钟；已完成节点和产物继续保留。",
+                {
+                    "minutes": minutes,
+                    "base_minutes": base_minutes,
+                    "previous_extensions": previous_extensions,
+                    "effective_minutes": effective_after,
+                    "maximum_minutes": 360,
+                    "source_error": error_detail,
+                },
+            )
+        return self.get_run(run_id)  # type: ignore[return-value]
 
     def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
         original = self.get_run(run_id)
@@ -3163,7 +3354,7 @@ class PlatformStore:
             "agent.action.progress": ("working", "持续行动中"),
             "agent.action.retrying": ("retrying", "人物正在自动重试"),
             "agent.action.failed": ("blocked", "人物行动失败，等待重试"),
-            "openclaw.turn.started": ("working", "OpenClaw 行动中"),
+            "openclaw.turn.started": ("working", "行动中"),
             "agent.tool.started": ("tooling", "调用工具中"),
             "agent.command.started": ("tooling", "执行命令中"),
             "agent.file.created": ("tooling", "正在落地文件"),
@@ -3264,18 +3455,28 @@ class PlatformStore:
                 (status, json.dumps(input_data) if input_data is not None else None, json.dumps(output_data) if output_data is not None else None, utc_now(), task_id),
             )
 
-    def create_artifact(self, run_id: str, task_id: str, kind: str, title: str, content: str, status: str = "candidate") -> dict[str, Any]:
+    def create_artifact(self, run_id: str, task_id: str | None, kind: str, title: str, content: str, status: str = "candidate") -> dict[str, Any]:
         with self._connect() as db:
-            version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=?", (run_id, task_id)).fetchone()
+            if task_id is None:
+                version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id IS NULL", (run_id,)).fetchone()
+            else:
+                version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=?", (run_id, task_id)).fetchone()
             next_version = int(_row_value(version_row, "value"))
         artifact = {"id": new_id("artifact"), "run_id": run_id, "task_id": task_id, "kind": kind, "title": title, "content": content, "version": next_version, "status": status, "created_at": utc_now()}
+        if task_id is None:
+            node_key = "run"
+        else:
+            with self._connect() as db:
+                task = db.execute("SELECT node_key FROM tasks WHERE id=? AND run_id=?", (task_id, run_id)).fetchone()
+            if not task:
+                raise ValueError("artifact_task_not_found")
+            node_key = str(task["node_key"])
+        artifact = self._materialize_artifact(artifact, node_key=node_key)
         with self._connect() as db:
-            task = db.execute("SELECT node_key FROM tasks WHERE id=? AND run_id=?", (task_id, run_id)).fetchone()
-        if not task:
-            raise ValueError("artifact_task_not_found")
-        artifact = self._materialize_artifact(artifact, node_key=str(task["node_key"]))
-        with self._connect() as db:
-            db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
+            if task_id is None:
+                db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id IS NULL AND status='candidate'", (run_id,))
+            else:
+                db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
             db.execute(
                 """INSERT INTO artifacts
                 (id,run_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
@@ -3297,6 +3498,9 @@ class PlatformStore:
 
     def _agent(self, row: sqlite3.Row) -> dict[str, Any]:
         result = dict(row)
+        result["cognitive_level"] = max(1, min(3, int(result.get("cognitive_level") or 2)))
+        result["authority_level"] = max(1, min(3, int(result.get("authority_level") or 1)))
+        result["recommended_model_tier"] = {1: "low", 2: "medium", 3: "high"}[result["cognitive_level"]]
         result["capabilities"] = json.loads(result.pop("capabilities_json"))
         result["skills"] = json.loads(result.pop("skills_json", "[]"))
         result["memory_policy"] = json.loads(result.pop("memory_policy_json", "{}"))
@@ -3313,6 +3517,9 @@ class PlatformStore:
 
     def _team_member(self, row: sqlite3.Row) -> dict[str, Any]:
         result = dict(row)
+        result["cognitive_level"] = max(1, min(3, int(result.get("cognitive_level") or 2)))
+        result["authority_level"] = max(1, min(3, int(result.get("authority_level") or 1)))
+        result["recommended_model_tier"] = {1: "low", 2: "medium", 3: "high"}[result["cognitive_level"]]
         result["capabilities"] = json.loads(result.pop("capabilities_json"))
         result["skills"] = json.loads(result.pop("skills_json", "[]"))
         result["memory_policy"] = json.loads(result.pop("memory_policy_json", "{}"))

@@ -16,7 +16,7 @@ from server.app.models import RunStatus
 from server.app.simulator import run_demo
 from server.app.store import RunStore
 from server.app.platform_store import PlatformStore, STARTER_STRATEGIST
-from server.app.platform_executor import _extract_initiator_note, _team_knowledge, execute_platform_run
+from server.app.platform_executor import _extract_initiator_note, _resolve_gate_targets, _team_knowledge, execute_platform_run
 from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
 from server.app.showcase import CASE_ID, CASE_MANIFEST, CASE_TASK, comparison_report, ensure_showcase_assets
 
@@ -52,6 +52,175 @@ async def test_missing_run_returns_404() -> None:
     ) as client:
         response = await client.get("/api/runs/run_missing")
     assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_terminal_platform_run_cannot_be_cancelled(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "terminal-run.db"))
+    agent = platform.create_agent(
+        name="终态校验员",
+        role="交付校验",
+        description="验证终态不可变",
+        persona="谨慎",
+        capabilities=["状态校验"],
+    )
+    workflow = platform.create_workflow(
+        "终态取消校验流",
+        "验证已完成 Run 不可被取消",
+        "test",
+        {
+            "nodes": [{
+                "key": "check",
+                "name": "状态校验",
+                "agent_id": agent["id"],
+                "agent_role": agent["role"],
+            }],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "验证完成状态")
+    platform.update_run(run["id"], status="completed", stage="completed")
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(f"/api/platform/runs/{run['id']}/cancel")
+    assert response.status_code == 409
+    assert response.json()["detail"] == "run_is_terminal"
+    assert platform.get_run(run["id"])["status"] == "completed"
+
+
+def _make_runtime_limited_run(tmp_path, *, max_run_minutes: int = 180):
+    platform = PlatformStore(str(tmp_path / "runtime-extension.db"))
+    agent = platform.create_agent(
+        name="Runtime Tester",
+        role="Execution Analyst",
+        description="Checks resumable execution",
+        persona="Keeps completed evidence intact",
+        capabilities=["execution"],
+    )
+    workflow = platform.create_workflow(
+        "Runtime extension workflow",
+        "Workflow for runtime extension tests",
+        "test",
+        {
+            "nodes": [
+                {"key": "collect", "name": "Collect", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "deliver", "name": "Deliver", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [["collect", "deliver"]],
+            "policies": {"max_run_minutes": max_run_minutes},
+        },
+    )
+    run = platform.create_run(workflow["id"], "Complete a resumable task")
+    collect = next(task for task in run["tasks"] if task["node_key"] == "collect")
+    deliver = next(task for task in run["tasks"] if task["node_key"] == "deliver")
+    artifact = platform.create_artifact(run["id"], collect["id"], "workflow_output", "Collected evidence", "kept")
+    platform.update_task(collect["id"], status="completed", output_data={"artifact_id": artifact["id"]})
+    platform.update_task(deliver["id"], status="pending")
+    platform.append_run_event(run["id"], "run.started", "system", "Run started", "Started")
+    platform.update_run(run["id"], status="budget_exhausted", stage="budget_exhausted", progress=50)
+    platform.append_run_event(
+        run["id"],
+        "run.budget_exhausted",
+        "system",
+        "Budget exhausted",
+        "Runtime limit reached",
+        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:run_time_limit"},
+    )
+    return platform, run, collect, deliver
+
+
+def test_runtime_extension_preserves_completed_nodes_and_records_event(tmp_path) -> None:
+    platform, run, collect, deliver = _make_runtime_limited_run(tmp_path)
+
+    extended = platform.extend_run_time(run["id"], 60)
+
+    assert extended["status"] == "running"
+    assert next(task for task in extended["tasks"] if task["id"] == collect["id"])["status"] == "completed"
+    assert next(task for task in extended["tasks"] if task["id"] == deliver["id"])["status"] == "pending"
+    assert len([item for item in extended["artifacts"] if item["task_id"] == collect["id"]]) == 1
+    extension = next(item for item in extended["events"] if item["type"] == "run.time_extended")
+    assert extension["payload"]["minutes"] == 60
+    assert extension["payload"]["effective_minutes"] == 240
+
+
+def test_runtime_extension_rejects_token_limit_and_total_cap(tmp_path) -> None:
+    platform, run, _, _ = _make_runtime_limited_run(tmp_path)
+    platform.append_run_event(
+        run["id"],
+        "run.budget_exhausted",
+        "system",
+        "Token budget exhausted",
+        "Token limit reached",
+        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:token_limit"},
+    )
+    with pytest.raises(ValueError, match="run_time_extension_not_allowed"):
+        platform.extend_run_time(run["id"], 60)
+
+    capped, capped_run, _, _ = _make_runtime_limited_run(tmp_path / "cap", max_run_minutes=300)
+    first = capped.extend_run_time(capped_run["id"], 60)
+    assert first["status"] == "running"
+    capped.update_run(capped_run["id"], status="budget_exhausted", stage="budget_exhausted")
+    capped.append_run_event(
+        capped_run["id"],
+        "run.budget_exhausted",
+        "system",
+        "Runtime limit reached",
+        "Runtime limit reached",
+        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:run_time_limit"},
+    )
+    with pytest.raises(ValueError, match="run_time_extension_limit_exceeded"):
+        capped.extend_run_time(capped_run["id"], 30)
+
+
+@pytest.mark.anyio
+async def test_runtime_extension_api_resumes_same_run(monkeypatch, tmp_path) -> None:
+    platform, run, _, _ = _make_runtime_limited_run(tmp_path)
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    monkeypatch.setattr("server.app.main.prepare_openclaw_run", lambda current: {"mode": "test"})
+    monkeypatch.setattr("server.app.main.schedule_platform_execution", lambda run_id: None)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/platform/runs/{run['id']}/extend", json={"minutes": 120})
+    assert response.status_code == 200
+    assert response.json()["run"]["id"] == run["id"]
+    assert response.json()["run"]["status"] == "running"
+    assert response.json()["extension"]["effective_minutes"] == 300
+
+
+@pytest.mark.anyio
+async def test_generated_workflow_uses_three_hour_default(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "workflow-default.db"))
+    agent = platform.create_agent(
+        name="Default Planner",
+        role="Planner",
+        description="Builds workflows",
+        persona="Keeps execution bounded",
+        capabilities=["planning"],
+    )
+
+    class WorkflowBuilder:
+        model = "workflow-builder-test"
+
+        async def json_message(self, prompt, system, max_tokens):
+            return {
+                "name": "Three hour default workflow",
+                "description": "A generated workflow",
+                "nodes": [{"key": "plan", "name": "Plan", "agent_role": agent["role"], "purpose": "Plan the work"}],
+                "edges": [],
+                "policies": {},
+            }
+
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    monkeypatch.setattr("server.app.main.configured_llm", lambda: WorkflowBuilder())
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/platform/workflows/build",
+            json={"name": "Generated", "requirement": "Create a bounded planning workflow"},
+        )
+    assert response.status_code == 200
+    assert response.json()["workflow"]["definition"]["policies"]["max_run_minutes"] == 180
 
 
 @pytest.mark.anyio
@@ -159,6 +328,42 @@ def test_bounded_score_accepts_model_friendly_score_text() -> None:
     assert bounded_score("82/100") == 82
     assert bounded_score("评分：120") == 100
     assert bounded_score("unknown", 70) == 70
+
+
+def test_rejected_root_judge_reopens_itself_when_no_target_is_given() -> None:
+    assert _resolve_gate_targets("judge", {"verdict": "reject"}, {"judge": set()}, {"judge"}) == {"judge"}
+
+
+def test_rejected_judge_prefers_explicit_targets_then_upstream() -> None:
+    dependencies = {"build": set(), "judge": {"build"}, "publish": {"judge"}}
+    assert _resolve_gate_targets("judge", {"target_node_keys": ["build"]}, dependencies, set(dependencies)) == {"build"}
+    assert _resolve_gate_targets("judge", {}, dependencies, set(dependencies)) == {"build"}
+
+
+def test_active_model_config_prefers_medium_tier(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "tier-order.db"))
+    platform.save_model_config(config_id=None, name="low", provider="x", base_url="https://example.test", model="low-model", tier="low", token="low-token", active=True)
+    platform.save_model_config(config_id=None, name="high", provider="x", base_url="https://example.test", model="high-model", tier="high", token="high-token", active=True)
+    platform.save_model_config(config_id=None, name="medium", provider="x", base_url="https://example.test", model="medium-model", tier="medium", token="medium-token", active=True)
+    assert platform.get_active_model_config(include_secret=True)["model"] == "medium-model"
+
+
+def test_model_tier_lookup_does_not_silently_downgrade_when_strict(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "strict-tier.db"))
+    platform.save_model_config(
+        config_id=None,
+        name="medium",
+        provider="openai-responses",
+        base_url="https://example.test",
+        model="gpt-medium",
+        tier="medium",
+        token="shared-token",
+        active=True,
+    )
+    assert platform.get_model_config_for_tier("medium", include_secret=True, allow_fallback=False)["model"] == "gpt-medium"
+    assert platform.get_model_config_for_tier("high", include_secret=True, allow_fallback=False) is None
+    assert platform.get_model_config_for_tier("low", include_secret=True, allow_fallback=False) is None
+    assert platform.get_model_config_for_tier("high", include_secret=True)["model"] == "gpt-medium"
 
 
 def test_new_workspace_contains_one_idempotent_high_capability_starter(tmp_path) -> None:
@@ -831,6 +1036,41 @@ def test_agent_revision_preserves_frozen_workflow_and_continues_memory_and_knowl
     assert runtime.for_run("run-one").state_root != runtime.for_run("run-two").state_root
 
 
+def test_openclaw_sync_registers_all_same_endpoint_models_for_per_turn_override(tmp_path) -> None:
+    runtime = OpenClawRuntime(tmp_path / "openclaw-models")
+    result = runtime.sync(
+        agents=[],
+        memories_by_agent={},
+        model_config={
+            "provider": "openai-responses",
+            "base_url": "https://example.test",
+            "model": "gpt-medium",
+            "token": "shared-token",
+            "tier": "medium",
+        },
+        model_configs=[
+            {
+                "provider": "openai-responses",
+                "base_url": "https://example.test",
+                "model": "gpt-high",
+                "token": "shared-token",
+                "tier": "high",
+            },
+            {
+                "provider": "openai-responses",
+                "base_url": "https://other.example",
+                "model": "should-not-be-added",
+                "token": "shared-token",
+                "tier": "low",
+            },
+        ],
+    )
+    assert result["models"] == ["jianghu/gpt-medium", "jianghu/gpt-high"]
+    config = json.loads((tmp_path / "openclaw-models" / "openclaw.json").read_text(encoding="utf-8"))
+    models = config["models"]["providers"]["jianghu"]["models"]
+    assert [item["id"] for item in models] == ["gpt-medium", "gpt-high"]
+
+
 def test_big_realm_knowledge_is_inherited_and_folder_graph_is_visible(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "knowledge-graph.db"))
     agent = platform.create_agent(
@@ -976,6 +1216,10 @@ async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tm
     assert "team.synthesis.started" in event_types
     assert "team.synthesis.completed" in event_types
     assert "run.completed" in event_types
+    conclusions = [item for item in completed["artifacts"] if item["title"] == "一页纸结论"]
+    assert len(conclusions) == 1
+    assert conclusions[0]["task_id"] is None
+    assert all(section in conclusions[0]["content"] for section in ["核心发现", "使用边界", "下一步"])
 
 
 @pytest.mark.anyio
@@ -1461,6 +1705,8 @@ async def test_openclaw_message_streams_public_tool_actions_before_turn_finishes
     callback_happened_before_return = {"value": False}
 
     def fake_run(*args, **kwargs):
+        command = args[0]
+        assert command[command.index("--model") + 1] == "jianghu/test-model"
         workspace = runtime.workspace_path(agent)
         (workspace / "HEARTBEAT.md").write_text("OpenClaw control file", encoding="utf-8")
         (workspace / "delivery").mkdir(parents=True, exist_ok=True)

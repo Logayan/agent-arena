@@ -95,6 +95,57 @@ def _preview(value: str, limit: int = 320) -> str:
     return compact if len(compact) <= limit else f"{compact[:limit].rstrip()}…"
 
 
+def _one_page_excerpt(value: str, limit: int = 260) -> str:
+    for raw_line in str(value or "").splitlines():
+        line = re.sub(r"^[#>*\-\s|`]+", "", raw_line).strip()
+        if line and not re.fullmatch(r"[-|: ]+", line):
+            return _preview(line, limit)
+    return "暂无可提炼的公开摘要。"
+
+
+def _build_one_page_conclusion(run: dict[str, Any], tasks: list[dict[str, Any]], artifacts: list[dict[str, Any]]) -> str:
+    latest_by_task: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        task_id = str(artifact.get("task_id") or "")
+        current = latest_by_task.get(task_id)
+        if current is None or int(artifact.get("version", 0) or 0) > int(current.get("version", 0) or 0):
+            latest_by_task[task_id] = artifact
+    ordered = [latest_by_task[str(task.get("id"))] for task in tasks if str(task.get("id")) in latest_by_task]
+    final_artifact = next(
+        (item for item in reversed(ordered) if re.search(r"结论|报告|汇总|裁定", str(item.get("title") or ""))),
+        ordered[-1] if ordered else None,
+    )
+    source = str((final_artifact or {}).get("content") or "")
+    decision_match = re.search(
+        r"(?:是否值得引进|结论|决定)[：:]?\s*([^\n]{8,220})",
+        source,
+        re.IGNORECASE,
+    )
+    decision = decision_match.group(1).strip() if decision_match else (
+        "事件已完成，具体引进判断请结合下方节点产物复核。"
+    )
+    finding_lines = [
+        f"- {item.get('title')}: {_one_page_excerpt(str(item.get('content') or ''))}"
+        for item in ordered[:6]
+    ]
+    return "\n".join([
+        "# 一页纸结论",
+        "",
+        f"**事件**：{run.get('task_input') or run.get('workflow_name') or '未命名事件'}",
+        f"**Run**：{run.get('id', '')}",
+        f"**结论**：{decision}",
+        "",
+        "## 核心发现",
+        *(finding_lines or ["- 本次事件没有形成可汇总的正式产物。"]),
+        "",
+        "## 使用边界",
+        "以上结论来自本次事件已验收的正式节点产物；未被产物证实的内容仍属于推断或待验证假设，不应直接作为采购、上线或对外承诺依据。",
+        "",
+        "## 下一步",
+        "优先把结论转化为一个受控试点，明确负责人、真实数据边界、验收指标和复盘时间，再决定是否扩大引进。",
+    ])[:12000]
+
+
 def _extract_initiator_note(value: str) -> tuple[str, str]:
     """Split an agent-authored rationale summary from the public contribution.
 
@@ -207,7 +258,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         if not model_config:
             raise OpenClawRuntimeError("openclaw_model_config_missing")
         initial_run_status = str(run.get("status") or "draft")
-        is_recovery = initial_run_status in {"running", "pause_requested", "paused"}
+        is_recovery = initial_run_status in {"running", "pause_requested", "paused", "budget_exhausted"}
         tasks = run["tasks"]
         task_by_key = {str(task["node_key"]): task for task in tasks}
         node_def_by_key = {str(node["key"]): node for node in workflow["definition"].get("nodes", [])}
@@ -215,7 +266,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         max_parallel = int(workflow["definition"].get("policies", {}).get("max_parallel_agents", 5) or 5)
         max_parallel = max(1, min(max_parallel, 5))
         policies = workflow["definition"].get("policies", {})
-        max_run_minutes = int(policies.get("max_run_minutes", 60) or 60)
+        base_max_run_minutes = int(policies.get("max_run_minutes", 180) or 180)
+        extension_minutes = sum(
+            int((event.get("payload") or {}).get("minutes", 0) or 0)
+            for event in run.get("events", [])
+            if event.get("type") == "run.time_extended"
+        )
+        max_run_minutes = min(base_max_run_minutes + extension_minutes, 360)
         max_total_tokens = int(policies.get("max_total_tokens", 0) or 0)
         started_at = time.monotonic()
         first_started_event = next(
@@ -311,11 +368,17 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 tool_enabled_agent_ids.add(str(node["agent_id"]))
             tool_enabled_agent_ids.update(str(item) for item in node.get("participant_agent_ids", []) if item)
         try:
+            runtime_model_configs = [
+                config
+                for tier in ("high", "medium", "low")
+                if (config := store.get_model_config_for_tier(tier, include_secret=True))
+            ]
             runtime_sync = run_runtime.sync(
                 list(runtime_agents.values()),
                 memories,
                 model_config,
                 tool_enabled_agent_ids=tool_enabled_agent_ids,
+                model_configs=runtime_model_configs,
             )
         except TypeError:
             runtime_sync = run_runtime.sync(list(runtime_agents.values()), memories, model_config)
@@ -423,6 +486,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             async with node_semaphore:
                 node_key = str(task["node_key"])
                 node_definition = node_def_by_key.get(node_key, {})
+                model_tier = str(node_definition.get("model_tier") or "medium")
+                node_model_config = store.get_model_config_for_tier(
+                    model_tier,
+                    include_secret=True,
+                    allow_fallback=False,
+                )
+                if not node_model_config:
+                    raise OpenClawRuntimeError(f"model_config_missing_for_tier:{model_tier}")
                 agent = store.get_agent(str(task.get("agent_id")))
                 if not agent:
                     raise RuntimeError(f"agent_not_found:{task.get('agent_id')}")
@@ -621,7 +692,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "agent": actor,
                             "prompt": effective_prompt,
                             "session_key": session_key,
-                            "model_config": model_config,
+                            "model_config": node_model_config,
                             "timeout_seconds": min(600, max_run_minutes * 60),
                         }
                         if (is_engineering or is_judge) and hasattr(run_runtime, "workspace_path"):
@@ -1205,6 +1276,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "portable_successful_test_count": len(portable_successful_tests),
                         }
                     )
+                    failed_test_details = [
+                        _preview(
+                            f"命令：{item.get('command') or '未记录'}；输出：{item.get('output') or item.get('error') or '无输出'}",
+                            900,
+                        )
+                        for item in completed_tests
+                        if item.get("exit_code") != 0 or item.get("is_error")
+                    ]
                     failures = []
                     if not code_manifest:
                         failures.append("未在 Run 代码交付区形成真实文件")
@@ -1214,6 +1293,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         failures.append("没有通过的自动化测试")
                     elif not portable_successful_tests:
                         failures.append("测试没有在最终可下载项目根目录内执行，交付包脱离 Agent 工作区后可能不可复验")
+                    validation["failed_test_details"] = failed_test_details[:3]
                     validation["failures"] = failures
                     validation["passed"] = not failures
                 else:
@@ -1234,8 +1314,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         {"task_id": task["id"], "node_key": node_key, **validation},
                     )
                 if not validation["passed"]:
+                    failure_context = ""
+                    if validation.get("failed_test_details"):
+                        failure_context = "\n失败测试详情：" + " | ".join(validation["failed_test_details"])
                     raise ArtifactValidationError(
-                        f"artifact_validation_failed:{node_key}:{'|'.join(validation.get('failures', []))}"
+                        f"artifact_validation_failed:{node_key}:{'|'.join(validation.get('failures', []))}{failure_context}"
                     )
                 artifact = store.create_artifact(
                     run_id, task["id"], "workflow_output", task["node_name"], content, "candidate"
@@ -1245,7 +1328,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     status="completed",
                     output_data={
                         "artifact_id": artifact["id"], "artifact_version": artifact["version"], "usage": usage,
-                        "model": model_config["model"], "runtime": "openclaw", "decision": decision,
+                        "model": node_model_config["model"], "model_tier": model_tier, "runtime": "openclaw", "decision": decision,
                         "validation": validation,
                     },
                 )
@@ -1281,7 +1364,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "artifact_version": artifact["version"],
                             "artifact_preview": _preview(content),
                             "usage": usage,
-                            "model": model_config["model"],
+                            "model": node_model_config["model"], "model_tier": model_tier,
                             "runtime": "openclaw",
                         },
                     )
@@ -1308,6 +1391,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 except (LLMRequestError, OpenClawRuntimeError, ArtifactValidationError) as exc:
                     if node_attempt >= max_node_attempts:
                         raise
+                    retry_feedback = (
+                        f"上一轮节点尝试失败（第 {node_attempt} 次）。请先读取并修复失败原因，再重新运行全部构建和测试命令；"
+                        f"不要只重复生成原文件。平台记录的失败详情：{str(exc)[:5000]}"
+                    )
+                    revision_feedback.setdefault(str(task["node_key"]), []).append(retry_feedback)
                     store.update_task(
                         task["id"],
                         status="retrying",
@@ -1333,6 +1421,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "delay_seconds": 2,
                                 "error_type": type(exc).__name__,
                                 "error_detail": str(exc),
+                                "retry_feedback": retry_feedback,
                             },
                         )
                     await asyncio.sleep(2)
@@ -1477,9 +1566,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             {"task_id": task_by_key[gate_key]["id"], "node_key": gate_key, "decision": decision},
                         )
                     continue
-                target_keys = {str(item) for item in decision.get("target_node_keys", []) if str(item) in task_by_key}
-                if not target_keys:
-                    target_keys = set(dependencies.get(gate_key, set()))
+                target_keys = _resolve_gate_targets(gate_key, decision, dependencies, set(task_by_key))
                 if not target_keys:
                     raise RuntimeError(f"judge_rejected_without_target:{gate_key}")
                 revision_counts[gate_key] = revision_counts.get(gate_key, 0) + 1
@@ -1540,6 +1627,32 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
         store.update_run(run_id, status="completed", stage="completed", progress=100, token_count=total_tokens)
+        completed_run = store.get_run(run_id) or {}
+        existing_conclusion = next(
+            (item for item in completed_run.get("artifacts", []) if str(item.get("title") or "") == "一页纸结论"),
+            None,
+        )
+        if not existing_conclusion and tasks:
+            conclusion = store.create_artifact(
+                run_id,
+                None,
+                "run_conclusion",
+                "一页纸结论",
+                _build_one_page_conclusion(completed_run, tasks, completed_run.get("artifacts", [])),
+                "final",
+            )
+            store.append_run_event(
+                run_id,
+                "artifact.created",
+                "artifact",
+                "事件一页纸结论已经形成",
+                "全部节点完成后，平台已将本次事件的结论、核心发现、使用边界和下一步整理为一页纸摘要。",
+                {
+                    "artifact_id": conclusion["id"],
+                    "artifact_kind": "run_conclusion",
+                    "artifact_title": "一页纸结论",
+                },
+            )
         store.append_run_event(
             run_id,
             "run.completed",
@@ -1589,3 +1702,21 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             f"执行已停止。平台保留全部重试记录、已完成节点和已有产物。最终原因：{exc}",
             {"error_type": type(exc).__name__, "error_detail": str(exc)},
         )
+def _resolve_gate_targets(
+    gate_key: str,
+    decision: dict[str, Any],
+    dependencies: dict[str, set[str]],
+    task_keys: set[str],
+) -> set[str]:
+    """Resolve a rejected judge's legal rework targets."""
+    explicit = {
+        str(item)
+        for item in (decision.get("target_node_keys") or [])
+        if str(item) in task_keys
+    }
+    if explicit:
+        return explicit
+    upstream = {str(item) for item in dependencies.get(gate_key, set()) if str(item) in task_keys}
+    if upstream:
+        return upstream
+    return {gate_key} if gate_key in task_keys else set()

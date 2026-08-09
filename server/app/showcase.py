@@ -261,7 +261,7 @@ def _ensure_baseline_workflow(store: PlatformStore, agents: dict[str, dict[str, 
                 "max_parallel_agents": 1,
                 "max_debate_rounds": 0,
                 "max_revision_rounds": 3,
-                "max_run_minutes": 60,
+                "max_run_minutes": 180,
             },
         },
     )
@@ -402,7 +402,7 @@ def _ensure_multi_workflow(
                 "max_parallel_agents": 5,
                 "max_debate_rounds": 3,
                 "max_revision_rounds": 3,
-                "max_run_minutes": 60,
+                "max_run_minutes": 180,
             },
         },
     )
