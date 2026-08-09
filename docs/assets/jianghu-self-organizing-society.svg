@@ -47,43 +47,75 @@
     </g>
   </g>
 
-  <!-- 2. living organization and talent pool -->
+  <!-- 2. organization relationships and people pools -->
   <g transform="translate(420 205)">
-    <ellipse cx="280" cy="245" rx="280" ry="220" fill="url(#society)" stroke="#65c5ae" stroke-opacity="0.42" stroke-width="3"/>
+    <ellipse cx="280" cy="245" rx="280" ry="220" fill="url(#society)" stroke="#65c5ae" stroke-opacity="0.54" stroke-width="3"/>
     <ellipse cx="280" cy="245" rx="238" ry="181" fill="none" stroke="#d8bd73" stroke-opacity="0.44" stroke-width="2" stroke-dasharray="8 14"/>
-    <path d="M76 321 Q280 180 486 321" fill="none" stroke="#73c8ad" stroke-opacity="0.48" stroke-width="3"/>
-    <path d="M84 346 Q280 226 476 346" fill="none" stroke="#73c8ad" stroke-opacity="0.24" stroke-width="2"/>
     <g font-family="Microsoft YaHei, PingFang SC, sans-serif" text-anchor="middle">
-      <text x="280" y="52" fill="#fff0ae" font-size="30" font-weight="700">组织 / 社会共同体</text>
-      <text x="280" y="82" fill="#b8dbd0" font-size="15">不是通讯录，而是会行动的活系统</text>
+      <text x="280" y="42" fill="#fff0ae" font-size="30" font-weight="700">大江湖 · 公共共同体</text>
+      <text x="280" y="70" fill="#b8dbd0" font-size="15">公共知识 · 共同规则 · 可复用人物资源</text>
     </g>
-    <!-- people pool -->
-    <g stroke="#0a2337" stroke-width="4">
-      <g transform="translate(92 130)"><circle r="28" fill="#e1b56b"/><path d="M-25 62 Q0 18 25 62Z" fill="#ad6d58"/><path d="M-18 2 Q0-25 18 2" fill="none" stroke="#ffe9b1" stroke-width="4"/></g>
-      <g transform="translate(186 154)"><circle r="26" fill="#b7e1c4"/><path d="M-25 60 Q0 18 25 60Z" fill="#327c7e"/><path d="M-18 0 Q0-23 18 0" fill="none" stroke="#e9f0c1" stroke-width="4"/></g>
-      <g transform="translate(282 125)"><circle r="29" fill="#e5c27b"/><path d="M-27 64 Q0 18 27 64Z" fill="#875b8a"/><path d="M-18 2 Q0-25 18 2" fill="none" stroke="#fff0b0" stroke-width="4"/></g>
-      <g transform="translate(382 158)"><circle r="25" fill="#9fd8cb"/><path d="M-24 58 Q0 16 24 58Z" fill="#547b9a"/><path d="M-17 0 Q0-22 17 0" fill="none" stroke="#e8e3af" stroke-width="4"/></g>
-      <g transform="translate(454 120)"><circle r="28" fill="#d9a76e"/><path d="M-26 63 Q0 18 26 63Z" fill="#4c9a8c"/><path d="M-18 2 Q0-24 18 2" fill="none" stroke="#fce9ad" stroke-width="4"/></g>
-      <g transform="translate(132 248)"><circle r="27" fill="#c4e0c0"/><path d="M-26 62 Q0 18 26 62Z" fill="#a66d47"/><path d="M-17 0 Q0-23 17 0" fill="none" stroke="#e8e3af" stroke-width="4"/></g>
-      <g transform="translate(222 286)"><circle r="27" fill="#e1b56b"/><path d="M-26 62 Q0 18 26 62Z" fill="#3b7290"/><path d="M-17 0 Q0-23 17 0" fill="none" stroke="#f7eeb3" stroke-width="4"/></g>
-      <g transform="translate(326 269)"><circle r="28" fill="#b5ddc6"/><path d="M-26 64 Q0 18 26 64Z" fill="#9c6257"/><path d="M-17 0 Q0-23 17 0" fill="none" stroke="#fff0b0" stroke-width="4"/></g>
-      <g transform="translate(424 285)"><circle r="26" fill="#dbb475"/><path d="M-25 60 Q0 18 25 60Z" fill="#8a7a48"/><path d="M-17 0 Q0-23 17 0" fill="none" stroke="#e7eab8" stroke-width="4"/></g>
-    </g>
+
     <g font-family="Microsoft YaHei, PingFang SC, sans-serif" text-anchor="middle">
-      <rect x="138" y="385" width="284" height="45" rx="22" fill="#081d31" stroke="#65c5ae" stroke-opacity="0.56"/>
-      <text x="280" y="414" fill="#c2e8d7" font-size="17">人物池：能力 · 记忆 · 关系 · 认知</text>
+      <!-- main organization -->
+      <g transform="translate(22 104)">
+        <rect width="166" height="190" rx="22" fill="#12394c" stroke="#f0ca70" stroke-width="2"/>
+        <text x="83" y="32" fill="#ffe9a5" font-size="21" font-weight="700">公司江湖</text>
+        <text x="83" y="55" fill="#acd9cd" font-size="13">主组织 / 长期关系</text>
+        <g stroke="#0a2337" stroke-width="3">
+          <g transform="translate(50 94)"><circle r="21" fill="#e1b56b"/><path d="M-19 48 Q0 14 19 48Z" fill="#ad6d58"/></g>
+          <g transform="translate(116 94)"><circle r="21" fill="#b7e1c4"/><path d="M-19 48 Q0 14 19 48Z" fill="#327c7e"/></g>
+          <g transform="translate(83 145)"><circle r="21" fill="#e5c27b"/><path d="M-19 48 Q0 14 19 48Z" fill="#875b8a"/></g>
+        </g>
+        <text x="83" y="176" fill="#d2e9d7" font-size="13">成员 / 记忆 / 章法</text>
+      </g>
+
+      <!-- innovation sub-world -->
+      <g transform="translate(197 104)">
+        <rect width="166" height="190" rx="22" fill="#174558" stroke="#65d1b0" stroke-width="2"/>
+        <text x="83" y="32" fill="#b9f0d0" font-size="21" font-weight="700">创新小江湖</text>
+        <text x="83" y="55" fill="#acd9cd" font-size="13">独立使命 / 可继承</text>
+        <g stroke="#0a2337" stroke-width="3">
+          <g transform="translate(50 94)"><circle r="21" fill="#9fd8cb"/><path d="M-19 48 Q0 14 19 48Z" fill="#547b9a"/></g>
+          <g transform="translate(116 94)"><circle r="21" fill="#d9a76e"/><path d="M-19 48 Q0 14 19 48Z" fill="#4c9a8c"/></g>
+          <g transform="translate(83 145)"><circle r="21" fill="#c4e0c0"/><path d="M-19 48 Q0 14 19 48Z" fill="#a66d47"/></g>
+        </g>
+        <text x="83" y="176" fill="#d2e9d7" font-size="13">试验 / 创新 / 沉淀</text>
+      </g>
+
+      <!-- partner community -->
+      <g transform="translate(372 104)">
+        <rect width="166" height="190" rx="22" fill="#243d55" stroke="#d8bd73" stroke-width="2"/>
+        <text x="83" y="32" fill="#ffe9a5" font-size="21" font-weight="700">伙伴社群</text>
+        <text x="83" y="55" fill="#acd9cd" font-size="13">外部关系 / 可协作</text>
+        <g stroke="#0a2337" stroke-width="3">
+          <g transform="translate(50 94)"><circle r="21" fill="#dbb475"/><path d="M-19 48 Q0 14 19 48Z" fill="#8a7a48"/></g>
+          <g transform="translate(116 94)"><circle r="21" fill="#b5ddc6"/><path d="M-19 48 Q0 14 19 48Z" fill="#9c6257"/></g>
+          <g transform="translate(83 145)"><circle r="21" fill="#e1b56b"/><path d="M-19 48 Q0 14 19 48Z" fill="#3b7290"/></g>
+        </g>
+        <text x="83" y="176" fill="#d2e9d7" font-size="13">互补 / 邀请 / 联盟</text>
+      </g>
+
+      <!-- explicit organization relationships -->
+      <path d="M188 199 H197" stroke="#f0ca70" stroke-width="3" stroke-dasharray="5 5" marker-end="url(#arrowGold)"/>
+      <path d="M363 199 H372" stroke="#65d1b0" stroke-width="3" stroke-dasharray="5 5" marker-end="url(#arrowJade)"/>
+      <text x="192" y="319" fill="#f1d790" font-size="12">继承公共资源</text>
+      <text x="368" y="337" fill="#aee6d1" font-size="12">跨组织协作</text>
+      <rect x="124" y="360" width="312" height="44" rx="22" fill="#081d31" stroke="#65c5ae" stroke-opacity="0.65"/>
+      <text x="280" y="388" fill="#c2e8d7" font-size="16">组织关系：隶属 · 继承 · 协作 · 招募</text>
     </g>
   </g>
 
-  <!-- recruitment threads -->
+  <!-- matter identifies gaps, then recruits across organizations -->
   <g fill="none" stroke-linecap="round" filter="url(#glow)">
-    <path d="M346 436 C520 428 548 337 608 334" stroke="#f1cc75" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
-    <path d="M347 475 C530 520 598 474 650 450" stroke="#f1cc75" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
-    <path d="M348 512 C515 590 680 580 734 510" stroke="#f1cc75" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
+    <path d="M346 436 C378 420 394 386 430 357" stroke="#f1cc75" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
+    <path d="M608 356 C736 330 858 340 950 382" stroke="#f1cc75" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
+    <path d="M783 356 C850 354 900 373 950 414" stroke="#65d1b0" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowJade)"/>
+    <path d="M958 356 C1010 360 1020 395 1015 445" stroke="#d8bd73" stroke-width="4" stroke-dasharray="10 10" marker-end="url(#arrowGold)"/>
   </g>
   <g font-family="Microsoft YaHei, PingFang SC, sans-serif">
-    <rect x="390" y="478" width="138" height="42" rx="21" fill="#8b5a37" fill-opacity="0.85" stroke="#f1cc75"/>
-    <text x="459" y="506" text-anchor="middle" fill="#fff0b2" font-size="17">识别能力缺口</text>
+    <rect x="370" y="492" width="162" height="42" rx="21" fill="#8b5a37" fill-opacity="0.85" stroke="#f1cc75"/>
+    <text x="451" y="520" text-anchor="middle" fill="#fff0b2" font-size="17">识别缺口并招募</text>
   </g>
 
   <!-- 3. ad-hoc team -->
