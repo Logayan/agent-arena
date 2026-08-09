@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
@@ -28,11 +28,17 @@ from .platform_executor import execute_platform_run
 from .openclaw_runtime import OpenClawRuntimeError, openclaw_runtime
 from .secret_store import SecretStorageError
 from .showcase import CASE_ID, CASE_TASK, comparison_report, ensure_showcase_assets, showcase_snapshot
+from .auth import AuthManager, SESSION_COOKIE
 
 
 class WorkflowBuildRequest(BaseModel):
     requirement: str = Field(min_length=10)
     name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=160)
+    password: str = Field(min_length=1, max_length=4_096)
 
 
 class RunCreateRequest(BaseModel):
@@ -277,6 +283,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+auth_manager = AuthManager()
+_AUTH_PUBLIC_PATHS = {"/api/health", "/api/auth/session", "/api/auth/login", "/api/auth/logout"}
+
+
+@app.middleware("http")
+async def require_login_for_api(request: Request, call_next):
+    """Leave the app shell public, while requiring a signed session for platform APIs."""
+    if (
+        auth_manager.settings.enabled
+        and request.method != "OPTIONS"
+        and request.url.path.startswith("/api/")
+        and request.url.path not in _AUTH_PUBLIC_PATHS
+        and not auth_manager.authenticated_username(request)
+    ):
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    return await call_next(request)
+
 
 def prepare_openclaw_run(run: dict[str, object]) -> dict[str, object]:
     health = openclaw_runtime.health()
@@ -378,6 +401,59 @@ def public_llm_error(exc: Exception) -> str:
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/auth/session")
+async def auth_session(request: Request) -> dict[str, object]:
+    username = auth_manager.authenticated_username(request)
+    return {
+        "enabled": auth_manager.settings.enabled,
+        "authenticated": (not auth_manager.settings.enabled) or bool(username),
+        "username": username,
+    }
+
+
+@app.post("/api/auth/login")
+async def login(request: Request, payload: LoginRequest) -> JSONResponse:
+    if not auth_manager.settings.enabled:
+        return JSONResponse({"enabled": False, "authenticated": True, "username": None})
+    username = payload.username.strip()
+    client_ip = auth_manager.client_ip(request)
+    remaining = auth_manager.remaining_lock_seconds(client_ip, username)
+    if remaining:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "登录尝试过多，请稍后再试。"},
+            headers={"Retry-After": str(remaining)},
+        )
+    if not auth_manager.verify_credentials(username, payload.password):
+        locked_for = auth_manager.record_failure(client_ip, username)
+        if locked_for:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "登录尝试过多，请稍后再试。"},
+                headers={"Retry-After": str(locked_for)},
+            )
+        return JSONResponse(status_code=401, content={"detail": "用户名或密码错误"})
+    auth_manager.clear_failures(client_ip, username)
+    response = JSONResponse({"enabled": True, "authenticated": True, "username": username})
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=auth_manager.issue_session(username),
+        max_age=auth_manager.settings.session_ttl_minutes * 60,
+        httponly=True,
+        secure=auth_manager.settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@app.post("/api/auth/logout")
+async def logout() -> JSONResponse:
+    response = JSONResponse({"enabled": auth_manager.settings.enabled, "authenticated": not auth_manager.settings.enabled, "username": None})
+    response.delete_cookie(key=SESSION_COOKIE, path="/", secure=auth_manager.settings.cookie_secure, httponly=True, samesite="lax")
+    return response
 
 
 @app.get("/api/platform/overview")

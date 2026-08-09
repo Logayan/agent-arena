@@ -105,6 +105,24 @@ docker compose --env-file .env.docker up -d --build
 
 也可以启动后在 Web 界面的“模型与凭据”中配置。模型凭据使用 `/app/.data/.jianghu-secret.key` 加密，备份时必须同时保留数据库和密钥。
 
+### 可选登录与防爆破
+
+默认不要求登录。若此实例需要限制访问，在未纳入 Git 的 `.env.docker` 中启用以下配置，然后重新创建容器：
+
+```dotenv
+AUTH_ENABLED=true
+AUTH_USERS=admin:替换为高强度密码
+AUTH_SESSION_SECRET=替换为至少32字符的随机字符串
+AUTH_SESSION_TTL_MINUTES=480
+AUTH_LOGIN_MAX_ATTEMPTS=5
+AUTH_LOGIN_WINDOW_SECONDS=900
+AUTH_LOCKOUT_SECONDS=900
+```
+
+`AUTH_USERS` 可配置多个账号，以英文逗号分隔，例如 `admin:密码,reviewer:密码`；账号与密码中请勿使用英文逗号或冒号。平台会以 HttpOnly 签名 Cookie 保存会话，并按“客户端 IP + 账号”在 15 分钟内限制 5 次失败尝试，达到上限后锁定 15 分钟。错误账号和错误密码使用相同提示，避免泄露账号是否存在。
+
+当前通过 HTTP 局域网地址访问时，保持 `AUTH_COOKIE_SECURE=false`。部署到 HTTPS 反向代理后应设置 `AUTH_COOKIE_SECURE=true`；仅当反向代理可信且会正确覆盖客户端来源时，才设置 `AUTH_TRUST_PROXY=true`。
+
 ### 生成完整交付包
 
 PowerShell 执行：
