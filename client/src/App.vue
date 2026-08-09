@@ -4,7 +4,7 @@ import { api } from './api'
 import KnowledgeRelationGraph from './components/KnowledgeRelationGraph.vue'
 import {
   BookOpen, Bot, Compass,
-  Download, FileText, FolderOpen, LoaderCircle, Maximize2, Minus, MousePointer2, Network, Play, Plus, RefreshCw,
+  Download, FileText, FolderOpen, LoaderCircle, Maximize2, Minimize2, Minus, MousePointer2, Network, Play, Plus, RefreshCw,
   Search, Settings2, Sparkles, Trash2, UploadCloud, Users, Workflow, XCircle, Zap,
 } from '@lucide/vue'
 
@@ -46,7 +46,11 @@ const selectedWorkflowVersions = ref<Record<string, string>>({})
 
 const taskForm = ref({ title: '', description: '' })
 const agentRequirement = ref('')
+const organizationForm = ref({ source_type: 'intent', world_type: 'small', name: '', purpose: '', operating_mode: 'collaborative', intent: '' })
+const organizationCreating = ref(false)
 const teamForm = ref({ name: '', purpose: '', operating_mode: 'collaborative', member_ids: [] as string[] })
+const teamInviteDraft = ref<Record<string, string>>({})
+const teamInviteLoading = ref('')
 const teamKnowledgeFiles = ref<Record<string, File[]>>({})
 const teamKnowledgeInputKeys = ref<Record<string, number>>({})
 const knowledgeUploadingTeamId = ref('')
@@ -67,6 +71,12 @@ const knowledgeSearchingTeamId = ref('')
 const organizationKnowledgeFiles = ref<File[]>([])
 const organizationKnowledgeInputKey = ref(0)
 const organizationKnowledgeUploading = ref(false)
+const editingOrganization = ref<Json | null>(null)
+const organizationDraft = ref({ name: '', description: '' })
+const organizationSaving = ref(false)
+const editingTeam = ref<Json | null>(null)
+const teamEditDraft = ref({ name: '', purpose: '', operating_mode: 'collaborative' })
+const teamEditingSaving = ref(false)
 const editingAgent = ref<Json | null>(null)
 const agentDraft = ref<Json>({})
 const agentVersions = ref<Json[]>([])
@@ -78,6 +88,9 @@ const selectedWorkflowNodeKey = ref('')
 const workflowZoom = ref(1)
 const showAllWorkflowEdges = ref(false)
 const selectedSceneTaskId = ref('')
+const flowsPage = ref<HTMLElement | null>(null)
+const runsPage = ref<HTMLElement | null>(null)
+const fullscreenTarget = ref<'flows' | 'runs' | ''>('')
 const scenePanelTab = ref<'dossier' | 'actions' | 'messages' | 'evidence' | 'rationale' | 'intervene'>('dossier')
 const sceneTabs: { id: 'dossier' | 'actions' | 'messages' | 'evidence' | 'rationale' | 'intervene'; label: string }[] = [
   { id: 'dossier', label: '公共卷宗' }, { id: 'actions', label: '人物行动' }, { id: 'messages', label: '议事通信' },
@@ -85,11 +98,12 @@ const sceneTabs: { id: 'dossier' | 'actions' | 'messages' | 'evidence' | 'ration
 ]
 const interventionForm = ref({ kind: 'supplement', content: '', agent_id: '' })
 const interventionSaving = ref(false)
+const extensionMinutes = ref(60)
 const teamToDisband = ref<Json | null>(null)
 const disbandingTeamId = ref('')
 const workflowToDelete = ref<Json | null>(null)
 const workflowDeletingId = ref('')
-const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', token: '', active: true })
+const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', tier: 'medium', token: '', active: true })
 const modelMessage = ref('')
 let runPollTimer: ReturnType<typeof setInterval> | null = null
 let showcasePollTimer: ReturnType<typeof setInterval> | null = null
@@ -111,6 +125,13 @@ const worldBroadcasts = computed(() => activeRunEvents.value
 const latestFailureEvent = computed(() => activeRunEvents.value.find((event: Json) => [
   'task.failed', 'run.failed', 'run.cancelled', 'run.budget_exhausted', 'run.revision_exhausted',
 ].includes(String(event.type))))
+const runTimeLimitExhausted = computed(() => Boolean(
+  activeRun.value?.status === 'budget_exhausted'
+    && String(latestFailureEvent.value?.payload?.error_detail ?? '').includes('run_time_limit'),
+))
+const runConclusionArtifact = computed(() => (activeRun.value?.artifacts ?? []).find((artifact: Json) =>
+  String(artifact.title ?? '') === '一页纸结论'
+))
 const latestShowcaseComparison = computed(() => showcase.value?.latest_comparison ?? null)
 const workflowFamilies = computed(() => {
   const groups: Record<string, Json[]> = {}
@@ -367,6 +388,8 @@ async function openAgentEditor(agent: Json): Promise<void> {
     role: agent.role,
     description: agent.description,
     persona: agent.persona,
+    cognitive_level: agent.cognitive_level ?? 2,
+    authority_level: agent.authority_level ?? 1,
     capabilities: agent.capabilities ?? [],
     visibility: agent.visibility ?? 'private',
     runtime: 'openclaw',
@@ -716,10 +739,10 @@ function runStatusLabel(status: string): string {
 function eventTypeLabel(type: string): string {
   return ({
     'run.created': '事件建立', 'run.started': '开始执行', 'run.recovered': '断点恢复', 'run.interrupted': '等待恢复', 'run.completed': '全部完成',
-    'run.retry_created': '重试现场建立', 'run.failed': '执行失败', 'run.cancelled': '已取消', 'run.budget_exhausted': '预算耗尽',
+    'run.retry_created': '重试现场建立', 'run.failed': '执行失败', 'run.cancelled': '已取消', 'run.budget_exhausted': '预算耗尽', 'run.time_extended': '运行时限延长',
     'run.pause_requested': '请求停手', 'run.paused': '现场已暂停', 'run.resumed': '恢复行动',
-    'run.revision_exhausted': '返工轮次耗尽', 'openclaw.runtime.ready': 'OpenClaw 已接管', 'openclaw.runtime.recovered': 'OpenClaw 已恢复',
-    'openclaw.turn.started': 'OpenClaw 回合启动', 'openclaw.turn.completed': 'OpenClaw 回合完成',
+    'run.revision_exhausted': '返工轮次耗尽', 'openclaw.runtime.ready': '执行底座已接管', 'openclaw.runtime.recovered': '执行底座已恢复',
+    'openclaw.turn.started': '人物行动回合启动', 'openclaw.turn.completed': '人物行动回合完成',
     'task.started': '节点启动', 'task.retrying': '节点整体重试', 'task.failed': '节点失败', 'llm.retrying': '模型连接重试',
     'agent.action.retrying': '人物自动重试', 'agent.action.failed': '人物行动失败',
     'team.member.started': '人物开始行动', 'team.member.completed': '人物完成贡献',
@@ -767,6 +790,10 @@ function eventAgent(event: Json): Json | undefined {
   return agents.value.find(agent => agent.id === (event.payload?.agent_id ?? event.payload?.from_agent_id))
 }
 
+function uiRuntimeText(value: unknown): string {
+  return String(value ?? '').replace(/openclaw/gi, '执行底座')
+}
+
 function taskEvents(task: Json): Json[] {
   return (activeRun.value?.events ?? []).filter((event: Json) => event.payload?.task_id === task.id)
 }
@@ -803,7 +830,7 @@ function taskEvidenceEvents(task: Json): Json[] {
 }
 
 function publicEventContent(event: Json): string {
-  return String(event.payload?.content ?? event.payload?.contribution ?? event.payload?.output ?? event.payload?.command ?? event.payload?.contribution_preview ?? event.summary ?? '')
+  return uiRuntimeText(event.payload?.content ?? event.payload?.contribution ?? event.payload?.output ?? event.payload?.command ?? event.payload?.contribution_preview ?? event.summary ?? '')
 }
 
 function actionEventPreview(event: Json): string {
@@ -924,7 +951,7 @@ function nodeCollaborationPhase(task: Json): Json {
 }
 
 function speechPreview(value: unknown, fallback: string): string {
-  const normalized = String(value ?? fallback).replace(/[#*_`>|\[\]]/g, '').replace(/\s+/g, ' ').trim() || fallback
+  const normalized = uiRuntimeText(value ?? fallback).replace(/[#*_`>|\[\]]/g, '').replace(/\s+/g, ' ').trim() || fallback
   return normalized.length > 84 ? `${normalized.slice(0, 84)}…` : normalized
 }
 
@@ -935,12 +962,12 @@ function personActivity(task: Json, person: Json): Json {
   const presence = (activeRun.value?.agent_presence ?? []).find((item: Json) => item.agent_id === person.id)
   if (presence && (!presence.task_id || presence.task_id === task.id)) {
     const tone = ({ blocked: 'failed', paused: 'waiting', waiting: 'waiting', reviewing: 'completed', idle: 'completed' } as Record<string, string>)[presence.state] ?? 'working'
-    return { state: presence.state_label, speech: speechPreview(presence.latest_event?.payload?.content ?? presence.latest_event?.summary, `我正在“${task.node_name}”处理公开事务。`), tone }
+    return { state: uiRuntimeText(presence.state_label), speech: speechPreview(presence.latest_event?.payload?.content ?? presence.latest_event?.summary, `我正在“${task.node_name}”处理公开事务。`), tone }
   }
   const events = taskEvents(task).filter((event: Json) => event.payload?.agent_id === person.id).reverse()
   const latest = events[0]
   if (latest?.type === 'agent.message.sent') return { state: `正在${latest.payload?.message_type ?? '交流'}`, speech: speechPreview(latest.payload?.content ?? latest.summary, '我正在向协作者发出公开消息。'), tone: 'working' }
-  if (latest?.type === 'openclaw.turn.started') return { state: 'OpenClaw 正在执行', speech: speechPreview(latest.summary, '正在装载我的身份、记忆和技能。'), tone: 'working' }
+  if (latest?.type === 'openclaw.turn.started') return { state: '正在执行', speech: speechPreview(latest.summary, '正在装载我的身份、记忆和技能。'), tone: 'working' }
   if (latest?.type === 'agent.memory.persisted') return { state: '经历已沉淀', speech: '本次公开贡献已进入我的独立长期记忆。', tone: 'completed' }
   if (latest?.type === 'llm.retrying') return { state: '正在重连模型', speech: speechPreview(latest.summary, '模型连接不稳定，正在自动恢复。'), tone: 'retrying' }
   if (latest?.type === 'agent.action.retrying') return { state: '人物正在自动重试', speech: speechPreview(latest.summary, '本次独立行动失败，正在使用新的隔离回合重试。'), tone: 'retrying' }
@@ -1006,7 +1033,7 @@ function focusCurrentTask(): void {
 }
 
 function eventDetail(event: Json | undefined): string {
-  const detail = String(event?.payload?.error_detail ?? event?.summary ?? '').trim()
+  const detail = uiRuntimeText(event?.payload?.error_detail ?? event?.summary ?? '').trim()
   if (!detail || /(?:failure|error)\s*:\s*$/i.test(detail)) {
     return '这是一条旧执行记录，当时没有保存底层异常正文，无法还原更具体的网络错误；当前模型连接测试已经恢复正常。请创建新的重试现场，新执行会完整记录请求次数、HTTP 状态、异常类型与失败详情。'
   }
@@ -1023,7 +1050,7 @@ function retryEventDetail(event: Json): string {
 
 function friendlyFailureReason(event: Json): string {
   const detail = eventDetail(event)
-  if (detail.includes('openclaw_empty_output')) return 'OpenClaw 已执行模型回合，但命令行响应没有带回正式文本。Session 与公开行动仍然保留；新版执行器会从 Session 的可见输出恢复，避免把已完成行动误判为空。'
+  if (detail.includes('openclaw_empty_output')) return '执行回合已完成，但暂未收到正式文本。公开行动仍然保留，平台会从可见输出恢复，避免把已完成行动误判为空。'
   if (/network failure|connection attempts failed|timeout/i.test(detail)) return '模型服务连接超时或中断。平台会先自动重试模型请求，再重试整个节点；全部失败后才停止本次 Run。'
   if (detail.includes('artifact_validation_failed')) return `真实交付校验未通过：${detail.split(':').slice(2).join('；') || '缺少文件、成功命令或通过的自动化测试。'}`
   if (/401|403|credential|token/i.test(detail)) return '模型服务拒绝了当前凭据。请在“模型与凭据”检查配置；页面不会显示或记录完整 Token。'
@@ -1195,6 +1222,10 @@ async function openRun(runId: string): Promise<void> {
 
 function go(next: Screen): void {
   if (next === 'showcase' && !showcaseEnabled) return
+  if (screen.value !== next && (fullscreenTarget.value || document.fullscreenElement)) {
+    if (typeof document.exitFullscreen === 'function') void document.exitFullscreen().catch(() => undefined)
+    fullscreenTarget.value = ''
+  }
   if (next !== 'runs') stopRunPolling()
   if (next !== 'showcase') stopShowcasePolling()
   screen.value = next
@@ -1211,6 +1242,31 @@ function go(next: Screen): void {
   }
   if (next === 'showcase' && latestShowcaseComparison.value?.status === 'running') {
     beginShowcasePolling(String(latestShowcaseComparison.value.id))
+  }
+}
+
+function syncFullscreenTarget(): void {
+  const current = document.fullscreenElement
+  fullscreenTarget.value = current === flowsPage.value ? 'flows' : current === runsPage.value ? 'runs' : ''
+}
+
+async function togglePageFullscreen(target: 'flows' | 'runs'): Promise<void> {
+  const element = target === 'flows' ? flowsPage.value : runsPage.value
+  if (!element) return
+  try {
+    const active = fullscreenTarget.value === target || document.fullscreenElement === element
+    if (active) {
+      if (document.fullscreenElement && typeof document.exitFullscreen === 'function') await document.exitFullscreen()
+      fullscreenTarget.value = ''
+    } else if (typeof element.requestFullscreen === 'function') {
+      if (document.fullscreenElement && typeof document.exitFullscreen === 'function') await document.exitFullscreen()
+      await element.requestFullscreen()
+      fullscreenTarget.value = target
+    } else {
+      fullscreenTarget.value = target
+    }
+  } catch {
+    notice.value = '当前浏览器未允许全屏显示，请检查页面权限后重试。'
   }
 }
 
@@ -1239,7 +1295,7 @@ async function loadAll(): Promise<void> {
       openClawStatus.value = {
         available: false,
         mode: 'unavailable',
-        error: cause instanceof Error ? cause.message : 'OpenClaw 运行时健康检查失败',
+        error: '执行底座健康检查失败',
       }
     }
     if (orgs[0]?.id) {
@@ -1460,6 +1516,85 @@ async function generateAgent(): Promise<void> {
   }
 }
 
+async function generateOrganization(): Promise<void> {
+  if (!organizationForm.value.intent.trim()) return
+  organizationCreating.value = true
+  error.value = ''
+  try {
+    const result = await api.generateOrganization({
+      ...organizationForm.value,
+      organization_id: organization.value?.id,
+      knowledge_source_ids: organizationForm.value.source_type === 'knowledge'
+        ? knowledgeSources.value.filter(source => source.metadata?.scope_type === 'organization' || source.metadata?.organization_id === organization.value?.id).map(source => source.id)
+        : [],
+    }) as Json
+    if (result.organization) {
+      organizations.value = await api.organizations()
+      agents.value = await api.platformAgents()
+      notice.value = `已创建大江湖“${result.organization.name}”；后续可在其中继续生成小江湖和人物。`
+    } else if (result.team) {
+      teams.value = await api.teams(organization.value?.id)
+      agents.value = await api.platformAgents()
+      notice.value = `已创建小江湖“${result.team.name}”，并自动生成 ${result.team.members?.length ?? 0} 位随组织行动的人物。`
+    }
+    organizationForm.value.intent = ''
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '组织生成失败'
+  } finally {
+    organizationCreating.value = false
+  }
+}
+
+function openOrganizationEditor(): void {
+  if (!organization.value) return
+  editingOrganization.value = organization.value
+  organizationDraft.value = {
+    name: String(organization.value.name ?? ''),
+    description: String(organization.value.description ?? ''),
+  }
+}
+
+async function saveOrganization(): Promise<void> {
+  if (!editingOrganization.value || !organizationDraft.value.name.trim()) return
+  organizationSaving.value = true
+  error.value = ''
+  try {
+    const result = await api.updateOrganization(editingOrganization.value.id, organizationDraft.value) as Json
+    organizations.value = await api.organizations()
+    editingOrganization.value = null
+    notice.value = `大江湖“${(result.organization as Json).name}”已更新。`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '组织保存失败'
+  } finally {
+    organizationSaving.value = false
+  }
+}
+
+function openTeamEditor(team: Json): void {
+  editingTeam.value = team
+  teamEditDraft.value = {
+    name: String(team.name ?? ''),
+    purpose: String(team.purpose ?? ''),
+    operating_mode: String(team.operating_mode ?? 'collaborative'),
+  }
+}
+
+async function saveTeamEdit(): Promise<void> {
+  if (!editingTeam.value || !teamEditDraft.value.name.trim()) return
+  teamEditingSaving.value = true
+  error.value = ''
+  try {
+    const result = await api.updateTeam(editingTeam.value.id, teamEditDraft.value) as Json
+    teams.value = await api.teams(organization.value?.id)
+    editingTeam.value = null
+    notice.value = `小江湖“${(result.team as Json).name}”已更新，后续新生产流将使用新的组织契约。`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '小江湖保存失败'
+  } finally {
+    teamEditingSaving.value = false
+  }
+}
+
 async function createTeam(): Promise<void> {
   if (!teamForm.value.name.trim() || !teamForm.value.member_ids.length) return
   busy.value = true
@@ -1483,6 +1618,30 @@ async function createTeam(): Promise<void> {
     error.value = cause instanceof Error ? cause.message : '团队创建失败'
   } finally {
     busy.value = false
+  }
+}
+
+function availableTeamAgents(team: Json): Json[] {
+  const memberIds = new Set((team.members ?? []).map((member: Json) => String(member.id)))
+  return agents.value.filter(agent => !memberIds.has(String(agent.id)))
+}
+
+async function inviteAgentToTeam(team: Json): Promise<void> {
+  const agentId = String(teamInviteDraft.value[team.id] ?? '')
+  if (!agentId) return
+  const person = agents.value.find(agent => String(agent.id) === agentId)
+  if (!person) return
+  teamInviteLoading.value = team.id
+  error.value = ''
+  try {
+    await api.addTeamMember(team.id, agentId, String(person.description ?? '承担本团队的专业职责'))
+    teams.value = await api.teams(organization.value?.id)
+    teamInviteDraft.value = { ...teamInviteDraft.value, [team.id]: '' }
+    notice.value = `已邀请“${person.name}”加入“${team.name}”，后续生产流可以使用这位同行者。`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '邀请同行者失败'
+  } finally {
+    teamInviteLoading.value = ''
   }
 }
 
@@ -1670,6 +1829,22 @@ async function retryActiveRun(fromTask?: Json): Promise<void> {
   } finally { busy.value = false }
 }
 
+async function extendActiveRun(): Promise<void> {
+  if (!activeRun.value || !runTimeLimitExhausted.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    const result = await api.extendPlatformRun(activeRun.value.id, extensionMinutes.value)
+    activeRun.value = result.run as Json
+    const extension = result.extension as Json | undefined
+    runs.value = await api.platformRuns()
+    beginRunPolling(activeRun.value.id)
+    notice.value = `已增加 ${extension?.minutes ?? extensionMinutes.value} 分钟运行时限；已完成节点和产物保留，现场继续执行未完成节点。`
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '延长运行时限失败'
+  } finally { busy.value = false }
+}
+
 function editWorkflow(flow: Json, nodeKey = ''): void {
   editingWorkflow.value = flow
   workflowDraft.value = {
@@ -1751,7 +1926,7 @@ async function saveWorkflowRevision(): Promise<void> {
 }
 
 function selectModel(config: Json): void {
-  modelForm.value = { id: config.id, name: config.name, provider: config.provider, base_url: config.base_url, model: config.model, token: '', active: Boolean(config.active) }
+  modelForm.value = { id: config.id, name: config.name, provider: config.provider, base_url: config.base_url, model: config.model, tier: config.tier ?? 'medium', token: '', active: Boolean(config.active) }
   modelMessage.value = ''
 }
 
@@ -1782,10 +1957,14 @@ async function saveModel(): Promise<void> {
   } finally { busy.value = false }
 }
 
-onMounted(loadAll)
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreenTarget)
+  loadAll()
+})
 onUnmounted(() => {
   stopRunPolling()
   stopShowcasePolling()
+  document.removeEventListener('fullscreenchange', syncFullscreenTarget)
 })
 </script>
 
@@ -1844,15 +2023,32 @@ onUnmounted(() => {
       </main>
 
       <main v-else-if="screen === 'teams'" class="jh-page team-world"><section class="page-heading team-heading"><div><span>大小江湖组织图谱</span><h1>大江湖与小江湖</h1><p>大江湖保存共同知识、规则和人物资源；其下每个小江湖都能独立承接事情，也能继承大江湖获准的公共知识。</p></div><div class="team-summary"><b>1</b><span>个大江湖</span><i>·</i><b>{{ teams.length }}</b><span>个活跃小江湖</span><i>·</i><b>{{ agents.length }}</b><span>位人物</span></div></section>
+        <section class="organization-forge">
+          <header><div><span>组织生成器</span><h2>一句话立下一个江湖</h2><p>组织先确定共同使命，再由组织内部生成人物；人物跟随组织，不把权力误当成数据权限。</p></div><b>意图 / 知识库 → 组织 → 人物</b></header>
+          <div class="organization-forge-form">
+            <section class="organization-forge-step"><header><b>1</b><div><strong>先选生成依据</strong><small>组织要从什么出发？</small></div></header><div class="organization-choice-grid"><button type="button" :class="{ selected: organizationForm.source_type === 'intent' }" @click="organizationForm.source_type = 'intent'"><span>✦</span><div><strong>一句话意图</strong><small>用目标、使命或愿景直接生成</small></div><i v-if="organizationForm.source_type === 'intent'">✓</i></button><button type="button" :class="{ selected: organizationForm.source_type === 'knowledge' }" @click="organizationForm.source_type = 'knowledge'"><span>▤</span><div><strong>知识库</strong><small>从大江湖已有知识生成</small></div><i v-if="organizationForm.source_type === 'knowledge'">✓</i></button></div></section>
+            <section v-if="organizationForm.source_type === 'knowledge'" class="organization-knowledge-inline"><header><div><BookOpen /><span><strong>上传组织知识库</strong><small>上传后会解析、切片并建立 RAG，生成组织时自动参考这些内容。</small></span></div><b>知识库 → 组织</b></header><label class="organization-knowledge-picker"><input :key="organizationKnowledgeInputKey" type="file" multiple webkitdirectory directory @change="selectOrganizationKnowledgeFiles" /><FolderOpen /><span>{{ organizationKnowledgeFiles.length ? `已选择 ${organizationKnowledgeFiles.length} 个文件` : '选择知识库目录' }}</span></label><div v-if="organizationKnowledgeFiles.length" class="organization-knowledge-selected"><span>已选 {{ organizationKnowledgeFiles.length }} 个文件</span><small>确认上传后，知识会成为当前大江湖的公共知识。</small></div><button class="jh-secondary" :disabled="organizationKnowledgeUploading || !organizationKnowledgeFiles.length" @click="uploadOrganizationKnowledge"><LoaderCircle v-if="organizationKnowledgeUploading" class="spin" /><UploadCloud v-else />{{ organizationKnowledgeUploading ? `正在建立 RAG ${organizationKnowledgeUploadProgress.completed}/${organizationKnowledgeUploadProgress.total}` : '上传并建立知识索引' }}</button></section>
+            <section class="organization-forge-step"><header><b>2</b><div><strong>再选组织层级</strong><small>决定它在江湖中的位置</small></div></header><div class="organization-choice-grid"><button type="button" :class="{ selected: organizationForm.world_type === 'large' }" @click="organizationForm.world_type = 'large'"><span>🌏</span><div><strong>大江湖</strong><small>公共共同体，沉淀规则与共享知识</small></div><i v-if="organizationForm.world_type === 'large'">✓</i></button><button type="button" :class="{ selected: organizationForm.world_type === 'small' }" @click="organizationForm.world_type = 'small'"><span>⌂</span><div><strong>小江湖</strong><small>任务组织，围绕使命快速行动</small></div><i v-if="organizationForm.world_type === 'small'">✓</i></button></div></section>
+            <section v-if="organizationForm.world_type === 'small'" class="organization-small-attributes">
+              <header><b>3</b><div><strong>填写小江湖属性</strong><small>这些内容会成为团队的长期契约</small></div></header>
+              <label>小江湖名称<input v-model="organizationForm.name" placeholder="例如：观澜营造社、青禾调解会" /></label>
+              <label>共同使命<textarea v-model="organizationForm.purpose" placeholder="这个小江湖长期愿意承接什么事情？"></textarea></label>
+              <label>行事方式<select v-model="organizationForm.operating_mode"><option value="collaborative">同心协作</option><option value="debate">议事争辩</option><option value="red_team">攻守对抗</option><option value="hierarchical">统领协作</option></select></label>
+            </section>
+            <label class="organization-intent">{{ organizationForm.world_type === 'small' ? '4. 补充生成意图' : '补充组织意图或知识描述' }}<textarea v-model="organizationForm.intent" placeholder="例如：围绕 AI 产品交付建立一支重视证据、能快速试错的产品与工程组织"></textarea></label>
+            <button class="jh-primary organization-forge-submit" :disabled="organizationCreating || !organizationForm.intent.trim()" @click="generateOrganization"><LoaderCircle v-if="organizationCreating" class="spin" /><Sparkles v-else />{{ organizationCreating ? '正在生成组织与人物…' : '生成组织' }}</button>
+          </div>
+        </section>
         <section class="realm-hub">
-          <header><div><span>🌏</span><div><small>大江湖 · 社会级共同体</small><h2>{{ organizationName }}</h2><p>{{ organization?.description }}</p></div></div><b>{{ teams.length }} 个小江湖共享此上层边界</b></header>
-          <div class="realm-knowledge-panel"><div><BookOpen /><span><strong>大江湖公共知识</strong><small>目录会被递归上传、解析、切片并保存；下属小江湖执行时自动继承，人物专属知识仍需单独授权。</small></span></div><label><input :key="organizationKnowledgeInputKey" type="file" multiple webkitdirectory directory @change="selectOrganizationKnowledgeFiles" /><FolderOpen /><span>{{ organizationKnowledgeFiles.length ? `已选择 ${organizationKnowledgeFiles.length} 个文件` : '选择一个完整知识目录' }}</span></label><button class="jh-primary" :disabled="organizationKnowledgeUploading || !organizationKnowledgeFiles.length" @click="uploadOrganizationKnowledge"><LoaderCircle v-if="organizationKnowledgeUploading" class="spin" /><UploadCloud v-else />{{ organizationKnowledgeUploading ? `分批保存 ${organizationKnowledgeUploadProgress.completed}/${organizationKnowledgeUploadProgress.total}` : '保存目录并建立 RAG' }}</button></div>
+          <header><div><span>🌏</span><div><small>大江湖 · 社会级共同体</small><h2>{{ organizationName }}</h2><p>{{ organization?.description }}</p></div></div><div class="realm-header-actions"><b>{{ teams.length }} 个小江湖共享此上层边界</b><button class="organization-edit-button" @click="openOrganizationEditor"><Settings2 />编辑大江湖</button></div></header>
+          <div class="realm-knowledge-panel"><div><BookOpen /><span><strong>大江湖公共知识维护</strong><small>这是组织创建完成后的持续维护入口，可补充、更新和整理公共知识；下属小江湖执行时自动继承，人物专属知识仍需单独授权。</small></span></div><label><input :key="organizationKnowledgeInputKey" type="file" multiple webkitdirectory directory @change="selectOrganizationKnowledgeFiles" /><FolderOpen /><span>{{ organizationKnowledgeFiles.length ? `已选择 ${organizationKnowledgeFiles.length} 个文件` : '补充一个公共知识目录' }}</span></label><button class="jh-primary" :disabled="organizationKnowledgeUploading || !organizationKnowledgeFiles.length" @click="uploadOrganizationKnowledge"><LoaderCircle v-if="organizationKnowledgeUploading" class="spin" /><UploadCloud v-else />{{ organizationKnowledgeUploading ? `分批保存 ${organizationKnowledgeUploadProgress.completed}/${organizationKnowledgeUploadProgress.total}` : '补充知识并建立 RAG' }}</button></div>
           <details v-if="organizationKnowledgeFiles.length" class="knowledge-selection-dropdown"><summary><FolderOpen /><span><strong>待上传目录 · {{ organizationKnowledgeFiles.length }} 个文件</strong><small>点击展开；列表按滚动逐批显示，不会一次铺满页面</small></span></summary><div class="knowledge-upload-file-scroll" @scroll="scrollUploadPreview($event, organizationKnowledgeFiles, 'organization')"><span v-for="file in uploadPreviewFiles(organizationKnowledgeFiles, 'organization')" :key="`${file.name}-${file.size}`"><FileText /><b>{{ fileRelativePath(file) }}</b><small>{{ fileSizeLabel(file.size) }}</small></span><em v-if="(knowledgeUploadPreviewLimits.organization ?? 30) < organizationKnowledgeFiles.length">继续向下滚动加载更多</em></div></details>
           <details v-if="realmManagedKnowledge.length" class="knowledge-source-dropdown" @toggle="toggleKnowledgeSourceList($event, 'organization', organization.id)"><summary><BookOpen /><span><strong>已保存 {{ realmManagedKnowledge.length }} 份公共知识</strong><small>点击下拉查看，滚动时按 start/limit 继续加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'organization', organization.id)"><div v-for="source in knowledgePage('organization', organization.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id || knowledgeDeletingSourceId === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a><button class="knowledge-delete" :disabled="knowledgeDeletingSourceId === source.id" :aria-label="`删除知识 ${source.metadata?.relative_path || source.name}`" title="删除知识文件" @click.stop="deleteKnowledgeSource(source)"><LoaderCircle v-if="knowledgeDeletingSourceId === source.id" class="spin" /><Trash2 v-else /></button></div><div v-if="knowledgePage('organization', organization.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('organization', organization.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
           <KnowledgeRelationGraph :graph="knowledgeGraph" @open-source="openKnowledgeDetail" />
         </section>
         <section class="assembly-camp"><div class="assembly-scroll"><div class="scroll-title"><span>📜</span><div><small>小江湖组建契约</small><h2>建立新的小江湖</h2></div></div><label>小江湖名称<input v-model="teamForm.name" placeholder="例如：观澜营造社、青禾调解会" /></label><label>共同使命<textarea v-model="teamForm.purpose" placeholder="这个小江湖为何存在，愿意独立承接什么事情？"></textarea></label><label>行事方式<select v-model="teamForm.operating_mode"><option value="collaborative">同心协作</option><option value="debate">议事争辩</option><option value="red_team">攻守对抗</option><option value="hierarchical">统领协作</option></select></label><div class="knowledge-create-note"><UploadCloud /><div><strong>继承大江湖知识，也可拥有自己的知识</strong><small>小江湖可补充仅本组织使用的文件；执行时按大江湖 → 小江湖 → 人物授权依次检索。</small></div></div><button class="jh-primary" :disabled="busy || !teamForm.name || !teamForm.member_ids.length" @click="createTeam"><Plus />立下小江湖契约</button></div><div class="roster-board"><header><div><small>人物名册</small><h3>邀请同行者</h3></div><div class="roster-actions"><strong>已选 {{ teamForm.member_ids.length }} 人</strong><button @click="go('agents')"><Plus />创建新人物</button></div></header><p class="roster-hint">第一位被选中的人物担任召集人；人物可加入多个小江湖，但每次执行仍使用自己的独立 Memory 与会话。</p><div class="member-picker"><label v-for="agent in agents" :key="agent.id" :class="{ chosen: teamForm.member_ids.includes(agent.id) }"><input v-model="teamForm.member_ids" type="checkbox" :value="agent.id" /><span class="mini-avatar">{{ initials(agent.name) }}</span><div><strong>{{ agent.name }}</strong><small>{{ agent.role }}</small><em>{{ agent.capabilities.slice(0, 2).join(' · ') }}</em></div></label><div v-if="!agents.length" class="empty-roster"><span>👤</span><p>江湖人物册为空</p><button class="jh-primary" @click="go('agents')"><Plus />创建第一个人物</button></div></div></div></section>
-        <section v-if="!teams.length" class="empty-settlement"><span>🏕️</span><h2>这里还是一片空地</h2><p>从上方人物名册邀请同行者，建立江湖中的第一个组织。</p></section><section v-else class="settlement-grid"><article v-for="(team, index) in teams" :key="team.id" class="settlement-card"><div class="settlement-scene"><span class="settlement-icon">{{ teamIcon(Number(index)) }}</span><i v-for="member in team.members.slice(0, 5)" :key="member.id" :title="`${member.name} · ${member.role}`">{{ initials(member.name) }}</i></div><header><div><span>{{ modeLabel(team.operating_mode) }}</span><h2>{{ team.name }}</h2></div><b>{{ team.members.length }} 人</b></header><p>{{ team.purpose || '这个组织还没有写下共同使命。' }}</p>
+        <section v-if="!teams.length" class="empty-settlement"><span>🏕️</span><h2>这里还是一片空地</h2><p>从上方人物名册邀请同行者，建立江湖中的第一个组织。</p></section><section v-else class="settlement-grid"><article v-for="(team, index) in teams" :key="team.id" class="settlement-card"><div class="settlement-scene"><span class="settlement-icon">{{ teamIcon(Number(index)) }}</span><i v-for="member in team.members.slice(0, 5)" :key="member.id" :title="`${member.name} · ${member.role}`">{{ initials(member.name) }}</i></div><header><div><span>{{ modeLabel(team.operating_mode) }}</span><h2>{{ team.name }}</h2></div><div class="settlement-card-header-actions"><b>{{ team.members.length }} 人</b><button class="team-edit-button" @click="openTeamEditor(team)"><Settings2 />编辑组织</button></div></header><p>{{ team.purpose || '这个组织还没有写下共同使命。' }}</p>
+          <section class="team-roster-inline"><header><div><small>团队人物名册</small><strong>邀请同行者</strong></div><b>{{ team.members.length }} 人</b></header><div class="team-roster-members"><span v-for="member in team.members" :key="member.id"><i>{{ initials(member.name) }}</i><div><strong>{{ member.name }}</strong><small>{{ member.role }} · {{ member.member_role === 'leader' ? '召集人' : '成员' }}</small></div></span></div><div v-if="availableTeamAgents(team).length" class="team-invite-row"><select v-model="teamInviteDraft[team.id]"><option value="">选择一位可加入的人物</option><option v-for="person in availableTeamAgents(team)" :key="person.id" :value="person.id">{{ person.name }} · {{ person.role }}</option></select><button class="jh-secondary" :disabled="teamInviteLoading === team.id || !teamInviteDraft[team.id]" @click="inviteAgentToTeam(team)"><LoaderCircle v-if="teamInviteLoading === team.id" class="spin" /><Plus v-else />{{ teamInviteLoading === team.id ? '正在邀请…' : '邀请加入团队' }}</button><button class="team-create-person" @click="go('agents')"><Bot />创建新人物</button></div><small v-else class="team-roster-complete">当前人物库中的同行者都已在这个团队里。</small></section>
           <section class="team-knowledge-vault">
             <header><div><BookOpen /><span><strong>组织公共知识库</strong><small>平台解析、切片并检索相关知识，Agent 不再盲目读取全部文件</small></span></div><div class="knowledge-vault-actions"><b>{{ teamManagedKnowledge(team.id).length }} 份</b><button @click="openKnowledgeNote(team)"><Plus />补充知识</button></div></header>
             <details v-if="teamManagedKnowledge(team.id).length" class="knowledge-source-dropdown compact" @toggle="toggleKnowledgeSourceList($event, 'team', team.id)"><summary><BookOpen /><span><strong>查看已保存的 {{ teamManagedKnowledge(team.id).length }} 份知识</strong><small>下拉后滚动分页加载</small></span></summary><div class="knowledge-source-scroll" @scroll="scrollKnowledgeSourceList($event, 'team', team.id)"><div v-for="source in knowledgePage('team', team.id).items" :key="source.id" class="managed-knowledge-item" :data-status="source.status"><button :disabled="knowledgeDetailLoading === source.id || knowledgeDeletingSourceId === source.id" @click="openKnowledgeDetail(source)"><LoaderCircle v-if="knowledgeDetailLoading === source.id" class="spin" /><FileText v-else /><span><strong>{{ source.metadata?.relative_path || source.name }}</strong><small>{{ fileSizeLabel(source.metadata?.size_bytes ?? 0) }} · {{ knowledgeStatusLabel(source) }}</small></span><BookOpen /></button><a :href="api.knowledgeDownloadUrl(source.id)" title="下载原文件"><Download /></a><button class="knowledge-delete" :disabled="knowledgeDeletingSourceId === source.id" :aria-label="`删除知识 ${source.metadata?.relative_path || source.name}`" title="删除知识文件" @click.stop="deleteKnowledgeSource(source)"><LoaderCircle v-if="knowledgeDeletingSourceId === source.id" class="spin" /><Trash2 v-else /></button></div><div v-if="knowledgePage('team', team.id).loading" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取下一页</div><small v-else-if="knowledgePage('team', team.id).pagination?.has_more" class="knowledge-scroll-hint">继续向下滚动加载更多</small></div></details>
@@ -1863,21 +2059,23 @@ onUnmounted(() => {
             <div v-if="teamKnowledgeFiles[team.id]?.length" class="knowledge-upload-queue"><details class="knowledge-selection-dropdown compact"><summary><FolderOpen /><span><strong>待上传 {{ teamKnowledgeFiles[team.id].length }} 个文件</strong><small>点击展开并滚动查看</small></span></summary><div class="knowledge-upload-file-scroll" @scroll="scrollUploadPreview($event, teamKnowledgeFiles[team.id], `team:${team.id}`)"><span v-for="file in uploadPreviewFiles(teamKnowledgeFiles[team.id], `team:${team.id}`)" :key="`${file.name}-${file.size}`"><FileText /><b>{{ fileRelativePath(file) }}</b><small>{{ fileSizeLabel(file.size) }}</small></span><em v-if="(knowledgeUploadPreviewLimits[`team:${team.id}`] ?? 30) < teamKnowledgeFiles[team.id].length">继续向下滚动加载更多</em></div></details><button class="jh-primary" :disabled="knowledgeUploadingTeamId === team.id" @click="uploadTeamKnowledge(team)"><LoaderCircle v-if="knowledgeUploadingTeamId === team.id" class="spin" /><UploadCloud v-else />{{ knowledgeUploadingTeamId === team.id ? `分批保存 ${teamKnowledgeUploadProgress[team.id]?.completed ?? 0}/${teamKnowledgeUploadProgress[team.id]?.total ?? teamKnowledgeFiles[team.id].length}` : `上传、解析并保存 ${teamKnowledgeFiles[team.id].length} 份` }}</button></div>
           </section>
           <div class="team-members"><span v-for="member in team.members" :key="member.id"><i>{{ initials(member.name) }}</i><small><b>{{ member.name }}</b>{{ member.role }} · {{ member.member_role === 'leader' ? '召集人' : '成员' }}</small></span></div><div class="capability-tags"><span v-for="capability in team.capabilities" :key="capability">{{ capability }}</span></div><footer class="settlement-actions"><button @click="teamToDisband = team">解散组织</button></footer></article></section>
+        <div v-if="editingOrganization" class="organization-editor-mask" @click.self="editingOrganization = null"><section class="organization-editor-dialog"><header><div><span>🌏</span><div><small>大江湖属性编辑</small><h2>编辑“{{ organizationDraft.name }}”</h2></div></div><button @click="editingOrganization = null"><XCircle /></button></header><label>大江湖名称<input v-model="organizationDraft.name" placeholder="例如：我的江湖" /></label><label>共同描述<textarea v-model="organizationDraft.description" placeholder="这个大江湖如何形成、协作和演化？"></textarea></label><footer><button class="jh-secondary" @click="editingOrganization = null">取消</button><button class="jh-primary" :disabled="organizationSaving || !organizationDraft.name.trim()" @click="saveOrganization"><LoaderCircle v-if="organizationSaving" class="spin" />{{ organizationSaving ? '正在保存…' : '保存大江湖' }}</button></footer></section></div>
+        <div v-if="editingTeam" class="organization-editor-mask" @click.self="editingTeam = null"><section class="organization-editor-dialog"><header><div><span>🏘️</span><div><small>小江湖属性编辑</small><h2>编辑“{{ teamEditDraft.name }}”</h2></div></div><button @click="editingTeam = null"><XCircle /></button></header><label>小江湖名称<input v-model="teamEditDraft.name" placeholder="例如：观澜营造社" /></label><label>共同使命<textarea v-model="teamEditDraft.purpose" placeholder="这个小江湖长期愿意承接什么事情？"></textarea></label><label>行事方式<select v-model="teamEditDraft.operating_mode"><option value="collaborative">同心协作</option><option value="debate">议事争辩</option><option value="red_team">攻守对抗</option><option value="hierarchical">统领协作</option></select></label><footer><button class="jh-secondary" @click="editingTeam = null">取消</button><button class="jh-primary" :disabled="teamEditingSaving || !teamEditDraft.name.trim()" @click="saveTeamEdit"><LoaderCircle v-if="teamEditingSaving" class="spin" />{{ teamEditingSaving ? '正在保存…' : '保存小江湖' }}</button></footer></section></div>
         <div v-if="teamToDisband" class="confirm-mask"><section class="confirm-dialog"><span>⚠️</span><h2>确认解散“{{ teamToDisband.name }}”吗？</h2><p>组织会从当前江湖和后续流程选择中移除；已经产生的 Workflow 版本、Run、人物贡献和产物证据不会删除。</p><div><button class="jh-secondary" :disabled="Boolean(disbandingTeamId)" @click="teamToDisband = null">暂不解散</button><button class="danger-action" :disabled="Boolean(disbandingTeamId)" @click="confirmDisbandTeam"><LoaderCircle v-if="disbandingTeamId" class="spin" />{{ disbandingTeamId ? '正在解散…' : '确认解散' }}</button></div></section></div>
         <div v-if="selectedKnowledgeDetail" class="knowledge-modal-mask" @click.self="selectedKnowledgeDetail = null"><section class="knowledge-detail-dialog"><header><div><BookOpen /><span><small>组织知识详情</small><h2>{{ selectedKnowledgeDetail.source.name }}</h2></span></div><button @click="selectedKnowledgeDetail = null"><XCircle /></button></header><div class="knowledge-detail-meta"><span>{{ knowledgeStatusLabel(selectedKnowledgeDetail.source) }}</span><span>{{ fileSizeLabel(selectedKnowledgeDetail.source.metadata?.size_bytes ?? 0) }}</span><span>{{ selectedKnowledgeDetail.source.metadata?.parser ?? '未解析' }}</span><span>版本 {{ selectedKnowledgeDetail.source.version }}</span></div><p v-if="selectedKnowledgeDetail.source.status === 'index_failed'" class="knowledge-index-error">索引失败：{{ selectedKnowledgeDetail.source.metadata?.index_error }}</p><div class="knowledge-chunk-list" @scroll="scrollKnowledgeDetail"><article v-for="chunk in selectedKnowledgeDetail.chunks" :key="chunk.id"><header><strong>{{ chunk.title }}</strong><small>{{ chunk.locator }} · 约 {{ chunk.token_estimate }} tokens</small></header><p>{{ chunk.content }}</p></article><p v-if="!selectedKnowledgeDetail.chunks.length">该文件暂时没有可预览的知识片段。</p><div v-if="knowledgeDetailLoadingMore" class="knowledge-page-loading"><LoaderCircle class="spin" />正在读取更多片段</div></div><footer><span>已显示 {{ selectedKnowledgeDetail.chunks.length }}/{{ selectedKnowledgeDetail.pagination.total }} 个知识片段，向下滚动继续加载。</span><button v-if="selectedKnowledgeDetail.source.metadata?.managed" class="knowledge-detail-delete" :disabled="knowledgeDeletingSourceId === selectedKnowledgeDetail.source.id" @click="deleteKnowledgeSource(selectedKnowledgeDetail.source)"><LoaderCircle v-if="knowledgeDeletingSourceId === selectedKnowledgeDetail.source.id" class="spin" /><Trash2 v-else />删除知识</button><a :href="api.knowledgeDownloadUrl(selectedKnowledgeDetail.source.id)"><Download />下载原文件</a></footer></section></div>
         <div v-if="knowledgeNoteTeam" class="knowledge-modal-mask" @click.self="knowledgeNoteTeam = null"><section class="knowledge-note-dialog"><header><div><Plus /><span><small>补充组织公共知识</small><h2>{{ knowledgeNoteTeam.name }}</h2></span></div><button @click="knowledgeNoteTeam = null"><XCircle /></button></header><label>知识标题<input v-model="knowledgeNoteForm.title" placeholder="例如：生产发布与回滚规则" /></label><label>知识正文<textarea v-model="knowledgeNoteForm.content" placeholder="写下组织成员都应了解的背景、规范、事实或经验。平台会保存来源、切片并建立检索索引。"></textarea></label><footer><button class="jh-secondary" @click="knowledgeNoteTeam = null">取消</button><button class="jh-primary" :disabled="knowledgeNoteSaving || !knowledgeNoteForm.title.trim() || !knowledgeNoteForm.content.trim()" @click="saveKnowledgeNote"><LoaderCircle v-if="knowledgeNoteSaving" class="spin" /><Plus v-else />保存并建立 RAG</button></footer></section></div>
       </main>
 
       <main v-else-if="screen === 'agents'" class="jh-page">
-        <section class="page-heading"><div><span>江湖人物志</span><h1>创建与管理江湖人物</h1><p>人物不是一次性档案：每个人都拥有独立经历、专属知识、技艺与持续演化的版本，并能在不同组织和事件中承担真实职责。</p></div><div class="runtime-seal" :data-ready="openClawStatus.available"><span>⚔️</span><div><small>人物行动状态</small><strong>{{ openClawStatus.available ? '行动底座已就绪' : '行动底座不可用' }}</strong><em>{{ openClawStatus.available ? '可独立办事、使用工具并积累经历' : (openClawStatus.error || '等待健康检查') }}</em></div></div></section>
+        <section class="page-heading"><div><span>江湖人物志</span><h1>创建与管理江湖人物</h1><p>人物不是一次性档案：每个人都拥有独立经历、专属知识、技艺与持续演化的版本，并能在不同组织和事件中承担真实职责。</p></div><div class="runtime-seal" :data-ready="openClawStatus.available"><span>⚔️</span><div><small>人物行动状态</small><strong>{{ openClawStatus.available ? '行动底座已就绪' : '行动底座不可用' }}</strong><em>{{ openClawStatus.available ? '可独立办事、使用工具并积累经历' : '等待执行底座恢复' }}</em></div></div></section>
         <section class="agent-creator"><div class="creator-sign"><span>🪪</span><div><small>人物创建处</small><h2>引入一位新人物</h2><p>根据你的需要形成完整中文人物设定，并为他建立独立经历、专属知识和技艺空间。</p></div></div><label>人物需求<textarea v-model="agentRequirement" placeholder="例如：需要一位谨慎但敢于质疑共识、熟悉安全审计、面对压力仍坚持证据的人"></textarea></label><button class="jh-primary" :disabled="busy || !agentRequirement.trim()" @click="generateAgent"><LoaderCircle v-if="busy" class="spin" /><Sparkles v-else />创建江湖人物</button></section>
         <section v-if="!agents.length" class="jh-empty">江湖中还没有可复用人物。</section>
-        <section v-else class="agent-grid"><article v-for="agent in agents" :key="agent.id" :class="{ highlighted: highlightedAgentId === agent.id }"><div class="agent-avatar">{{ initials(agent.name) }}</div><div class="agent-live-status" :data-state="agentSocietyPresence(agent).state"><i></i><span><b>{{ agentSocietyPresence(agent).state_label }}</b><small>{{ agentSocietyPresence(agent).node_name || '当前没有承接中的节点' }}</small></span></div><span>职业身份：{{ agent.role }} · 第 {{ agent.version }} 版</span><h2>{{ agent.name }}</h2><p>{{ agent.description }}</p><div class="agent-runtime-facts"><b>⚔️ 可独立行动</b><b>🧠 {{ agent.memory_count ?? 0 }} 段经历</b><b>🧰 {{ enabledSkillCount(agent) }} 项技艺</b><b>📚 {{ agent.knowledge_source_ids?.length ?? 0 }} 份专属知识</b></div><div class="capability-tags"><span v-for="capability in agent.capabilities" :key="capability">擅长：{{ capability }}</span></div><button class="agent-edit-button" @click="openAgentEditor(agent)"><Settings2 />编辑人物并创建新版本</button></article></section>
+        <section v-else class="agent-grid"><article v-for="agent in agents" :key="agent.id" :class="{ highlighted: highlightedAgentId === agent.id }"><div class="agent-avatar">{{ initials(agent.name) }}</div><div class="agent-live-status" :data-state="agentSocietyPresence(agent).state"><i></i><span><b>{{ agentSocietyPresence(agent).state_label }}</b><small>{{ agentSocietyPresence(agent).node_name || '当前没有承接中的节点' }}</small></span></div><span>职业身份：{{ agent.role }} · 第 {{ agent.version }} 版</span><h2>{{ agent.name }}</h2><p>{{ agent.description }}</p><div class="agent-runtime-facts"><b>⚔️ 可独立行动</b><b>🧠 {{ agent.memory_count ?? 0 }} 段经历</b><b>🧰 {{ enabledSkillCount(agent) }} 项技艺</b><b>📚 {{ agent.knowledge_source_ids?.length ?? 0 }} 份专属知识</b></div><div class="agent-model-badges"><span>思考能力：{{ ['','执行型','综合型','高阶判断型'][agent.cognitive_level ?? 2] }}</span><span>影响力：{{ ['','建议','可影响团队','结论更易被遵守'][agent.authority_level ?? 1] }}</span><b>建议模型：{{ ({ high: '高', medium: '中', low: '低' } as Json)[agent.recommended_model_tier ?? 'medium'] }}</b></div><div class="capability-tags"><span v-for="capability in agent.capabilities" :key="capability">擅长：{{ capability }}</span></div><button class="agent-edit-button" @click="openAgentEditor(agent)"><Settings2 />编辑人物并创建新版本</button></article></section>
         <div v-if="editingAgent" class="agent-editor-mask" @click.self="editingAgent = null"><section class="agent-editor-dialog"><header><div><span class="agent-avatar">{{ initials(agentDraft.name) }}</span><div><small>人物版本编辑 · 历史版本不会覆盖</small><h2>{{ agentDraft.name }}</h2></div></div><button @click="editingAgent = null"><XCircle /></button></header><div v-if="agentEditorLoading" class="jh-loading"><LoaderCircle class="spin" />正在读取人物版本、经历与知识授权</div><div v-else class="agent-editor-body"><div class="agent-editor-form"><label>姓名<input v-model="agentDraft.name" /></label><label>职业身份<input v-model="agentDraft.role" /></label><label>职责说明<textarea v-model="agentDraft.description"></textarea></label><label>性格、立场与协作方式<textarea v-model="agentDraft.persona"></textarea></label><section class="editor-list"><header><strong>专业能力</strong><button @click="addAgentCapability"><Plus />增加</button></header><div v-for="(_, index) in agentDraft.capabilities" :key="index"><input v-model="agentDraft.capabilities[index]" /><button @click="removeAgentCapability(Number(index))"><Trash2 /></button></div></section><section class="editor-list skill-editor"><header><strong>人物技艺</strong><button @click="addAgentSkill"><Plus />增加技艺</button></header><article v-for="(skill, index) in agentDraft.skills" :key="index"><label><input v-model="skill.enabled" type="checkbox" />启用</label><input v-model="skill.name" placeholder="技艺名称" /><input v-model="skill.description" placeholder="什么时候使用" /><textarea v-model="skill.instructions" placeholder="该项技艺的具体行动规范"></textarea><button @click="removeAgentSkill(Number(index))"><Trash2 />移除</button></article></section><section class="editor-list knowledge-binding-editor"><header><strong>人物专属知识授权</strong><small>大江湖与所在小江湖的公共知识会按层级继承；这里选择只授权给该人物的来源。</small></header><label v-for="source in knowledgeSources" :key="source.id"><input v-model="agentDraft.knowledge_source_ids" type="checkbox" :value="source.id" /><span><b>{{ source.metadata?.relative_path || source.name }}</b><small>{{ source.metadata?.scope_type === 'organization' ? '大江湖' : source.metadata?.scope_type === 'team' ? '小江湖' : '知识来源' }}</small></span></label></section></div><aside class="agent-history"><section><header><strong>版本沿革</strong><b>{{ agentVersions.length }} 版</b></header><article v-for="version in agentVersions" :key="version.id"><b>第 {{ version.version }} 版 · {{ version.status === 'active' ? '当前' : '历史' }}</b><small>{{ version.role }} · {{ version.created_at }}</small></article></section><section><header><strong>独立长期经历</strong><b>{{ agentMemories.length }} 条</b></header><article v-for="memory in agentMemories.slice(0, 20)" :key="memory.id"><b>{{ memory.title }}</b><p>{{ memory.content }}</p><small>{{ memory.kind }} · {{ memory.created_at }}</small></article><p v-if="!agentMemories.length">这个人物尚未完成可沉淀的真实任务。</p></section></aside></div><footer><span>保存后创建新的不可变人物版本；活跃小江湖跟随新版，已冻结生产流不会被暗改。</span><button class="jh-primary" :disabled="busy" @click="saveAgentRevision"><LoaderCircle v-if="busy" class="spin" /><Settings2 v-else />保存为新版本</button></footer></section></div>
       </main>
 
-      <main v-else-if="screen === 'flows'" class="jh-page">
-        <section class="page-heading"><div><span>团队行事章法</span><h1>团队生产流</h1><p>每个节点由一支人物队伍负责，成员在节点内部协作、争辩或攻防。</p></div></section>
+      <main v-else-if="screen === 'flows'" ref="flowsPage" :class="['jh-page', { 'page-fallback-fullscreen': fullscreenTarget === 'flows' }]">
+        <section class="page-heading"><div><span>团队行事章法</span><h1>团队生产流</h1><p>每个节点由一支人物队伍负责，成员在节点内部协作、争辩或攻防。</p></div><button class="jh-secondary page-fullscreen-toggle" :aria-label="fullscreenTarget === 'flows' ? '退出全屏' : '全屏查看行事章法'" @click="togglePageFullscreen('flows')"><Minimize2 v-if="fullscreenTarget === 'flows'" /> <Maximize2 v-else />{{ fullscreenTarget === 'flows' ? '退出全屏' : '全屏查看' }}</button></section>
         <section v-if="!workflows.length" class="jh-empty">尚未形成行事章法。请先从江湖总览发布委托或事件。</section>
         <section v-else class="flow-list">
           <template v-for="family in workflowFamilies" :key="family.familyId">
@@ -1939,7 +2137,7 @@ onUnmounted(() => {
                 <label>正式交付目的<textarea v-model="selectedWorkflowNode.purpose"></textarea></label>
                 <label>节点执行类型<select v-model="selectedWorkflowNode.type"><option value="team_task">团队生产节点</option><option value="judge">独立裁判 Gate</option></select></label>
                 <label v-if="selectedWorkflowNode.type !== 'judge'">公开通信轮数<input v-model.number="selectedWorkflowNode.communication_rounds" type="number" min="1" max="3" /></label>
-                <p v-else class="dependency-empty-note">裁判使用独立身份、独立 OpenClaw 会话和独立 Prompt；不参加候选产物创作。不通过时自动定向打回责任节点。</p>
+                <p v-else class="dependency-empty-note">裁判使用独立身份、独立会话和独立指令；不参加候选产物创作。不通过时自动定向打回责任节点。</p>
                 <label>负责组织<select v-model="selectedWorkflowNode.team_id" @change="syncNodeTeam(selectedWorkflowNode)"><option v-for="team in teams" :key="team.id" :value="team.id">{{ team.name }}</option></select></label>
                 <fieldset class="dependency-picker">
                   <legend><strong>上游产物连接</strong><small>勾选后，来源节点完成交付，当前节点才具备启动条件</small></legend>
@@ -1966,14 +2164,14 @@ onUnmounted(() => {
 
       <main v-else-if="showcaseEnabled && screen === 'showcase'" class="jh-page showcase-page">
         <section class="page-heading showcase-heading">
-          <div><span>真实生产流演示案例</span><h1>单 Agent vs 多 Agent 协作 / 对抗</h1><p>同一模型、同一开发任务、同一独立裁判和同一隐藏验收集。仓库只内置案例规范与生产流，不预置运行结果；差异必须由真实 OpenClaw Run 产生。</p></div>
+          <div><span>真实生产流演示案例</span><h1>单 Agent vs 多 Agent 协作 / 对抗</h1><p>同一模型、同一开发任务、同一独立裁判和同一隐藏验收集。仓库只内置案例规范与生产流，不预置运行结果；差异必须由真实执行现场产生。</p></div>
           <span v-if="showcasePolling" class="live-badge"><i></i>对照实验进行中</span>
         </section>
 
         <section class="showcase-contract">
           <div class="showcase-scroll-mark">⚔️</div>
           <div><small>{{ showcase.case?.id }}</small><h2>{{ showcase.case?.name }}</h2><p>{{ showcase.case?.summary }}</p></div>
-          <aside><b>真实 LLM</b><b>真实 OpenClaw</b><b>真实文件与测试</b><b>独立裁判 Loop</b></aside>
+          <aside><b>真实模型</b><b>真实执行现场</b><b>真实文件与测试</b><b>独立裁判回路</b></aside>
         </section>
 
         <section class="showcase-task-card">
@@ -2026,18 +2224,20 @@ onUnmounted(() => {
         </section>
       </main>
 
-      <main v-else-if="screen === 'runs'" class="jh-page run-scene-page">
-        <section class="page-heading"><div><span>江湖正在行动</span><h1>事件现场</h1><p>这里展示真实模型调用产生的人物行动、节点状态、协作事件和正式产物。</p></div><span v-if="runPolling" class="live-badge"><i></i>现场更新中</span></section>
+      <main v-else-if="screen === 'runs'" ref="runsPage" :class="['jh-page', 'run-scene-page', { 'page-fallback-fullscreen': fullscreenTarget === 'runs' }]">
+        <section v-if="runTimeLimitExhausted" class="run-failure-station run-time-extension-card"><div><span>⏱</span><div><strong>运行时限已耗尽，可以继续这个现场</strong><p>增加运行时限后，系统会保留已完成节点和正式产物，只继续执行尚未完成的节点。</p><small>单次可增加 30、60 或 120 分钟；总运行时限最多 360 分钟。</small></div></div><div class="failure-retry-actions"><label>增加时限<select v-model.number="extensionMinutes"><option :value="30">30 分钟</option><option :value="60">60 分钟</option><option :value="120">120 分钟</option></select></label><button class="jh-primary" :disabled="busy" @click="extendActiveRun">延长并继续</button></div></section>
+        <section class="page-heading"><div><span>江湖正在行动</span><h1>事件现场</h1><p>这里展示真实模型调用产生的人物行动、节点状态、协作事件和正式产物。</p></div><div class="page-heading-actions"><span v-if="runPolling" class="live-badge"><i></i>现场更新中</span><button class="jh-secondary page-fullscreen-toggle" :aria-label="fullscreenTarget === 'runs' ? '退出全屏' : '全屏查看事件现场'" @click="togglePageFullscreen('runs')"><Minimize2 v-if="fullscreenTarget === 'runs'" /> <Maximize2 v-else />{{ fullscreenTarget === 'runs' ? '退出全屏' : '全屏查看' }}</button></div></section>
         <section v-if="!runs.length" class="jh-empty">还没有正式运行的事件。请先选择一套生产流，并用具体委托开始执行。</section>
         <section v-else class="run-list"><article v-for="run in runs" :key="run.id" :class="{ selected: activeRun?.id === run.id }"><div><strong>{{ run.workflow_name }}</strong><small>{{ run.id }}</small></div><span :data-status="run.status">{{ runStatusLabel(run.status) }}</span><b>{{ run.progress }}%</b><small>{{ run.task_count }} 个节点 · {{ run.artifact_count }} 份产物</small><button v-if="run.status === 'draft'" class="jh-primary" :disabled="busy" @click="startExistingRun(run)"><Play />开始执行</button><button v-else class="jh-secondary" @click="openRun(run.id)">查看现场</button></article></section>
 
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>{{ activeRun.id }}</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
           <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? '预算或运行时限已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ eventDetail(latestFailureEvent) }}</p><small>原 Run、失败证据和已有产物不会被覆盖；可以从当前未完成节点定向重试，也可以完整重跑。</small></div></div><div class="failure-retry-actions"><button v-if="selectedSceneTask" class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”重试</button><button class="jh-secondary" :disabled="busy" @click="retryActiveRun()"><RefreshCw />完整重跑</button></div></section>
+          <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
           <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
           <section class="society-duty-board">
             <header><div><span>人物当值榜</span><h3>谁在忙、忙什么、最近留下了什么</h3><p>状态由真实 Run 事件推导，不靠前端模拟；点击人物可定位到他当前所在的生产节点。</p></div><b>{{ activePresenceCount }} 人在办事</b></header>
-            <div><button v-for="presence in activeRun.agent_presence ?? []" :key="presence.agent_id" :data-state="presence.state" :disabled="!presence.task_id" @click="selectPresence(presence)"><i>{{ initials(presence.name) }}</i><span><strong>{{ presence.name }} · {{ presence.role }}</strong><b>{{ presence.state_label }}</b><small>{{ presence.node_name || '暂无负责节点' }}</small><em>{{ presencePreview(presence) }}</em></span></button></div>
+            <div><button v-for="presence in activeRun.agent_presence ?? []" :key="presence.agent_id" :data-state="presence.state" :disabled="!presence.task_id" @click="selectPresence(presence)"><i>{{ initials(presence.name) }}</i><span><strong>{{ presence.name }} · {{ presence.role }}</strong><b>{{ uiRuntimeText(presence.state_label) }}</b><small>{{ presence.node_name || '暂无负责节点' }}</small><em>{{ presencePreview(presence) }}</em></span></button></div>
           </section>
           <section class="society-run-scene">
             <header><div><span>江湖实景沙盘</span><h3>人物正在城镇中真实行动</h3><p>建筑代表生产节点，人物会在负责场所附近移动；点击建筑或人物查看当前行动和公开发言。</p><small class="run-version-note">{{ runWorkflowVersionNote(activeRun) }}</small></div><div class="scene-focus-actions"><b>{{ activeRun.tasks.filter((task: Json) => ['running','retrying'].includes(task.status)).length }} 处正在行动</b><button v-if="activeRun.tasks.some((task: Json) => ['running','retrying','failed'].includes(String(task.status)))" @click="focusCurrentTask">定位当前行动</button></div></header>
@@ -2072,14 +2272,14 @@ onUnmounted(() => {
                     <div v-if="sceneArrivedParticipants(selectedSceneTask).length" class="attendance-grid">
                       <article v-for="person in sceneArrivedParticipants(selectedSceneTask)" :key="person.id" class="attendance-card" :data-tone="personActivity(selectedSceneTask, person).tone">
                         <i class="attendance-avatar">{{ initials(person.name) }}</i>
-                        <div class="attendance-main"><header><div><b>{{ person.name }}</b><small>{{ person.role }}</small></div><span>{{ personActivity(selectedSceneTask, person).state }}</span></header><p class="attendance-duty">本节点职责 · {{ participantDuty(selectedSceneTask, person) }}</p><blockquote>{{ personActivity(selectedSceneTask, person).speech }}</blockquote><footer><span>🦞 OpenClaw</span><span>🧠 {{ person.memory_count ?? 0 }} 条 Memory</span><span>🧰 {{ enabledSkillCount(person) }} 项 Skill</span><button v-if="canRetryFailedAgent(selectedSceneTask, person)" :disabled="busy" @click="retryFailedAgent(selectedSceneTask, person)"><RefreshCw />让此人物重新行动</button></footer></div>
+                        <div class="attendance-main"><header><div><b>{{ person.name }}</b><small>{{ person.role }}</small></div><span>{{ personActivity(selectedSceneTask, person).state }}</span></header><p class="attendance-duty">本节点职责 · {{ participantDuty(selectedSceneTask, person) }}</p><blockquote>{{ personActivity(selectedSceneTask, person).speech }}</blockquote><footer><span>⚙️ 执行底座</span><span>🧠 {{ person.memory_count ?? 0 }} 条经历</span><span>🧰 {{ enabledSkillCount(person) }} 项技艺</span><button v-if="canRetryFailedAgent(selectedSceneTask, person)" :disabled="busy" @click="retryFailedAgent(selectedSceneTask, person)"><RefreshCw />让此人物重新行动</button></footer></div>
                       </article>
                     </div>
                     <div v-else class="empty-room">节点尚未产生任何人物行动事件，当前没有可确认的实际到场者。</div>
-                    <div v-if="sceneWaitingParticipants(selectedSceneTask).length" class="attendance-waiting"><b>候场人物</b><span v-for="person in sceneWaitingParticipants(selectedSceneTask)" :key="person.id">{{ person.name }} · {{ person.role }}</span><small>已绑定本节点，但尚未产生上下文整备、OpenClaw 回合、工具、通信或提交事件。</small></div>
+                    <div v-if="sceneWaitingParticipants(selectedSceneTask).length" class="attendance-waiting"><b>候场人物</b><span v-for="person in sceneWaitingParticipants(selectedSceneTask)" :key="person.id">{{ person.name }} · {{ person.role }}</span><small>已绑定本节点，但尚未产生上下文整备、执行回合、工具、通信或提交事件。</small></div>
                   </section>
                   <section class="dossier-summary"><strong>节点公共卷宗</strong><div><span>获准知识 <b>{{ selectedNodeDossier?.knowledge?.length ?? 0 }}</b></span><span>独立提交 <b>{{ selectedNodeDossier?.contributions?.length ?? 0 }}</b></span><span>公开消息 <b>{{ selectedNodeDossier?.communications?.length ?? 0 }}</b></span><span>工程提交 <b>{{ selectedNodeDossier?.integration?.length ?? 0 }}</b></span><span>用户意见 <b>{{ selectedNodeDossier?.interventions?.length ?? 0 }}</b></span><span>正式产物 <b>{{ selectedNodeDossier?.artifacts?.length ?? 0 }}</b></span></div><p>卷宗中的每条内容都有来源人物、节点、时间和事件类型；点击下方记录可查看实际注入了哪些上游产物、知识和发起人意见。</p></section>
-                  <details v-for="event in selectedNodeDossier?.context ?? []" :key="event.id" class="ledger-detail"><summary><b>{{ collaborationSpeaker(event) }}</b><span>{{ eventTypeLabel(event.type) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><pre>{{ publicEventContent(event) || event.summary }}</pre><div v-if="event.payload?.interventions?.length" class="intervention-chips"><span v-for="item in event.payload.interventions" :key="item.id">{{ item.kind }} · {{ item.content }}</span></div></details>
+                  <details v-for="event in selectedNodeDossier?.context ?? []" :key="event.id" class="ledger-detail"><summary><b>{{ collaborationSpeaker(event) }}</b><span>{{ eventTypeLabel(event.type) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre><div v-if="event.payload?.interventions?.length" class="intervention-chips"><span v-for="item in event.payload.interventions" :key="item.id">{{ item.kind }} · {{ item.content }}</span></div></details>
                   <details v-for="event in selectedNodeDossier?.knowledge ?? []" :key="event.id" class="ledger-detail knowledge-entry"><summary><b>{{ collaborationSpeaker(event) }}</b><span>{{ eventTypeLabel(event.type) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><pre>{{ publicEventContent(event) || event.summary }}</pre><div v-if="event.payload?.matches?.length" class="knowledge-match-list"><span v-for="match in event.payload.matches" :key="`${match.source_id}-${match.locator}`"><b>{{ match.source_name }}</b><small>{{ match.locator }} · 相关度 {{ Number(match.score ?? 0).toFixed(3) }}</small></span></div></details>
                   <details v-if="taskRetryEvents(selectedSceneTask).length" class="retry-ledger" open><summary>重试与失败记录</summary><div v-for="event in taskRetryEvents(selectedSceneTask)" :key="event.id"><b>{{ eventTypeLabel(event.type) }}</b><span>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</span><p>{{ friendlyFailureReason(event) }}</p><code>{{ retryEventDetail(event) }}</code><details><summary>查看技术详情</summary><pre>{{ eventDetail(event) }}</pre></details></div></details>
                 </div>
@@ -2097,7 +2297,7 @@ onUnmounted(() => {
 
                 <div v-else-if="scenePanelTab === 'evidence'" class="scene-tab-content evidence-ledger">
                   <div v-if="!taskEvidenceEvents(selectedSceneTask).length" class="empty-room">工程人物真实修改文件、执行命令或运行测试后，证据会在这里出现。</div>
-                  <details v-for="event in [...taskEvidenceEvents(selectedSceneTask)].reverse()" :key="event.id" class="ledger-detail" :data-type="event.type"><summary><b>{{ eventTypeLabel(event.type) }}</b><span>{{ event.payload?.path ?? event.payload?.command ?? event.summary }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><code v-if="event.payload?.sha256">SHA-256：{{ event.payload.sha256 }}</code><code v-if="event.payload?.exit_code !== undefined && event.payload?.exit_code !== null">退出码：{{ event.payload.exit_code }} · {{ event.payload?.passed === false ? '未通过' : '已完成' }}</code><pre>{{ publicEventContent(event) || event.summary }}</pre></details>
+                  <details v-for="event in [...taskEvidenceEvents(selectedSceneTask)].reverse()" :key="event.id" class="ledger-detail" :data-type="event.type"><summary><b>{{ eventTypeLabel(event.type) }}</b><span>{{ event.payload?.path ?? event.payload?.command ?? uiRuntimeText(event.summary) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><code v-if="event.payload?.sha256">SHA-256：{{ event.payload.sha256 }}</code><code v-if="event.payload?.exit_code !== undefined && event.payload?.exit_code !== null">退出码：{{ event.payload?.exit_code }} · {{ event.payload?.passed === false ? '未通过' : '已完成' }}</code><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre></details>
                   <a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" class="code-package-link" :href="api.runCodeDownloadUrl(activeRun.id)"><Download />下载本 Run 的真实工程代码包</a>
                 </div>
 
@@ -2113,13 +2313,13 @@ onUnmounted(() => {
                 </div>
               </aside>
             </div>
-            <footer class="world-broadcast"><strong>📣 江湖播报</strong><div><article v-for="event in worldBroadcasts" :key="event.id"><span>{{ eventAgent(event)?.name ?? (event.payload?.team_id ? teamById[event.payload.team_id]?.name : '平台') }}</span><p>{{ ['task.failed','run.failed','llm.retrying','task.retrying'].includes(String(event.type)) ? eventDetail(event) : (event.payload?.contribution_preview ?? event.summary) }}</p><small>{{ eventTypeLabel(event.type) }} · {{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></article></div></footer>
+            <footer class="world-broadcast"><strong>📣 江湖播报</strong><div><article v-for="event in worldBroadcasts" :key="event.id"><span>{{ eventAgent(event)?.name ?? (event.payload?.team_id ? teamById[event.payload.team_id]?.name : '平台') }}</span><p>{{ ['task.failed','run.failed','llm.retrying','task.retrying'].includes(String(event.type)) ? eventDetail(event) : uiRuntimeText(event.payload?.contribution_preview ?? event.summary) }}</p><small>{{ eventTypeLabel(event.type) }} · {{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></article></div></footer>
           </section>
           <section class="artifact-board"><header><div><span>正式交付</span><h3>节点产物</h3></div><b>{{ activeRun.artifacts?.length ?? 0 }} 份</b></header><div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div><details v-for="artifact in activeRun.artifacts" :key="artifact.id" class="artifact-card"><summary><div><strong>{{ artifact.title }}</strong><small>{{ artifact.kind }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开查看</span></summary><div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id)"><Download />下载独立文件</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div><pre>{{ artifact.content }}</pre></details></section>
         </section>
       </main>
 
-      <main v-else class="jh-page"><section class="page-heading"><div><span>MODEL & AGENT RUNTIME</span><h1>模型、凭据与 OpenClaw</h1><p>生产流生成使用真实模型；正式人物节点由 OpenClaw 装载独立身份、Memory、Skills 和会话后执行。</p></div></section><section class="openclaw-runtime-card" :data-ready="openClawStatus.available"><span>🦞</span><div><small>OpenClaw Runtime · {{ openClawStatus.mode }}</small><h2>{{ openClawStatus.available ? '运行时健康，可接管 Agent' : '运行时不可用，将阻断新人物任务' }}</h2><p>{{ openClawStatus.version || openClawStatus.error }}</p><code>{{ openClawStatus.state_root }}</code></div><button class="jh-secondary" @click="loadAll"><RefreshCw />重新检查</button></section><section class="model-layout"><aside><button v-for="config in modelConfigs" :key="config.id" :class="{ active: modelForm.id === config.id }" @click="selectModel(config)"><strong>{{ config.name }}</strong><small>{{ config.provider }} · {{ config.model }}</small></button></aside><div class="model-form"><label>配置名称<input v-model="modelForm.name" /></label><label>协议<input v-model="modelForm.provider" /></label><label>Base URL<input v-model="modelForm.base_url" /></label><label>模型<input v-model="modelForm.model" /></label><label>Token<input v-model="modelForm.token" type="password" placeholder="留空保留已加密凭据" /></label><div><button class="jh-secondary" @click="testModel"><Zap />测试</button><button class="jh-primary" @click="saveModel">安全保存</button></div><p>{{ modelMessage }}</p></div></section></main>
+      <main v-else class="jh-page"><section class="page-heading"><div><span>模型与执行设置</span><h1>模型、凭据与执行底座</h1><p>人物的思考能力决定默认模型档位；权力等级只影响结论的组织采纳程度，不决定数据访问范围。</p></div></section><section class="openclaw-runtime-card" :data-ready="openClawStatus.available"><Settings2 /><div><small>执行底座状态</small><h2>{{ openClawStatus.available ? '运行正常，可开始人物任务' : '暂不可用，将阻断新人物任务' }}</h2><p>{{ openClawStatus.available ? '独立会话、工具和经历空间已准备就绪。' : '请稍后重新检查运行状态。' }}</p></div><button class="jh-secondary" @click="loadAll"><RefreshCw />重新检查</button></section><section class="model-tier-notice"><b>三档模型可独立配置</b><span>高档用于高阶判断，中档用于综合协作，低档用于执行与格式化；生产流会按人物思考能力自动选择，也允许在节点上显式调整。</span></section><section class="model-layout"><aside><button v-for="config in modelConfigs" :key="config.id" :class="{ active: modelForm.id === config.id }" @click="selectModel(config)"><strong>{{ config.name }} · {{ ({ high: '高', medium: '中', low: '低' } as Json)[config.tier ?? 'medium'] }}</strong><small>{{ config.provider }} · {{ config.model }}</small></button></aside><div class="model-form"><label>配置名称<input v-model="modelForm.name" /></label><label>模型档位<select v-model="modelForm.tier"><option value="high">高：复杂判断与裁决</option><option value="medium">中：综合协作与规划</option><option value="low">低：执行、提取与格式化</option></select></label><label>协议<input v-model="modelForm.provider" /></label><label>Base URL<input v-model="modelForm.base_url" /></label><label>模型<input v-model="modelForm.model" /></label><label>Token<input v-model="modelForm.token" type="password" placeholder="留空保留已加密凭据" /></label><div><button class="jh-secondary" @click="testModel"><Zap />测试</button><button class="jh-primary" @click="saveModel">安全保存</button></div><p>{{ modelMessage }}</p></div></section></main>
     </div>
   </div>
 </template>

@@ -21,6 +21,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   platformOverview: () => request<Record<string, unknown>>('/api/platform/overview'),
   organizations: () => request<Record<string, unknown>[]>('/api/platform/organizations'),
+  updateOrganization: (organizationId: string, payload: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/platform/organizations/${encodeURIComponent(organizationId)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  generateOrganization: (payload: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/api/platform/organizations/generate', { method: 'POST', body: JSON.stringify(payload) }),
   platformProjects: () => request<Record<string, unknown>[]>('/api/platform/projects'),
   platformRuns: () => request<Record<string, unknown>[]>('/api/platform/runs'),
   productionFlowShowcase: () =>
@@ -47,6 +51,8 @@ export const api = {
   teams: (organizationId = 'org_jianghu') => request<Record<string, unknown>[]>(`/api/platform/teams?organization_id=${encodeURIComponent(organizationId)}`),
   createTeam: (team: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/teams', { method: 'POST', body: JSON.stringify(team) }),
+  updateTeam: (teamId: string, payload: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/platform/teams/${encodeURIComponent(teamId)}`, { method: 'PUT', body: JSON.stringify(payload) }),
   addTeamMember: (teamId: string, agentId: string, responsibility = '') =>
     request<Record<string, unknown>>(`/api/platform/teams/${teamId}/members`, {
       method: 'POST',
@@ -165,6 +171,10 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/pause`, { method: 'POST' }),
   resumePlatformRun: (runId: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/resume`, { method: 'POST' }),
+  extendPlatformRun: (runId: string, minutes: number) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/extend`, {
+      method: 'POST', body: JSON.stringify({ minutes }),
+    }),
   intervenePlatformRun: (runId: string, payload: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/interventions`, {
       method: 'POST', body: JSON.stringify(payload),

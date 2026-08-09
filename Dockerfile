@@ -60,7 +60,7 @@ RUN useradd --create-home --uid 10001 appuser \
     && node --version \
     && openclaw --version
 
-USER appuser
+USER root
 EXPOSE 8000
 VOLUME ["/app/.data"]
 

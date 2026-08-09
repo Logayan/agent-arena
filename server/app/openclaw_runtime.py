@@ -169,6 +169,7 @@ class OpenClawRuntime:
         memories_by_agent: dict[str, list[dict[str, Any]]],
         model_config: dict[str, Any],
         tool_enabled_agent_ids: set[str] | None = None,
+        model_configs: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         if not model_config.get("token"):
             raise OpenClawRuntimeError("openclaw_model_token_missing")
@@ -181,6 +182,24 @@ class OpenClawRuntime:
         model_id = str(model_config.get("model") or "")
         if not base_url or not model_id:
             raise OpenClawRuntimeError("openclaw_model_config_incomplete")
+
+        configured_models: list[dict[str, Any]] = []
+        seen_models: set[str] = set()
+        for candidate in [model_config, *(model_configs or [])]:
+            candidate_id = str(candidate.get("model") or "")
+            candidate_url = str(candidate.get("base_url") or "").rstrip("/")
+            if not candidate_id or not candidate_url or candidate_id in seen_models:
+                continue
+            if provider_protocol == "openai-responses" and not candidate_url.endswith("/v1"):
+                candidate_url = f"{candidate_url}/v1"
+            if candidate_url != base_url:
+                # OpenClaw providers are shared by URL; do not silently attach
+                # a model from another endpoint to the current provider.
+                continue
+            seen_models.add(candidate_id)
+            configured_models.append({"id": candidate_id, "name": candidate_id})
+        if model_id not in seen_models:
+            configured_models.insert(0, {"id": model_id, "name": model_id})
 
         config_agents: list[dict[str, Any]] = []
         engineering_agents = tool_enabled_agent_ids or set()
@@ -271,8 +290,7 @@ class OpenClawRuntime:
                         "authHeader": True,
                         "models": [
                             {
-                                "id": model_id,
-                                "name": model_id,
+                                **candidate,
                                 "api": api,
                                 "reasoning": True,
                                 "input": ["text"],
@@ -285,6 +303,7 @@ class OpenClawRuntime:
                                 "compat": {"supportsDeveloperRole": True},
                                 "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
                             }
+                            for candidate in configured_models
                         ],
                     }
                 },
@@ -311,6 +330,7 @@ class OpenClawRuntime:
             "agent_count": len(config_agents),
             "config_path": str(self.config_path),
             "model": f"{provider_id}/{model_id}",
+            "models": [f"{provider_id}/{item['id']}" for item in configured_models],
             "tool_enabled_agent_ids": sorted(engineering_agents),
         }
 
@@ -646,6 +666,8 @@ class OpenClawRuntime:
             str(agent["id"]),
             "--session-key",
             session_key,
+            "--model",
+            f"jianghu/{str(model_config.get('model') or '')}",
             "--timeout",
             str(max(30, min(timeout_seconds, 600))),
         ]
@@ -741,6 +763,8 @@ class OpenClawRuntime:
                 "agent_id": agent["id"],
                 "session_key": session_key,
                 "raw_status": payload.get("status") or "completed",
+                "model": str(model_config.get("model") or ""),
+                "model_tier": str(model_config.get("tier") or "medium"),
                 "session_id": session_id,
                 "session_file": str(session_file) if session_file else "",
                 "workspace": str(workspace),

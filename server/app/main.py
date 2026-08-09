@@ -9,8 +9,11 @@ import re
 import shutil
 import tempfile
 import zipfile
+from uuid import uuid4
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +58,7 @@ class ModelConfigRequest(BaseModel):
     provider: str = "anthropic-compatible"
     base_url: str = Field(min_length=8)
     model: str = Field(min_length=1)
+    tier: str = Field(default="medium", pattern="^(high|medium|low)$")
     token: str | None = None
     active: bool = True
 
@@ -104,6 +108,7 @@ class TeamKnowledgeNoteRequest(BaseModel):
 
 
 class AgentCreateRequest(BaseModel):
+    organization_id: str = "org_jianghu"
     name: str = Field(min_length=1)
     role: str = Field(min_length=1)
     description: str = ""
@@ -113,6 +118,8 @@ class AgentCreateRequest(BaseModel):
     skills: list[dict[str, object]] = Field(default_factory=list)
     runtime: str = "openclaw"
     memory_policy: dict[str, object] = Field(default_factory=lambda: {"enabled": True, "max_prompt_items": 8, "write_after_task": True})
+    cognitive_level: int = Field(default=2, ge=1, le=3)
+    authority_level: int = Field(default=1, ge=1, le=3)
 
 
 class AgentRevisionRequest(AgentCreateRequest):
@@ -134,6 +141,22 @@ class AgentGenerateRequest(BaseModel):
     required_capabilities: list[str] = Field(default_factory=list)
 
 
+class OrganizationGenerateRequest(BaseModel):
+    source_type: str = Field(default="intent", pattern="^(intent|knowledge)$")
+    world_type: str = Field(default="large", pattern="^(large|small)$")
+    name: str = Field(default="", max_length=160)
+    purpose: str = Field(default="", max_length=2_000)
+    operating_mode: str = Field(default="collaborative", pattern="^(collaborative|debate|red_team|hierarchical)$")
+    intent: str = Field(min_length=3, max_length=8_000)
+    knowledge_source_ids: list[str] = Field(default_factory=list)
+    organization_id: str = "org_jianghu"
+
+
+class OrganizationUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=8_000)
+
+
 class TeamMemberRequest(BaseModel):
     agent_id: str
     member_role: str = "member"
@@ -148,6 +171,12 @@ class TeamCreateRequest(BaseModel):
     members: list[TeamMemberRequest] = Field(min_length=1)
     visibility: str = "private"
     knowledge_paths: list[str] = Field(default_factory=list)
+
+
+class TeamUpdateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    purpose: str = Field(default="", max_length=2_000)
+    operating_mode: str = Field(default="collaborative", pattern="^(collaborative|debate|red_team|hierarchical)$")
 
 
 class CommissionAssessRequest(BaseModel):
@@ -188,6 +217,10 @@ class RunInterventionRequest(BaseModel):
 
 class RunRetryRequest(BaseModel):
     from_task_id: str | None = None
+
+
+class RunTimeExtensionRequest(BaseModel):
+    minutes: Literal[30, 60, 120] = 60
 
 
 platform_tasks: dict[str, asyncio.Task[None]] = {}
@@ -295,6 +328,27 @@ def bounded_score(value: object, default: int = 0) -> int:
     return max(0, min(100, score))
 
 
+GENERATED_PERSON_NAME_POOLS = {
+    "召集人": ["沈砚舟", "顾知衡", "林观澜", "程墨安", "陆行远"],
+    "实践者": ["顾行知", "苏砚秋", "周予安", "许明川", "叶知行"],
+    "质询者": ["陆闻达", "谢清衡", "裴知远", "唐谨言", "秦见微"],
+}
+
+
+def next_generated_person_name(role: str, used_names: set[str]) -> str:
+    pool = GENERATED_PERSON_NAME_POOLS.get(role, ["江知远"])
+    for name in pool:
+        if name not in used_names:
+            used_names.add(name)
+            return name
+    suffix = 2
+    while f"{pool[0]}{suffix}" in used_names:
+        suffix += 1
+    name = f"{pool[0]}{suffix}"
+    used_names.add(name)
+    return name
+
+
 def public_llm_error(exc: Exception) -> str:
     message = str(exc)
     if "model_token_cannot_be_decrypted" in message or "legacy_model_token_cannot_be_decrypted" in message:
@@ -347,6 +401,90 @@ async def list_platform_projects() -> list[dict[str, object]]:
 @app.get("/api/platform/organizations")
 async def list_platform_organizations() -> list[dict[str, object]]:
     return platform_store.list_organizations()
+
+
+@app.put("/api/platform/organizations/{organization_id}")
+async def update_platform_organization(organization_id: str, request: OrganizationUpdateRequest) -> dict[str, object]:
+    try:
+        organization = platform_store.update_organization(
+            organization_id,
+            name=request.name,
+            description=request.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"organization": organization}
+
+
+@app.post("/api/platform/organizations/generate")
+async def generate_platform_organization(request: OrganizationGenerateRequest) -> dict[str, object]:
+    """Create a large society or small team from an intent/knowledge brief.
+
+    Person blueprints are created from a small deterministic roster here. The
+    richer LLM-based character generator remains available for follow-up
+    refinement, so organization creation never leaves an empty roster.
+    """
+    source_hint = "知识库" if request.source_type == "knowledge" else "意图"
+    requested_name = request.name.strip()
+    requested_purpose = request.purpose.strip()
+    title = request.intent.strip().splitlines()[0][:36]
+    selected_sources = [
+        item for item in platform_store.list_knowledge_sources()
+        if str(item.get("id")) in {str(source_id) for source_id in request.knowledge_source_ids}
+    ]
+    source_context = request.intent.strip()
+    if request.source_type == "knowledge" and selected_sources:
+        source_context = "依据知识库：" + "、".join(str(item.get("name") or "未命名知识") for item in selected_sources) + "。补充描述：" + source_context
+    roster = [
+        ("召集人", "负责目标拆解、取舍和最终整合", 2, 3),
+        ("实践者", "负责把方案转成可执行行动", 2, 1),
+        ("质询者", "负责证据检查、风险识别和反向验证", 3, 2),
+    ]
+    used_agent_names = {str(item.get("name") or "") for item in platform_store.list_agents()}
+    if request.world_type == "large":
+        organization_id = f"org_generated_{uuid4().hex[:10]}"
+        existing = next((item for item in platform_store.list_organizations() if item["id"] == organization_id), None)
+        if existing:
+            return {"organization": existing, "generation": {"mode": "reused", "source": source_hint}}
+        now_name = title if title and not title.startswith("例如") else "新江湖共同体"
+        with platform_store._connect() as db:  # local domain store owns the transaction
+            now = datetime.now(timezone.utc).isoformat()
+            db.execute(
+                "INSERT INTO organizations(id,name,owner_name,world_type,user_identity,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                (organization_id, now_name, "发起人", "open_society", "发起人", source_context, now, now),
+            )
+        organization = next(item for item in platform_store.list_organizations() if item["id"] == organization_id)
+        generated_agents = []
+        for index, (role, description, cognitive, authority) in enumerate(roster):
+            generated_agents.append(platform_store.create_agent(
+                name=next_generated_person_name(role, used_agent_names), role=role, description=description,
+                persona=f"围绕“{source_context[:120]}”行动，保持独立判断并通过公开产物协作。",
+                capabilities=["目标拆解", "行动执行" if index == 1 else "证据判断"], visibility="private",
+                runtime="openclaw", cognitive_level=cognitive, authority_level=authority, organization_id=organization_id,
+            ))
+        return {"organization": organization, "agents": generated_agents, "generation": {"mode": "created", "source": source_hint, "knowledge_source_ids": request.knowledge_source_ids}}
+
+    parent = next((item for item in platform_store.list_organizations() if item["id"] == request.organization_id), None)
+    if not parent:
+        raise HTTPException(status_code=404, detail="organization_not_found")
+    members: list[dict[str, str]] = []
+    for index, (role, description, cognitive, authority) in enumerate(roster):
+        agent = platform_store.create_agent(
+            name=next_generated_person_name(role, used_agent_names), role=role, description=description,
+            persona=f"围绕“{request.intent.strip()[:120]}”行动，保持独立判断并通过公开产物协作。",
+            capabilities=["目标拆解", "行动执行" if index == 1 else "证据判断"],
+            visibility="private", runtime="openclaw", cognitive_level=cognitive, authority_level=authority, organization_id=request.organization_id,
+        )
+        members.append({"agent_id": str(agent["id"]), "member_role": "leader" if index == 0 else "member", "responsibility": description})
+    team = platform_store.create_team(
+        organization_id=request.organization_id,
+        name=requested_name[:36] or title[:36] or "新小江湖",
+        purpose=requested_purpose or source_context,
+        operating_mode=request.operating_mode,
+        members=members,
+        visibility="private",
+    )
+    return {"team": team, "generation": {"mode": "created", "source": source_hint, "knowledge_source_ids": request.knowledge_source_ids}}
 
 
 @app.get("/api/platform/runs")
@@ -510,6 +648,8 @@ async def generate_platform_agent(request: AgentGenerateRequest) -> dict[str, ob
                 "persona": "background, temperament, values, professional stance, collaboration and conflict behavior",
                 "capabilities": ["human-readable professional skill, use the user's language rather than machine keys"],
                 "skills": [{"name": "可装载技能名称", "description": "何时使用", "instructions": "执行规范", "enabled": True}],
+                "cognitive_level": "1=执行型，2=综合型，3=高阶判断型；只代表思考复杂度",
+                "authority_level": "1=建议，2=可影响团队，3=结论更容易被团队遵守；不代表数据权限",
             },
         },
         ensure_ascii=False,
@@ -556,6 +696,9 @@ async def generate_platform_agent(request: AgentGenerateRequest) -> dict[str, ob
         skills=[dict(item) for item in skills if isinstance(item, dict)],
         runtime="openclaw",
         memory_policy={"enabled": True, "max_prompt_items": 8, "write_after_task": True},
+        cognitive_level=bounded_score(generated.get("cognitive_level"), 2) if bounded_score(generated.get("cognitive_level"), 2) in {1, 2, 3} else 2,
+        authority_level=bounded_score(generated.get("authority_level"), 1) if bounded_score(generated.get("authority_level"), 1) in {1, 2, 3} else 1,
+        organization_id=request.organization_id,
     )
     return {"agent": agent, "generation": {"mode": "real-llm", "model": configured_llm().model}}
 
@@ -579,6 +722,20 @@ async def create_platform_team(request: TeamCreateRequest) -> dict[str, object]:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"team": team}
+
+
+@app.put("/api/platform/teams/{team_id}")
+async def update_platform_team(team_id: str, request: TeamUpdateRequest) -> dict[str, object]:
+    try:
+        team = platform_store.update_team(
+            team_id,
+            name=request.name,
+            purpose=request.purpose,
+            operating_mode=request.operating_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"team": team}
 
 
@@ -1131,6 +1288,7 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
                     "key": "node_key", "name": "Chinese node name", "purpose": "Chinese formal output", "team_id": "available team id",
                     "participant_agent_ids": ["only the member ids materially needed for this node"],
                     "lead_agent_id": "one participant who coordinates this node",
+                    "model_tier": "high|medium|low; default follows the highest cognitive_level among participants",
                     "type": "team_task | judge",
                     "communication_rounds": "1-3; judge must be 0",
                 }],
@@ -1195,6 +1353,9 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
                 node_type = "judge" if str(node.get("type") or "") == "judge" or any(keyword in str(leader.get("role") or "") for keyword in ("裁判", "验收", "仲裁")) else "team_task"
                 if node_type == "judge":
                     participant_ids = [lead_id]
+                requested_tier = str(node.get("model_tier") or "").lower()
+                cognitive_max = max(int(team_member_map[item].get("cognitive_level") or 2) for item in participant_ids)
+                model_tier = requested_tier if requested_tier in {"high", "medium", "low"} else {1: "low", 2: "medium", 3: "high"}[cognitive_max]
                 normalized_nodes.append(
                     {
                         "key": str(node.get("key") or f"node_{index + 1}"),
@@ -1206,6 +1367,7 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
                         "agent_id": leader["id"],
                         "agent_role": leader["role"],
                         "participant_agent_ids": participant_ids,
+                        "model_tier": model_tier,
                         "communication_rounds": 0 if node_type == "judge" else max(1, min(3, int(node.get("communication_rounds", 1) or 1))),
                     }
                 )
@@ -1215,7 +1377,7 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
                 "outputs": ["accepted_delivery"],
                 "nodes": normalized_nodes,
                 "edges": generated.get("edges") if isinstance(generated.get("edges"), list) else [],
-                "policies": {"max_parallel_agents": 5, "max_debate_rounds": 3, "max_revision_rounds": 3, "max_run_minutes": 60},
+                "policies": {"max_parallel_agents": 5, "max_debate_rounds": 3, "max_revision_rounds": 3, "max_run_minutes": 180},
             }
             workflow_name = str(generated.get("name") or (selected["name"] if selected else f"{company_task['title']}生产流"))
             workflow_description = str(generated.get("description") or (selected["description"] if selected else "由江湖人物团队共同完成任务的生产流。"))
@@ -1422,6 +1584,7 @@ async def save_model_config(request: ModelConfigRequest) -> dict[str, object]:
             provider=request.provider,
             base_url=request.base_url,
             model=request.model,
+            tier=request.tier,
             token=request.token,
             active=request.active,
         )
@@ -1433,7 +1596,8 @@ async def save_model_config(request: ModelConfigRequest) -> dict[str, object]:
 @app.post("/api/platform/model-configs/test")
 async def test_model_config(request: ModelConnectionTestRequest) -> dict[str, object]:
     if request.id and not request.token:
-        active = platform_store.get_active_model_config(include_secret=True)
+        listed = next((item for item in platform_store.list_model_configs() if item["id"] == request.id), None)
+        active = platform_store.get_model_config_for_tier(str((listed or {}).get("tier") or "medium"), include_secret=True)
         if not active or active["id"] != request.id:
             raise HTTPException(status_code=404, detail="active_model_config_not_found")
         base_url, model, token = active["base_url"], active["model"], active["token"]
@@ -1566,7 +1730,7 @@ async def build_platform_workflow(request: WorkflowBuildRequest) -> dict[str, ob
                 "description": "string",
                 "nodes": [{"key": "node_key", "name": "string", "type": "agent_task|judge", "agent_role": "one available role", "purpose": "string", "communication_rounds": "0-3"}],
                 "edges": [["from_node_key", "to_node_key"]],
-                "policies": {"max_parallel_agents": 5, "max_debate_rounds": 3, "max_run_minutes": 60},
+                "policies": {"max_parallel_agents": 5, "max_debate_rounds": 3, "max_run_minutes": 180},
             },
         },
         ensure_ascii=False,
@@ -1609,7 +1773,7 @@ async def build_platform_workflow(request: WorkflowBuildRequest) -> dict[str, ob
         "edges": generated.get("edges") if isinstance(generated.get("edges"), list) else [],
         "policies": {
             "max_parallel_agents": 5, "max_debate_rounds": 3, "max_revision_rounds": 3,
-            "max_run_minutes": 60,
+            "max_run_minutes": 180,
             **(generated.get("policies") if isinstance(generated.get("policies"), dict) else {}),
         },
     }
@@ -1740,6 +1904,8 @@ async def cancel_platform_run(run_id: str) -> dict[str, object]:
     run = platform_store.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="run_not_found")
+    if run["status"] in {"completed", "failed", "cancelled", "budget_exhausted", "revision_exhausted"}:
+        raise HTTPException(status_code=409, detail="run_is_terminal")
     active = platform_tasks.get(run_id)
     platform_store.update_run(run_id, status="cancelled", stage="cancelled")
     if active and not active.done():
@@ -1790,6 +1956,39 @@ async def resume_platform_run(run_id: str) -> dict[str, object]:
         prepare_openclaw_run(platform_store.get_run(run_id) or run)
         schedule_platform_execution(run_id)
     return {"run": platform_store.get_run(run_id)}
+
+
+@app.post("/api/platform/runs/{run_id}/extend")
+async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest) -> dict[str, object]:
+    try:
+        extended = platform_store.extend_run_time(run_id, request.minutes)
+    except ValueError as exc:
+        detail = str(exc)
+        status = 404 if detail in {"run_not_found", "workflow_not_found"} else 409
+        raise HTTPException(status_code=status, detail=detail) from exc
+    active = platform_tasks.get(run_id)
+    if not active or active.done():
+        runtime_snapshot = prepare_openclaw_run(extended)
+        schedule_platform_execution(run_id)
+    else:
+        runtime_snapshot = {"status": "existing_execution_finishing"}
+    return {
+        "run": platform_store.get_run(run_id),
+        "extension": {
+            "minutes": request.minutes,
+            "effective_minutes": next(
+                (
+                    event.get("payload", {}).get("effective_minutes")
+                    for event in reversed(extended.get("events", []))
+                    if event.get("type") == "run.time_extended"
+                ),
+                None,
+            ),
+            "maximum_minutes": 360,
+            "status": "started",
+            "runtime_snapshot": runtime_snapshot,
+        },
+    }
 
 
 @app.post("/api/platform/runs/{run_id}/interventions")
