@@ -1905,7 +1905,9 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
         "retry": {
             "source_run_id": run_id,
             "source_task_id": request.from_task_id if request else None,
-            "mode": "targeted_new_run" if request and request.from_task_id else "new_run",
+            "mode": "targeted_new_version" if request and request.from_task_id else "new_version",
+            "run_family_id": retry.get("run_family_id"),
+            "run_version": retry.get("run_version"),
             "status": "started",
             "runtime_snapshot": runtime_snapshot,
         },

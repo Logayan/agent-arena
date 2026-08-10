@@ -424,6 +424,9 @@ class PlatformStore:
                 ON agent_memories(agent_id,created_at DESC);
                 CREATE TABLE IF NOT EXISTS runs (
                     id TEXT PRIMARY KEY,
+                    run_family_id TEXT NOT NULL DEFAULT '',
+                    run_version INTEGER NOT NULL DEFAULT 1,
+                    parent_run_id TEXT,
                     project_id TEXT NOT NULL,
                     organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     workflow_id TEXT NOT NULL,
@@ -515,6 +518,46 @@ class PlatformStore:
                 db.execute("ALTER TABLE runs ADD COLUMN clarification_id TEXT")
             if "organization_id" not in run_columns:
                 db.execute("ALTER TABLE runs ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
+            if "run_family_id" not in run_columns:
+                db.execute("ALTER TABLE runs ADD COLUMN run_family_id TEXT NOT NULL DEFAULT ''")
+            if "run_version" not in run_columns:
+                db.execute("ALTER TABLE runs ADD COLUMN run_version INTEGER NOT NULL DEFAULT 1")
+            if "parent_run_id" not in run_columns:
+                db.execute("ALTER TABLE runs ADD COLUMN parent_run_id TEXT")
+            db.execute("UPDATE runs SET run_family_id=id WHERE run_family_id IS NULL OR run_family_id='' ")
+            db.execute("UPDATE runs SET run_version=1 WHERE run_version IS NULL OR run_version < 1")
+            retry_events = db.execute(
+                "SELECT run_id,payload_json FROM events WHERE type='run.retry_created' ORDER BY created_at"
+            ).fetchall()
+            for retry_event in retry_events:
+                child_id = str(retry_event["run_id"] or "")
+                if not child_id:
+                    continue
+                child = db.execute(
+                    "SELECT run_family_id,run_version,parent_run_id FROM runs WHERE id=?",
+                    (child_id,),
+                ).fetchone()
+                if not child or str(child["parent_run_id"] or ""):
+                    continue
+                try:
+                    payload = json.loads(str(retry_event["payload_json"] or "{}"))
+                except (TypeError, ValueError):
+                    payload = {}
+                source_id = str(payload.get("source_run_id") or "")
+                if not source_id:
+                    continue
+                source = db.execute("SELECT run_family_id FROM runs WHERE id=?", (source_id,)).fetchone()
+                if not source:
+                    continue
+                family_id = str(source["run_family_id"] or source_id)
+                next_version = db.execute(
+                    "SELECT COALESCE(MAX(run_version),0)+1 AS value FROM runs WHERE run_family_id=?",
+                    (family_id,),
+                ).fetchone()
+                db.execute(
+                    "UPDATE runs SET run_family_id=?,run_version=?,parent_run_id=? WHERE id=?",
+                    (family_id, int(_row_value(next_version, "value") or 1), source_id, child_id),
+                )
             task_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
             if "organization_id" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
@@ -926,6 +969,8 @@ class PlatformStore:
                 {
                     "schema_version": "jianghu.run-input.v1",
                     "run_id": run_record["id"],
+                    "run_family_id": run_record.get("run_family_id") or run_record["id"],
+                    "run_version": run_record.get("run_version") or 1,
                     "project_id": run_record["project_id"],
                     "task_input": run_record["task_input"],
                     "clarification_id": run_record.get("clarification_id"),
@@ -950,6 +995,8 @@ class PlatformStore:
         manifest = {
             "schema_version": "jianghu.run-workspace.v1",
             "run_id": run_record["id"],
+            "run_family_id": run_record.get("run_family_id") or run_record["id"],
+            "run_version": run_record.get("run_version") or 1,
             "project_id": run_record["project_id"],
             "workflow": {
                 "id": workflow["id"],
@@ -1771,8 +1818,8 @@ class PlatformStore:
                     (SELECT COUNT(*) FROM artifacts a WHERE a.run_id=r.id) AS artifact_count
                     FROM runs r JOIN workflows w ON w.id=r.workflow_id
                     WHERE r.organization_id=?
-                    ORDER BY r.updated_at DESC LIMIT ?""",
-                    (organization_id, limit),
+                    ORDER BY r.run_version DESC, r.updated_at DESC""",
+                    (organization_id,),
                 ).fetchall()
             else:
                 rows = db.execute(
@@ -1780,10 +1827,24 @@ class PlatformStore:
                     (SELECT COUNT(*) FROM tasks t WHERE t.run_id=r.id) AS task_count,
                     (SELECT COUNT(*) FROM artifacts a WHERE a.run_id=r.id) AS artifact_count
                     FROM runs r JOIN workflows w ON w.id=r.workflow_id
-                    ORDER BY r.updated_at DESC LIMIT ?""",
-                    (limit,),
+                    ORDER BY r.run_version DESC, r.updated_at DESC""",
+                    (),
                 ).fetchall()
-        return [dict(row) for row in rows]
+        latest_by_family: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            record = dict(row)
+            family_id = str(record.get("run_family_id") or record.get("id"))
+            if family_id not in latest_by_family:
+                record["run_family_id"] = family_id
+                latest_by_family[family_id] = record
+        result = list(latest_by_family.values())
+        result.sort(key=lambda item: (str(item.get("updated_at") or ""), str(item.get("id") or "")), reverse=True)
+        with self._connect() as db:
+            for record in result:
+                family_id = str(record.get("run_family_id") or record["id"])
+                count_row = db.execute("SELECT COUNT(*) AS value FROM runs WHERE run_family_id=?", (family_id,)).fetchone()
+                record["attempt_count"] = int(_row_value(count_row, "value") or 1)
+        return result[: max(1, limit)]
 
     def list_runs_by_status(self, statuses: set[str]) -> list[dict[str, Any]]:
         if not statuses:
@@ -3204,12 +3265,21 @@ class PlatformStore:
         retry_id = new_id("run")
         now = utc_now()
         organization_id = str(original.get("organization_id") or workflow.get("organization_id") or "org_jianghu")
+        run_family_id = str(original.get("run_family_id") or original["id"])
         new_task_by_key: dict[str, str] = {}
         with self._connect() as db:
+            version_row = db.execute(
+                "SELECT COALESCE(MAX(run_version),0)+1 AS value FROM runs WHERE run_family_id=?",
+                (run_family_id,),
+            ).fetchone()
+            run_version = int(_row_value(version_row, "value") or 1)
             db.execute(
-                "INSERT INTO runs(id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO runs(id,run_family_id,run_version,parent_run_id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     retry_id,
+                    run_family_id,
+                    run_version,
+                    run_id,
                     original["project_id"],
                     original.get("organization_id") or workflow.get("organization_id") or "org_jianghu",
                     original["workflow_id"],
@@ -3246,6 +3316,8 @@ class PlatformStore:
                 ),
                 {
                     "source_run_id": run_id,
+                    "run_family_id": run_family_id,
+                    "run_version": run_version,
                     "source_task_id": retry_from_task["id"] if retry_from_task else None,
                     "retry_from_node_key": retry_from_task["node_key"] if retry_from_task else None,
                     "retry_node_keys": sorted(retry_node_keys),
@@ -3254,6 +3326,9 @@ class PlatformStore:
             )
         retry_record = {
             "id": retry_id,
+            "run_family_id": run_family_id,
+            "run_version": run_version,
+            "parent_run_id": run_id,
             "project_id": original["project_id"],
             "organization_id": organization_id,
             "workflow_id": original["workflow_id"],
@@ -3296,9 +3371,12 @@ class PlatformStore:
             if db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
                 raise ValueError("project_not_found")
             db.execute(
-                "INSERT INTO runs(id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO runs(id,run_family_id,run_version,parent_run_id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     run_id,
+                    run_id,
+                    1,
+                    None,
                     project_id,
                     organization_id,
                     workflow_id,
@@ -3318,6 +3396,9 @@ class PlatformStore:
             self._event(db, run_id, "run.created", "system", "执行事件已经建立", "工作流版本、负责组织和固定人物绑定已经冻结为本次执行快照。")
         run_record = {
             "id": run_id,
+            "run_family_id": run_id,
+            "run_version": 1,
+            "parent_run_id": None,
             "project_id": project_id,
             "organization_id": organization_id,
             "workflow_id": workflow_id,
@@ -3344,7 +3425,16 @@ class PlatformStore:
                 "SELECT * FROM run_interventions WHERE run_id=? AND organization_id=? ORDER BY created_at",
                 (run_id, run_organization_id),
             ).fetchall()
+            run_family_id = str(row["run_family_id"] or run_id)
+            attempts = db.execute(
+                """SELECT id,run_family_id,run_version,parent_run_id,status,progress,stage,created_at,updated_at
+                FROM runs WHERE run_family_id=? AND organization_id=? ORDER BY run_version DESC""",
+                (run_family_id, run_organization_id),
+            ).fetchall()
         result = dict(row)
+        result["run_family_id"] = run_family_id
+        result["attempts"] = [dict(item) for item in attempts]
+        result["attempt_count"] = len(attempts) or 1
         result["tasks"] = [self._task(item) for item in tasks]
         result["artifacts"] = [self._artifact(item) for item in artifacts]
         result["events"] = [self._event_json(item) for item in events]

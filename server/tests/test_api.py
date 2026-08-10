@@ -556,11 +556,16 @@ def test_failed_run_retry_creates_new_immutable_run(tmp_path) -> None:
     platform.update_run(failed["id"], status="failed", stage="execution_failed")
     retried = platform.retry_run(failed["id"])
     assert retried["id"] != failed["id"]
+    assert failed["run_family_id"] == retried["run_family_id"]
+    assert failed["run_version"] == 1
+    assert retried["run_version"] == 2
     assert retried["status"] == "draft"
     assert retried["task_input"] == failed["task_input"]
     assert retried["tasks"][0]["status"] == "pending"
     assert retried["events"][0]["type"] == "run.retry_created"
     assert platform.get_run(failed["id"])["status"] == "failed"
+    assert platform.get_run(retried["id"])["attempt_count"] == 2
+    assert len(platform.list_runs(organization_id="org_jianghu")) == 1
 
 
 def test_targeted_retry_preserves_completed_upstream_artifact(tmp_path) -> None:
