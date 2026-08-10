@@ -330,6 +330,7 @@ class PlatformStore:
                 );
                 CREATE TABLE IF NOT EXISTS workflows (
                     id TEXT PRIMARY KEY,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     name TEXT NOT NULL,
                     description TEXT NOT NULL DEFAULT '',
                     version TEXT NOT NULL DEFAULT '1.0.0',
@@ -424,6 +425,7 @@ class PlatformStore:
                 CREATE TABLE IF NOT EXISTS runs (
                     id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     workflow_id TEXT NOT NULL,
                     task_input TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'draft',
@@ -507,6 +509,8 @@ class PlatformStore:
             run_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(runs)").fetchall()}
             if "clarification_id" not in run_columns:
                 db.execute("ALTER TABLE runs ADD COLUMN clarification_id TEXT")
+            if "organization_id" not in run_columns:
+                db.execute("ALTER TABLE runs ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
             task_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
             if "team_id" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN team_id TEXT")
@@ -545,7 +549,16 @@ class PlatformStore:
                 db.execute("ALTER TABLE workflows ADD COLUMN family_id TEXT")
             if "parent_workflow_id" not in workflow_columns:
                 db.execute("ALTER TABLE workflows ADD COLUMN parent_workflow_id TEXT")
+            if "organization_id" not in workflow_columns:
+                db.execute("ALTER TABLE workflows ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
             db.execute("UPDATE workflows SET family_id=id WHERE family_id IS NULL OR family_id='' ")
+            db.execute(
+                """UPDATE runs SET organization_id=COALESCE(
+                    (SELECT w.organization_id FROM workflows w WHERE w.id=runs.workflow_id),
+                    organization_id,
+                    'org_jianghu'
+                )"""
+            )
             commission_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(company_tasks)").fetchall()}
             if "workflow_id" not in commission_columns:
                 db.execute("ALTER TABLE company_tasks ADD COLUMN workflow_id TEXT")
@@ -1032,9 +1045,15 @@ class PlatformStore:
             raise ValueError("artifact_file_not_found")
         return path
 
-    def list_agents(self) -> list[dict[str, Any]]:
+    def list_agents(self, organization_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
-            rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
+            if organization_id:
+                rows = db.execute(
+                    "SELECT * FROM agent_blueprints WHERE status='active' AND organization_id=? ORDER BY name",
+                    (organization_id,),
+                ).fetchall()
+            else:
+                rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
             renamed = False
             name_pools = {
                 "召集人": ["沈砚舟", "顾知衡", "林观澜", "程墨安", "陆行远"],
@@ -1051,7 +1070,13 @@ class PlatformStore:
                 db.execute("UPDATE agent_blueprints SET name=?,updated_at=? WHERE id=?", (pool[index], utc_now(), row["id"]))
                 renamed = True
             if renamed:
-                rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
+                if organization_id:
+                    rows = db.execute(
+                        "SELECT * FROM agent_blueprints WHERE status='active' AND organization_id=? ORDER BY name",
+                        (organization_id,),
+                    ).fetchall()
+                else:
+                    rows = db.execute("SELECT * FROM agent_blueprints WHERE status='active' ORDER BY name").fetchall()
         return [self._agent(row) for row in rows]
 
     def create_agent(
@@ -1237,6 +1262,30 @@ class PlatformStore:
             rows = db.execute("SELECT * FROM organizations ORDER BY created_at").fetchall()
         return [dict(row) for row in rows]
 
+    def create_organization(
+        self,
+        *,
+        name: str,
+        description: str,
+        owner_name: str = "发起人",
+        world_type: str = "open_society",
+        user_identity: str = "发起人",
+    ) -> dict[str, Any]:
+        organization_id = new_id("org")
+        now = utc_now()
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO organizations
+                (id,name,owner_name,world_type,user_identity,description,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?)""",
+                (organization_id, name.strip(), owner_name, world_type, user_identity, description.strip(), now, now),
+            )
+            db.execute(
+                "INSERT INTO operation_logs(id,entity_type,entity_id,action,payload_json,created_at) VALUES(?,?,?,?,?,?)",
+                (new_id("log"), "organization", organization_id, "created", json.dumps({"name": name.strip()}, ensure_ascii=False), now),
+            )
+        return next(item for item in self.list_organizations() if item["id"] == organization_id)
+
     def update_organization(self, organization_id: str, *, name: str, description: str) -> dict[str, Any]:
         organization = next((item for item in self.list_organizations() if str(item["id"]) == str(organization_id)), None)
         if not organization:
@@ -1343,8 +1392,11 @@ class PlatformStore:
             )
             for index, member in enumerate(members):
                 agent_id = str(member.get("agent_id", ""))
-                if db.execute("SELECT 1 FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone() is None:
+                agent_row = db.execute("SELECT organization_id FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone()
+                if agent_row is None:
                     raise ValueError("team_member_agent_not_found")
+                if str(agent_row["organization_id"]) != str(organization_id):
+                    raise ValueError("team_member_organization_mismatch")
                 db.execute(
                     "INSERT INTO team_members(team_id,agent_id,member_role,responsibility,position_no) VALUES(?,?,?,?,?)",
                     (team_id, agent_id, member.get("member_role", "member"), member.get("responsibility", ""), index),
@@ -1355,8 +1407,11 @@ class PlatformStore:
         team = self.get_team(team_id)
         if not team or team["status"] == "disbanded":
             raise ValueError("team_not_found")
-        if not self.get_agent(agent_id):
+        agent = self.get_agent(agent_id)
+        if not agent:
             raise ValueError("agent_not_found")
+        if str(agent.get("organization_id")) != str(team.get("organization_id")):
+            raise ValueError("team_member_organization_mismatch")
         if any(member["id"] == agent_id for member in team["members"]):
             return team
         now = utc_now()
@@ -1665,16 +1720,27 @@ class PlatformStore:
         with self._connect() as db:
             return [dict(row) for row in db.execute("SELECT * FROM projects ORDER BY created_at").fetchall()]
 
-    def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
+    def list_runs(self, limit: int = 50, organization_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
-            rows = db.execute(
-                """SELECT r.*,w.name AS workflow_name,
-                (SELECT COUNT(*) FROM tasks t WHERE t.run_id=r.id) AS task_count,
-                (SELECT COUNT(*) FROM artifacts a WHERE a.run_id=r.id) AS artifact_count
-                FROM runs r JOIN workflows w ON w.id=r.workflow_id
-                ORDER BY r.updated_at DESC LIMIT ?""",
-                (limit,),
-            ).fetchall()
+            if organization_id:
+                rows = db.execute(
+                    """SELECT r.*,w.name AS workflow_name,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.run_id=r.id) AS task_count,
+                    (SELECT COUNT(*) FROM artifacts a WHERE a.run_id=r.id) AS artifact_count
+                    FROM runs r JOIN workflows w ON w.id=r.workflow_id
+                    WHERE r.organization_id=?
+                    ORDER BY r.updated_at DESC LIMIT ?""",
+                    (organization_id, limit),
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    """SELECT r.*,w.name AS workflow_name,
+                    (SELECT COUNT(*) FROM tasks t WHERE t.run_id=r.id) AS task_count,
+                    (SELECT COUNT(*) FROM artifacts a WHERE a.run_id=r.id) AS artifact_count
+                    FROM runs r JOIN workflows w ON w.id=r.workflow_id
+                    ORDER BY r.updated_at DESC LIMIT ?""",
+                    (limit,),
+                ).fetchall()
         return [dict(row) for row in rows]
 
     def list_runs_by_status(self, statuses: set[str]) -> list[dict[str, Any]]:
@@ -2787,12 +2853,17 @@ class PlatformStore:
             row = db.execute("SELECT * FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone()
         return self._agent(row) if row else None
 
-    def list_workflows(self, include_archived: bool = False) -> list[dict[str, Any]]:
+    def list_workflows(self, include_archived: bool = False, organization_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
-            if include_archived:
-                rows = db.execute("SELECT * FROM workflows ORDER BY updated_at DESC").fetchall()
-            else:
-                rows = db.execute("SELECT * FROM workflows WHERE status!='archived' ORDER BY updated_at DESC").fetchall()
+            clauses: list[str] = []
+            values: list[Any] = []
+            if not include_archived:
+                clauses.append("status!='archived'")
+            if organization_id:
+                clauses.append("organization_id=?")
+                values.append(organization_id)
+            where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+            rows = db.execute(f"SELECT * FROM workflows{where} ORDER BY updated_at DESC", values).fetchall()
         return [self._workflow(row) for row in rows]
 
     def get_workflow(self, workflow_id: str) -> dict[str, Any] | None:
@@ -2841,12 +2912,18 @@ class PlatformStore:
         description: str,
         source: str = "generated",
         definition: dict[str, Any] | None = None,
+        organization_id: str = "org_jianghu",
     ) -> dict[str, Any]:
         now = utc_now()
         workflow_id = new_id("workflow")
         workflow_source = source
         with self._connect() as db:
-            agent_rows = db.execute("SELECT id FROM agent_blueprints ORDER BY created_at").fetchall()
+            if db.execute("SELECT 1 FROM organizations WHERE id=?", (organization_id,)).fetchone() is None:
+                raise ValueError("organization_not_found")
+            agent_rows = db.execute(
+                "SELECT id FROM agent_blueprints WHERE organization_id=? ORDER BY created_at",
+                (organization_id,),
+            ).fetchall()
             agent_ids = [str(_row_value(row, "agent_id")) for row in agent_rows]
             definition = definition or self._default_definition(agent_ids)
             if not isinstance(definition.get("nodes"), list) or not definition["nodes"]:
@@ -2862,12 +2939,18 @@ class PlatformStore:
                 node_keys.add(key)
                 if node.get("agent_id") and not self.get_agent(str(node["agent_id"])):
                     raise ValueError("workflow_definition_agent_not_bound")
+                if node.get("agent_id"):
+                    agent = self.get_agent(str(node["agent_id"]))
+                    if str((agent or {}).get("organization_id")) != str(organization_id):
+                        raise ValueError("workflow_definition_agent_organization_mismatch")
                 if node.get("agent_id") and str(node["agent_id"]) not in bound_ids:
                     bound_ids.append(str(node["agent_id"]))
                 if node.get("team_id"):
                     team = self.get_team(str(node["team_id"]))
                     if not team:
                         raise ValueError("workflow_definition_team_not_bound")
+                    if str(team.get("organization_id")) != str(organization_id):
+                        raise ValueError("workflow_definition_team_organization_mismatch")
                     team_agent_ids = {member["id"] for member in team["members"]}
                     participants = {str(item) for item in node.get("participant_agent_ids", [])}
                     if participants and not participants.issubset(team_agent_ids):
@@ -2891,9 +2974,9 @@ class PlatformStore:
                 resolved.update(ready)
             db.execute(
                 """INSERT INTO workflows
-                (id,name,description,version,status,source,definition_json,agent_ids_json,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?)""",
-                (workflow_id, name, description, "1.0.0", "ready", workflow_source, json.dumps(definition), json.dumps(bound_ids), now, now),
+                (id,organization_id,name,description,version,status,source,definition_json,agent_ids_json,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+                (workflow_id, organization_id, name, description, "1.0.0", "ready", workflow_source, json.dumps(definition), json.dumps(bound_ids), now, now),
             )
             db.execute("UPDATE workflows SET family_id=? WHERE id=?", (workflow_id, workflow_id))
         return self.get_workflow(workflow_id)  # type: ignore[return-value]
@@ -2910,7 +2993,13 @@ class PlatformStore:
         parent = self.get_workflow(workflow_id)
         if not parent:
             raise ValueError("workflow_not_found")
-        revision = self.create_workflow(name, description, source=source, definition=definition)
+        revision = self.create_workflow(
+            name,
+            description,
+            source=source,
+            definition=definition,
+            organization_id=str(parent.get("organization_id") or "org_jianghu"),
+        )
         family_id = str(parent.get("family_id") or parent["id"])
         with self._connect() as db:
             family_versions = [str(_row_value(row, "version")) for row in db.execute("SELECT version FROM workflows WHERE family_id=?", (family_id,)).fetchall()]
@@ -3075,10 +3164,11 @@ class PlatformStore:
         new_task_by_key: dict[str, str] = {}
         with self._connect() as db:
             db.execute(
-                "INSERT INTO runs(id,project_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO runs(id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (
                     retry_id,
                     original["project_id"],
+                    original.get("organization_id") or workflow.get("organization_id") or "org_jianghu",
                     original["workflow_id"],
                     original["task_input"],
                     "draft",
@@ -3161,8 +3251,19 @@ class PlatformStore:
             if db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
                 raise ValueError("project_not_found")
             db.execute(
-                "INSERT INTO runs(id,project_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?)",
-                (run_id, project_id, workflow_id, task_input, "draft", "created", now, now, clarification_id),
+                "INSERT INTO runs(id,project_id,organization_id,workflow_id,task_input,status,stage,created_at,updated_at,clarification_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    run_id,
+                    project_id,
+                    str(workflow.get("organization_id") or "org_jianghu"),
+                    workflow_id,
+                    task_input,
+                    "draft",
+                    "created",
+                    now,
+                    now,
+                    clarification_id,
+                ),
             )
             for node in workflow["definition"]["nodes"]:
                 db.execute(

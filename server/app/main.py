@@ -9,9 +9,7 @@ import re
 import shutil
 import tempfile
 import zipfile
-from uuid import uuid4
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -33,6 +31,7 @@ from .showcase import CASE_ID, CASE_TASK, comparison_report, ensure_showcase_ass
 class WorkflowBuildRequest(BaseModel):
     requirement: str = Field(min_length=10)
     name: str | None = None
+    organization_id: str = "org_jianghu"
 
 
 class RunCreateRequest(BaseModel):
@@ -443,18 +442,9 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
     ]
     used_agent_names = {str(item.get("name") or "") for item in platform_store.list_agents()}
     if request.world_type == "large":
-        organization_id = f"org_generated_{uuid4().hex[:10]}"
-        existing = next((item for item in platform_store.list_organizations() if item["id"] == organization_id), None)
-        if existing:
-            return {"organization": existing, "generation": {"mode": "reused", "source": source_hint}}
         now_name = title if title and not title.startswith("例如") else "新江湖共同体"
-        with platform_store._connect() as db:  # local domain store owns the transaction
-            now = datetime.now(timezone.utc).isoformat()
-            db.execute(
-                "INSERT INTO organizations(id,name,owner_name,world_type,user_identity,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)",
-                (organization_id, now_name, "发起人", "open_society", "发起人", source_context, now, now),
-            )
-        organization = next(item for item in platform_store.list_organizations() if item["id"] == organization_id)
+        organization = platform_store.create_organization(name=now_name, description=source_context)
+        organization_id = str(organization["id"])
         generated_agents = []
         for index, (role, description, cognitive, authority) in enumerate(roster):
             generated_agents.append(platform_store.create_agent(
@@ -489,8 +479,8 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
 
 
 @app.get("/api/platform/runs")
-async def list_platform_runs() -> list[dict[str, object]]:
-    return platform_store.list_runs()
+async def list_platform_runs(organization_id: str | None = None) -> list[dict[str, object]]:
+    return platform_store.list_runs(organization_id=organization_id)
 
 
 @app.get("/api/platform/showcases/production-flow-comparison")
@@ -566,8 +556,8 @@ async def start_production_flow_comparison(comparison_id: str) -> dict[str, obje
 
 
 @app.get("/api/platform/agents")
-async def list_platform_agents() -> list[dict[str, object]]:
-    return platform_store.list_agents()
+async def list_platform_agents(organization_id: str | None = None) -> list[dict[str, object]]:
+    return platform_store.list_agents(organization_id)
 
 
 @app.post("/api/platform/agents")
@@ -1214,7 +1204,8 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
     company_task = platform_store.get_company_task(request.company_task_id)
     if not company_task:
         raise HTTPException(status_code=404, detail="company_task_not_found")
-    team_map = {team["id"]: team for team in platform_store.list_teams() if team["id"] in request.team_ids}
+    organization_id = str(company_task["organization_id"])
+    team_map = {team["id"]: team for team in platform_store.list_teams(organization_id) if team["id"] in request.team_ids}
     if len(team_map) != len(set(request.team_ids)):
         raise HTTPException(status_code=422, detail="team_not_found")
     company_task = platform_store.select_company_task_teams(company_task["id"], request.team_ids)
@@ -1226,7 +1217,7 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
             return (0,)
 
     latest_by_family: dict[str, dict[str, object]] = {}
-    for existing in platform_store.list_workflows():
+    for existing in platform_store.list_workflows(organization_id=organization_id):
         family_id = str(existing.get("family_id") or existing["id"])
         current = latest_by_family.get(family_id)
         if current is None or version_key(existing.get("version")) > version_key(current.get("version")):
@@ -1397,6 +1388,7 @@ async def generate_team_workflow(request: TeamWorkflowGenerateRequest) -> dict[s
                     workflow_description,
                     source="team_generated",
                     definition=definition,
+                    organization_id=organization_id,
                 )
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -1421,8 +1413,8 @@ async def list_platform_commissions(organization_id: str | None = None) -> list[
 
 
 @app.get("/api/platform/workflows")
-async def list_platform_workflows() -> list[dict[str, object]]:
-    return platform_store.list_workflows()
+async def list_platform_workflows(organization_id: str | None = None) -> list[dict[str, object]]:
+    return platform_store.list_workflows(organization_id=organization_id)
 
 
 @app.delete("/api/platform/workflows/{workflow_id}")
@@ -1725,7 +1717,11 @@ async def build_platform_workflow(request: WorkflowBuildRequest) -> dict[str, ob
     requirement = request.requirement.strip()
     if len(requirement) < 10:
         raise HTTPException(status_code=422, detail="requirement_too_short")
-    available = platform_store.list_agents()
+    if not any(item["id"] == request.organization_id for item in platform_store.list_organizations()):
+        raise HTTPException(status_code=404, detail="organization_not_found")
+    available = platform_store.list_agents(request.organization_id)
+    if not available:
+        raise HTTPException(status_code=422, detail="organization_has_no_agents")
     role_map = {agent["role"]: agent for agent in available}
     prompt = json.dumps(
         {
@@ -1789,6 +1785,7 @@ async def build_platform_workflow(request: WorkflowBuildRequest) -> dict[str, ob
             str(generated.get("description") or f"Generated from requirement: {requirement}"),
             source="llm_generated",
             definition=normalized,
+            organization_id=request.organization_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -1803,6 +1800,11 @@ async def create_platform_run(request: RunCreateRequest) -> dict[str, object]:
             commission = platform_store.get_company_task(request.commission_id)
             if not commission:
                 raise ValueError("company_task_not_found")
+            workflow = platform_store.get_workflow(request.workflow_id)
+            if not workflow:
+                raise ValueError("workflow_not_found")
+            if str(commission.get("organization_id")) != str(workflow.get("organization_id")):
+                raise ValueError("commission_organization_mismatch")
         run = platform_store.create_run(request.workflow_id, request.task, request.project_id, request.clarification_id)
         if request.commission_id:
             commission = platform_store.link_company_task(

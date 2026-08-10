@@ -477,3 +477,10 @@ body{font-weight:500;letter-spacing:.01em}
 .model-delete-button:disabled{opacity:.5}
 .model-message{min-height:18px;margin:0;color:#3e6959;font-size:8px;font-weight:900}
 @media(max-width:720px){.model-layout .model-config-list{max-height:330px;border-right:0;border-bottom:3px solid var(--outline)}.model-form-heading{align-items:flex-start!important;flex-direction:column}.model-form-actions{align-items:stretch!important;flex-direction:column}.model-form-actions>span{display:none}.model-form-actions button{width:100%}}
+.realm-switcher{display:grid!important;grid-template-columns:auto minmax(150px,280px);align-items:center;gap:3px 8px!important}
+.realm-switcher>span{grid-row:1/3;align-self:stretch;display:grid;place-items:center;padding:5px 9px!important;border:2px solid #9ab59f!important;background:#e8f1d7!important;font-size:8px!important;font-weight:900}
+.realm-switcher>select{min-width:150px;padding:4px 30px 4px 9px;border:2px solid #45685e;border-radius:8px;background:#fff9df;color:#263f3b;font:900 12px 'Noto Serif SC';cursor:pointer}
+.realm-switcher>small{overflow:hidden;max-width:280px;color:#68766f;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.realm-switcher>select:disabled{cursor:wait;opacity:.65}
+.jh-topbar>button:disabled{cursor:wait;opacity:.55}
+@media(max-width:720px){.realm-switcher{grid-template-columns:auto minmax(110px,1fr)}.realm-switcher>span{display:none}.realm-switcher>select{min-width:0;max-width:190px}.realm-switcher>small{max-width:190px}.jh-topbar{gap:8px}}

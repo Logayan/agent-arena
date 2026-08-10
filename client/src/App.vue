@@ -19,6 +19,8 @@ const error = ref('')
 const notice = ref('')
 const overview = ref<Json>({})
 const organizations = ref<Json[]>([])
+const activeOrganizationId = ref('')
+const organizationSwitching = ref(false)
 const agents = ref<Json[]>([])
 const teams = ref<Json[]>([])
 const workflows = ref<Json[]>([])
@@ -109,11 +111,18 @@ const modelDeletingId = ref('')
 let runPollTimer: ReturnType<typeof setInterval> | null = null
 let showcasePollTimer: ReturnType<typeof setInterval> | null = null
 
-const organization = computed(() => organizations.value[0] ?? null)
+const organization = computed(() => organizations.value.find(item => String(item.id) === activeOrganizationId.value) ?? organizations.value[0] ?? null)
+const currentOrganizationId = computed(() => String(organization.value?.id ?? ''))
 const organizationName = computed(() => {
   const name = String(organization.value?.name ?? '')
   return name.includes('公司') ? '我的江湖' : (name || '我的江湖')
 })
+const currentRealmOverview = computed(() => ({
+  teams: teams.value.length,
+  agents: agents.value.length,
+  workflows: workflowFamilies.value.length,
+  runs: runs.value.length,
+}))
 const teamById = computed(() => Object.fromEntries(teams.value.map(team => [team.id, team])))
 const agentById = computed(() => Object.fromEntries(agents.value.map(agent => [agent.id, agent])))
 const activeRunEvents = computed(() => [...(activeRun.value?.events ?? [])].reverse())
@@ -172,6 +181,13 @@ const realmManagedKnowledge = computed(() => knowledgeSources.value.filter(sourc
     || (metadata.organization_id === organization.value?.id && !metadata.team_id)
   )
 }))
+function scopeKnowledgeSources(sources: Json[], organizationId = currentOrganizationId.value): Json[] {
+  return sources.filter(source => {
+    const metadata = source.metadata ?? {}
+    return String(metadata.organization_id ?? '') === organizationId
+      || (metadata.scope_type === 'organization' && String(metadata.scope_id ?? '') === organizationId)
+  })
+}
 
 function fileSizeLabel(size: number): string {
   if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
@@ -334,7 +350,7 @@ async function uploadTeamKnowledge(team: Json): Promise<void> {
     const uploaded = (result.uploaded ?? []) as Json[]
     const [updatedTeams, updatedKnowledge] = await Promise.all([api.teams(organization.value?.id), api.knowledgeSources()])
     teams.value = updatedTeams
-    knowledgeSources.value = updatedKnowledge
+    knowledgeSources.value = scopeKnowledgeSources(updatedKnowledge as Json[])
     invalidateKnowledgeSourcePage('team', team.id)
     teamKnowledgeFiles.value = { ...teamKnowledgeFiles.value, [team.id]: [] }
     teamKnowledgeInputKeys.value = { ...teamKnowledgeInputKeys.value, [team.id]: (teamKnowledgeInputKeys.value[team.id] ?? 0) + 1 }
@@ -365,7 +381,7 @@ async function uploadOrganizationKnowledge(): Promise<void> {
       (completed, total) => { organizationKnowledgeUploadProgress.value = { completed, total } },
     )
     const [sources, graph] = await Promise.all([api.knowledgeSources(), api.knowledgeGraph(organization.value.id)])
-    knowledgeSources.value = sources
+    knowledgeSources.value = scopeKnowledgeSources(sources as Json[])
     knowledgeGraph.value = graph
     invalidateKnowledgeSourcePage('organization', organization.value.id)
     const chunkCount = (result.uploaded ?? []).reduce((sum: number, item: Json) => sum + Number(item.index?.chunk_count ?? 0), 0)
@@ -431,7 +447,7 @@ async function saveAgentRevision(): Promise<void> {
   try {
     const result = await api.reviseAgent(editingAgent.value.id, agentDraft.value)
     notice.value = `已创建“${(result.agent as Json).name}”第 ${(result.agent as Json).version} 版；所在小江湖跟随最新版，历史 Workflow 仍保持冻结绑定。`
-    agents.value = await api.platformAgents()
+    agents.value = await api.platformAgents(currentOrganizationId.value)
     teams.value = await api.teams(organization.value?.id)
     editingAgent.value = null
   } catch (cause) {
@@ -507,7 +523,7 @@ async function deleteKnowledgeSource(source: Json): Promise<void> {
       scopeType === 'team' ? api.teams(organization.value?.id) : Promise.resolve(null),
       organization.value?.id ? api.knowledgeGraph(String(organization.value.id)) : Promise.resolve(null),
     ])
-    knowledgeSources.value = sources as Json[]
+    knowledgeSources.value = scopeKnowledgeSources(sources as Json[])
     if (refreshedTeams) teams.value = refreshedTeams as Json[]
     if (graph) knowledgeGraph.value = graph as Json
     await loadKnowledgeSourcePage(scopeType, scopeId, true)
@@ -536,7 +552,7 @@ async function saveKnowledgeNote(): Promise<void> {
       knowledgeNoteForm.value.title.trim(),
       knowledgeNoteForm.value.content.trim(),
     ) as Json
-    knowledgeSources.value = await api.knowledgeSources()
+    knowledgeSources.value = scopeKnowledgeSources(await api.knowledgeSources() as Json[])
     notice.value = `已补充“${knowledgeNoteForm.value.title.trim()}”，并建立 ${result.index?.chunk_count ?? 0} 个可检索知识片段。`
     knowledgeNoteTeam.value = null
     knowledgeNoteForm.value = { title: '', content: '' }
@@ -1091,7 +1107,7 @@ async function refreshActiveRun(runId: string): Promise<void> {
     const terminal = ['completed', 'failed', 'cancelled', 'budget_exhausted', 'revision_exhausted'].includes(String(activeRun.value.status))
     if (terminal) {
       stopRunPolling()
-      runs.value = await api.platformRuns()
+      runs.value = await api.platformRuns(currentOrganizationId.value)
     }
   } catch (cause) {
     stopRunPolling()
@@ -1118,7 +1134,7 @@ async function refreshShowcaseComparison(comparisonId: string): Promise<void> {
     showcase.value = { ...showcase.value, latest_comparison: comparison }
     if (comparison.status === 'completed') {
       stopShowcasePolling()
-      runs.value = await api.platformRuns()
+      runs.value = await api.platformRuns(currentOrganizationId.value)
     }
   } catch (cause) {
     stopShowcasePolling()
@@ -1159,7 +1175,11 @@ async function installShowcase(): Promise<void> {
   error.value = ''
   try {
     showcase.value = await api.installProductionFlowShowcase()
-    const [a, t, w] = await Promise.all([api.platformAgents(), api.teams(), api.platformWorkflows()])
+    const [a, t, w] = await Promise.all([
+      api.platformAgents(currentOrganizationId.value),
+      api.teams(currentOrganizationId.value),
+      api.platformWorkflows(currentOrganizationId.value),
+    ])
     agents.value = a
     teams.value = t
     workflows.value = w
@@ -1193,7 +1213,7 @@ async function startShowcaseComparison(comparisonId?: string): Promise<void> {
     const started = await api.startProductionFlowComparison(String(targetId))
     const comparison = started.comparison as Json
     showcase.value = { ...showcase.value, latest_comparison: comparison }
-    runs.value = await api.platformRuns()
+    runs.value = await api.platformRuns(currentOrganizationId.value)
     beginShowcasePolling(String(targetId))
     notice.value = String(started.message || '真实对照实验已经启动。')
   } catch (cause) {
@@ -1271,55 +1291,111 @@ async function togglePageFullscreen(target: 'flows' | 'runs'): Promise<void> {
   }
 }
 
+function organizationIdFromLocation(): string {
+  return new URLSearchParams(window.location.search).get('realm') ?? ''
+}
+
+function rememberOrganization(organizationId: string, replace = false): void {
+  localStorage.setItem('jianghu.activeOrganizationId', organizationId)
+  const url = new URL(window.location.href)
+  url.searchParams.set('realm', organizationId)
+  if (replace) window.history.replaceState({ organizationId }, '', url)
+  else window.history.pushState({ organizationId }, '', url)
+}
+
+async function loadOrganizationContext(organizationId: string): Promise<void> {
+  const [a, t, w, r, c, k] = await Promise.all([
+    api.platformAgents(organizationId),
+    api.teams(organizationId),
+    api.platformWorkflows(organizationId),
+    api.platformRuns(organizationId),
+    api.commissions(organizationId),
+    api.knowledgeSources(),
+  ])
+  agents.value = a
+  teams.value = t
+  workflows.value = w
+  runs.value = r
+  commissions.value = c
+  knowledgeSources.value = scopeKnowledgeSources(k as Json[], organizationId)
+  const restored = c.find(item => item.id === currentTask.value?.id) ?? c[0] ?? null
+  currentTask.value = restored
+  if (restored) {
+    taskForm.value = { title: String(restored.title ?? ''), description: String(restored.description ?? '') }
+    selectedAssessmentTeams.value = Array.isArray(restored.selected_team_ids) ? [...restored.selected_team_ids] : []
+    setTeamProposal(restored.team_proposal ?? null)
+  } else {
+    taskForm.value = { title: '', description: '' }
+    selectedAssessmentTeams.value = []
+    setTeamProposal(null)
+  }
+  const preferredRun = r.find(item => ['running', 'pause_requested', 'paused'].includes(String(item.status)))
+    ?? r.find(item => item.id === restored?.run_id)
+    ?? r.find(item => item.status !== 'draft')
+  if (preferredRun?.id) await hydrateRun(String(preferredRun.id), false)
+  else {
+    activeRun.value = null
+    selectedSceneTaskId.value = ''
+  }
+  try {
+    knowledgeGraph.value = await api.knowledgeGraph(organizationId)
+  } catch (cause) {
+    knowledgeGraph.value = { nodes: [], edges: [] }
+    error.value = cause instanceof Error ? `知识图谱暂时不可用：${cause.message}` : '知识图谱暂时不可用'
+  }
+}
+
+async function switchOrganization(organizationId: string, replaceHistory = false): Promise<void> {
+  if (!organizationId || !organizations.value.some(item => String(item.id) === organizationId)) return
+  organizationSwitching.value = true
+  error.value = ''
+  stopRunPolling()
+  stopShowcasePolling()
+  editingOrganization.value = null
+  editingTeam.value = null
+  editingAgent.value = null
+  editingWorkflow.value = null
+  selectedKnowledgeDetail.value = null
+  activeOrganizationId.value = organizationId
+  rememberOrganization(organizationId, replaceHistory)
+  try {
+    await loadOrganizationContext(organizationId)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '大江湖切换失败'
+  } finally {
+    organizationSwitching.value = false
+  }
+}
+
 async function loadAll(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const [o, orgs, a, t, w, r, c, configs, k, demo] = await Promise.all([
-      api.platformOverview(), api.organizations(), api.platformAgents(), api.teams(),
-      api.platformWorkflows(), api.platformRuns(), api.commissions(), api.modelConfigs(), api.knowledgeSources(),
+    const [o, orgs, configs, demo] = await Promise.all([
+      api.platformOverview(), api.organizations(), api.modelConfigs(),
       showcaseEnabled ? api.productionFlowShowcase() : Promise.resolve({}),
     ])
     overview.value = o
     organizations.value = orgs
-    agents.value = a
-    teams.value = t
-    workflows.value = w
-    runs.value = r
-    commissions.value = c
     modelConfigs.value = configs
-    knowledgeSources.value = k
     showcase.value = demo
+    const requestedId = organizationIdFromLocation()
+    const rememberedId = localStorage.getItem('jianghu.activeOrganizationId') ?? ''
+    const selectedOrganization = orgs.find(item => item.id === requestedId)
+      ?? orgs.find(item => item.id === rememberedId)
+      ?? orgs[0]
+    if (selectedOrganization?.id) {
+      activeOrganizationId.value = String(selectedOrganization.id)
+      rememberOrganization(activeOrganizationId.value, true)
+      await loadOrganizationContext(activeOrganizationId.value)
+    } else {
+      knowledgeSources.value = []
+    }
     try {
       openClawStatus.value = await api.openClawStatus()
     } catch (cause) {
-      openClawStatus.value = {
-        available: false,
-        mode: 'unavailable',
-        error: '执行底座健康检查失败',
-      }
+      openClawStatus.value = { available: false, mode: 'unavailable', error: '执行底座健康检查失败' }
     }
-    if (orgs[0]?.id) {
-      try {
-        knowledgeGraph.value = await api.knowledgeGraph(String(orgs[0].id))
-      } catch (cause) {
-        knowledgeGraph.value = { nodes: [], edges: [] }
-        error.value = cause instanceof Error ? `知识图谱暂时不可用：${cause.message}` : '知识图谱暂时不可用'
-      }
-    }
-    const restored = c.find(item => item.id === currentTask.value?.id) ?? c[0]
-    if (restored) {
-      currentTask.value = restored
-      taskForm.value = { title: String(restored.title ?? ''), description: String(restored.description ?? '') }
-      selectedAssessmentTeams.value = Array.isArray(restored.selected_team_ids) && restored.selected_team_ids.length
-        ? [...restored.selected_team_ids]
-        : []
-      setTeamProposal(restored.team_proposal ?? null)
-    }
-    const preferredRun = r.find(item => ['running', 'pause_requested', 'paused'].includes(String(item.status)))
-      ?? r.find(item => item.id === restored?.run_id)
-      ?? r.find(item => item.status !== 'draft')
-    if (preferredRun?.id) await hydrateRun(String(preferredRun.id), false)
     const selected = configs.find(item => item.id === modelForm.value.id)
       ?? configs.find(item => item.active)
       ?? configs[0]
@@ -1330,6 +1406,11 @@ async function loadAll(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function handleRealmPopState(): void {
+  const requestedId = organizationIdFromLocation()
+  if (requestedId && requestedId !== activeOrganizationId.value) void switchOrganization(requestedId, true)
 }
 
 async function assessTask(): Promise<void> {
@@ -1472,7 +1553,7 @@ async function hireRecommended(spec: Json, assessment: Json): Promise<void> {
     const result = await api.generateAgent(requirement, organization.value?.id, String(spec.role ?? ''), spec.capabilities ?? [])
     const created = result.agent as Json
     highlightedAgentId.value = created.id
-    agents.value = await api.platformAgents()
+    agents.value = await api.platformAgents(currentOrganizationId.value)
     let targetTeamId = String(assessment.team_id ?? '')
     if (targetTeamId) {
       await api.addTeamMember(targetTeamId, created.id, String(spec.purpose ?? created.description ?? ''))
@@ -1511,7 +1592,7 @@ async function generateAgent(): Promise<void> {
     notice.value = (result.generation as Json | undefined)?.mode === 'reused'
       ? `没有重复创建：人物册中已有“${created.name}（${created.role}）”。`
       : `人物“${created.name}（${created.role}）”已创建并保存。`
-    agents.value = await api.platformAgents()
+    agents.value = await api.platformAgents(currentOrganizationId.value)
     agentRequirement.value = ''
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Agent 生成失败'
@@ -1529,16 +1610,20 @@ async function generateOrganization(): Promise<void> {
       ...organizationForm.value,
       organization_id: organization.value?.id,
       knowledge_source_ids: organizationForm.value.source_type === 'knowledge'
-        ? knowledgeSources.value.filter(source => source.metadata?.scope_type === 'organization' || source.metadata?.organization_id === organization.value?.id).map(source => source.id)
+        ? knowledgeSources.value.filter(source => {
+          const metadata = source.metadata ?? {}
+          return String(metadata.organization_id ?? '') === currentOrganizationId.value
+            || (metadata.scope_type === 'organization' && String(metadata.scope_id ?? '') === currentOrganizationId.value)
+        }).map(source => source.id)
         : [],
     }) as Json
     if (result.organization) {
       organizations.value = await api.organizations()
-      agents.value = await api.platformAgents()
+      await switchOrganization(String(result.organization.id))
       notice.value = `已创建大江湖“${result.organization.name}”；后续可在其中继续生成小江湖和人物。`
     } else if (result.team) {
       teams.value = await api.teams(organization.value?.id)
-      agents.value = await api.platformAgents()
+      agents.value = await api.platformAgents(currentOrganizationId.value)
       notice.value = `已创建小江湖“${result.team.name}”，并自动生成 ${result.team.members?.length ?? 0} 位随组织行动的人物。`
     }
     organizationForm.value.intent = ''
@@ -1674,7 +1759,7 @@ async function confirmDeleteWorkflow(): Promise<void> {
   error.value = ''
   try {
     const result = await api.deleteWorkflow(deleting.id) as Json
-    workflows.value = await api.platformWorkflows()
+    workflows.value = await api.platformWorkflows(currentOrganizationId.value)
     workflowToDelete.value = null
     notice.value = result.deletion?.message ?? `生产流“${deleting.name}”已归档。`
   } catch (cause) {
@@ -1694,7 +1779,7 @@ async function generateFlow(): Promise<void> {
     const result = await api.generateTeamWorkflow(currentTask.value.id, selectedAssessmentTeams.value)
     currentTask.value = (result.company_task ?? currentTask.value) as Json
     commissions.value = await api.commissions(organization.value?.id)
-    workflows.value = await api.platformWorkflows()
+    workflows.value = await api.platformWorkflows(currentOrganizationId.value)
     const decision = result.workflow_decision as Json | undefined
     const labels: Record<string, string> = { reuse: '已复用现有生产流', revise: '已在原生产流家族中生成新版本', create: '已新建生产流' }
     notice.value = `${labels[String(decision?.mode)] ?? '生产流已准备完成'}：${decision?.reason ?? ''}`
@@ -1724,7 +1809,7 @@ async function startWorkflow(flow: Json): Promise<void> {
     const run = created.run as Json
     await api.startPlatformRun(run.id)
     currentTask.value = (created.commission ?? commission) as Json
-    runs.value = await api.platformRuns()
+    runs.value = await api.platformRuns(currentOrganizationId.value)
     await openRun(run.id)
     beginRunPolling(run.id)
     notice.value = `真实执行已启动：${run.id}。人物行动、节点状态、事件与正式产物会持续出现在下方。`
@@ -1755,7 +1840,7 @@ async function cancelActiveRun(): Promise<void> {
     const result = await api.cancelPlatformRun(activeRun.value.id)
     activeRun.value = result.run as Json
     stopRunPolling()
-    runs.value = await api.platformRuns()
+    runs.value = await api.platformRuns(currentOrganizationId.value)
     notice.value = '本次真实执行已取消；已经形成的事件和产物仍然保留。'
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '取消执行失败'
@@ -1822,7 +1907,7 @@ async function retryActiveRun(fromTask?: Json): Promise<void> {
     const result = await api.retryPlatformRun(sourceRunId, fromTask?.id)
     const run = result.run as Json
     const retryInfo = result.retry as Json | undefined
-    runs.value = await api.platformRuns()
+    runs.value = await api.platformRuns(currentOrganizationId.value)
     await openRun(run.id)
     beginRunPolling(run.id)
     notice.value = fromTask
@@ -1841,7 +1926,7 @@ async function extendActiveRun(): Promise<void> {
     const result = await api.extendPlatformRun(activeRun.value.id, extensionMinutes.value)
     activeRun.value = result.run as Json
     const extension = result.extension as Json | undefined
-    runs.value = await api.platformRuns()
+    runs.value = await api.platformRuns(currentOrganizationId.value)
     beginRunPolling(activeRun.value.id)
     notice.value = `已增加 ${extension?.minutes ?? extensionMinutes.value} 分钟运行时限；已完成节点和产物保留，现场继续执行未完成节点。`
   } catch (cause) {
@@ -1921,7 +2006,7 @@ async function saveWorkflowRevision(): Promise<void> {
       definition: { ...workflowDraft.value, nodes: normalizedNodes, edges },
     })
     notice.value = `已创建新的流程版本 ${(result.workflow as Json).version}，历史版本保持不变。`
-    workflows.value = await api.platformWorkflows()
+    workflows.value = await api.platformWorkflows(currentOrganizationId.value)
     selectedWorkflowVersions.value[(result.workflow as Json).family_id] = (result.workflow as Json).id
     editingWorkflow.value = null
   } catch (cause) {
@@ -1986,12 +2071,14 @@ async function deleteModel(config: Json): Promise<void> {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenTarget)
+  window.addEventListener('popstate', handleRealmPopState)
   loadAll()
 })
 onUnmounted(() => {
   stopRunPolling()
   stopShowcasePolling()
   document.removeEventListener('fullscreenchange', syncFullscreenTarget)
+  window.removeEventListener('popstate', handleRealmPopState)
 })
 </script>
 
@@ -2011,14 +2098,23 @@ onUnmounted(() => {
     </aside>
 
     <div class="jh-main">
-      <header class="jh-topbar"><div><span>{{ organization?.user_identity ?? '发起人' }}</span><strong>{{ organizationName }}</strong></div><button title="刷新真实数据" @click="loadAll"><RefreshCw /></button></header>
+      <header class="jh-topbar">
+        <div class="realm-switcher">
+          <span>当前大江湖</span>
+          <select v-model="activeOrganizationId" :disabled="organizationSwitching" aria-label="切换大江湖" @change="switchOrganization(activeOrganizationId)">
+            <option v-for="realm in organizations" :key="realm.id" :value="realm.id">{{ realm.name }}</option>
+          </select>
+          <small>{{ organization?.user_identity ?? '发起人' }} · {{ teams.length }} 个小江湖 · {{ agents.length }} 位人物</small>
+        </div>
+        <button title="刷新当前大江湖数据" :disabled="loading || organizationSwitching" @click="loadAll"><LoaderCircle v-if="organizationSwitching" class="spin" /><RefreshCw v-else /></button>
+      </header>
       <div v-if="error" class="jh-error"><XCircle /><span>{{ error }}</span><button @click="error = ''">关闭</button></div>
       <div v-if="notice" class="jh-notice"><Sparkles /><span>{{ notice }}</span><button @click="notice = ''">知道了</button></div>
       <div v-if="loading" class="jh-loading"><LoaderCircle class="spin" />正在读取江湖状态</div>
 
       <main v-else-if="screen === 'jianghu'" class="jh-page company-page">
         <section class="company-hero">
-          <div class="hero-copy"><span>江湖事件入口</span><h1>今天想在江湖中促成什么事？</h1><p>你可以是任何身份。已有组织会根据使命、能力与立场自主判断是否承接；不合适时会说明缺口，并建议引入新的江湖人物或另组队伍。</p><div class="company-stats"><article><b>{{ overview.teams ?? 0 }}</b><span>组织与队伍</span></article><article><b>{{ overview.agents ?? 0 }}</b><span>江湖人物</span></article><article><b>{{ overview.workflows ?? 0 }}</b><span>行事章法</span></article></div></div>
+          <div class="hero-copy"><span>{{ organizationName }} · 江湖事件入口</span><h1>今天想在这个大江湖中促成什么事？</h1><p>你可以是任何身份。当前大江湖中的组织会根据使命、能力与立场自主判断是否承接；切换大江湖后，人物、知识、生产流和事件现场也会一并切换。</p><div class="company-stats"><article><b>{{ currentRealmOverview.teams }}</b><span>小江湖</span></article><article><b>{{ currentRealmOverview.agents }}</b><span>江湖人物</span></article><article><b>{{ currentRealmOverview.workflows }}</b><span>行事章法</span></article></div></div>
           <div class="company-map">
             <div class="map-cloud cloud-one"></div><div class="map-cloud cloud-two"></div>
             <div class="map-road road-a"></div><div class="map-road road-b"></div>
@@ -2049,7 +2145,7 @@ onUnmounted(() => {
         </section>
       </main>
 
-      <main v-else-if="screen === 'teams'" class="jh-page team-world"><section class="page-heading team-heading"><div><span>大小江湖组织图谱</span><h1>大江湖与小江湖</h1><p>大江湖保存共同知识、规则和人物资源；其下每个小江湖都能独立承接事情，也能继承大江湖获准的公共知识。</p></div><div class="team-summary"><b>1</b><span>个大江湖</span><i>·</i><b>{{ teams.length }}</b><span>个活跃小江湖</span><i>·</i><b>{{ agents.length }}</b><span>位人物</span></div></section>
+      <main v-else-if="screen === 'teams'" class="jh-page team-world"><section class="page-heading team-heading"><div><span>大小江湖组织图谱</span><h1>{{ organizationName }}的大江湖与小江湖</h1><p>大江湖保存共同知识、规则和人物资源；其下每个小江湖都能独立承接事情，也能继承当前大江湖获准的公共知识。</p></div><div class="team-summary"><b>{{ organizations.length }}</b><span>个可切换大江湖</span><i>·</i><b>{{ teams.length }}</b><span>个活跃小江湖</span><i>·</i><b>{{ agents.length }}</b><span>位人物</span></div></section>
         <section class="organization-forge">
           <header><div><span>组织生成器</span><h2>一句话立下一个江湖</h2><p>组织先确定共同使命，再由组织内部生成人物；人物跟随组织，不把权力误当成数据权限。</p></div><b>意图 / 知识库 → 组织 → 人物</b></header>
           <div class="organization-forge-form">

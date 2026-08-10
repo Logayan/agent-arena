@@ -1183,6 +1183,52 @@ def test_big_realm_knowledge_is_inherited_and_folder_graph_is_visible(tmp_path) 
     )
 
 
+def test_multiple_big_realms_filter_agents_teams_workflows_and_runs(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "multiple-realms.db"))
+    original_agent = platform.list_agents("org_jianghu")[0]
+    second_realm = platform.create_organization(name="云海江湖", description="独立的大江湖边界")
+    second_agent = platform.create_agent(
+        organization_id=second_realm["id"],
+        name="顾云舟",
+        role="云海召集人",
+        description="负责第二个大江湖的目标统筹",
+        persona="只在云海江湖的授权边界内行动。",
+        capabilities=["目标统筹"],
+    )
+    second_team = platform.create_team(
+        organization_id=second_realm["id"],
+        name="云海议事堂",
+        purpose="承接云海江湖事务",
+        operating_mode="collaborative",
+        members=[{"agent_id": second_agent["id"], "member_role": "leader", "responsibility": "召集"}],
+    )
+    with pytest.raises(ValueError, match="team_member_organization_mismatch"):
+        platform.create_team(
+            organization_id=second_realm["id"],
+            name="越界队伍",
+            purpose="验证隔离",
+            operating_mode="collaborative",
+            members=[{"agent_id": original_agent["id"], "member_role": "member", "responsibility": "不应加入"}],
+        )
+    workflow = platform.create_workflow(
+        "云海章法",
+        "只属于云海江湖",
+        source="test",
+        organization_id=second_realm["id"],
+        definition={
+            "nodes": [{"key": "act", "name": "云海行动", "agent_id": second_agent["id"], "team_id": second_team["id"]}],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "执行云海江湖事务")
+    assert [item["id"] for item in platform.list_agents(second_realm["id"])] == [second_agent["id"]]
+    assert [item["id"] for item in platform.list_teams(second_realm["id"])] == [second_team["id"]]
+    assert [item["id"] for item in platform.list_workflows(organization_id=second_realm["id"])] == [workflow["id"]]
+    assert [item["id"] for item in platform.list_runs(organization_id=second_realm["id"])] == [run["id"]]
+    assert all(item["organization_id"] == "org_jianghu" for item in platform.list_agents("org_jianghu"))
+
+
 @pytest.mark.anyio
 async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "team-synthesis.db"))

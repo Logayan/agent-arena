@@ -26,7 +26,7 @@ export const api = {
   generateOrganization: (payload: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/organizations/generate', { method: 'POST', body: JSON.stringify(payload) }),
   platformProjects: () => request<Record<string, unknown>[]>('/api/platform/projects'),
-  platformRuns: () => request<Record<string, unknown>[]>('/api/platform/runs'),
+  platformRuns: (organizationId?: string) => request<Record<string, unknown>[]>(`/api/platform/runs${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   productionFlowShowcase: () =>
     request<Record<string, unknown>>('/api/platform/showcases/production-flow-comparison'),
   installProductionFlowShowcase: () =>
@@ -37,7 +37,7 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/showcases/production-flow-comparison/comparisons/${encodeURIComponent(comparisonId)}`),
   startProductionFlowComparison: (comparisonId: string) =>
     request<Record<string, unknown>>(`/api/platform/showcases/production-flow-comparison/comparisons/${encodeURIComponent(comparisonId)}/start`, { method: 'POST' }),
-  platformAgents: () => request<Record<string, unknown>[]>('/api/platform/agents'),
+  platformAgents: (organizationId?: string) => request<Record<string, unknown>[]>(`/api/platform/agents${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   createAgent: (agent: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/agents', { method: 'POST', body: JSON.stringify(agent) }),
   reviseAgent: (agentId: string, agent: Record<string, unknown>) =>
@@ -103,7 +103,7 @@ export const api = {
     }),
   generateTeamWorkflow: (companyTaskId: string, teamIds: string[]) =>
     request<Record<string, unknown>>('/api/platform/team-workflows/generate', { method: 'POST', body: JSON.stringify({ company_task_id: companyTaskId, team_ids: teamIds }) }),
-  platformWorkflows: () => request<Record<string, unknown>[]>('/api/platform/workflows'),
+  platformWorkflows: (organizationId?: string) => request<Record<string, unknown>[]>(`/api/platform/workflows${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   reviseWorkflow: (workflowId: string, payload: Record<string, unknown>) =>
     request<Record<string, unknown>>(`/api/platform/workflows/${workflowId}/revisions`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteWorkflow: (workflowId: string) =>
@@ -137,10 +137,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
-  buildWorkflow: (requirement: string, name?: string) =>
+  buildWorkflow: (requirement: string, name?: string, organizationId = 'org_jianghu') =>
     request<Record<string, unknown>>('/api/platform/workflows/build', {
       method: 'POST',
-      body: JSON.stringify({ requirement, name }),
+      body: JSON.stringify({ requirement, name, organization_id: organizationId }),
     }),
   createClarification: (workflowId: string, requirement: string) =>
     request<Record<string, unknown>>('/api/platform/clarifications', {
