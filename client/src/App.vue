@@ -5,7 +5,7 @@ import KnowledgeRelationGraph from './components/KnowledgeRelationGraph.vue'
 import {
   BookOpen, Bot, Compass,
   Download, FileText, FolderOpen, LoaderCircle, Maximize2, Minimize2, Minus, MousePointer2, Network, Play, Plus, RefreshCw,
-  Search, Settings2, Sparkles, Trash2, UploadCloud, Users, Workflow, XCircle, Zap,
+  Search, Settings2, Sparkles, Trash2, UploadCloud, Users, Workflow, XCircle, Zap, LockKeyhole, LogIn, LogOut, UserRound,
 } from '@lucide/vue'
 
 type Json = Record<string, any>
@@ -17,6 +17,11 @@ const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const notice = ref('')
+const authReady = ref(false)
+const authState = ref({ enabled: false, authenticated: false, username: null as string | null })
+const loginForm = ref({ username: '', password: '' })
+const loginBusy = ref(false)
+const loginError = ref('')
 const overview = ref<Json>({})
 const organizations = ref<Json[]>([])
 const agents = ref<Json[]>([])
@@ -1984,19 +1989,83 @@ async function deleteModel(config: Json): Promise<void> {
   }
 }
 
+async function initializeAuth(): Promise<void> {
+  try {
+    authState.value = await api.authSession()
+    if (authState.value.authenticated) await loadAll()
+    else loading.value = false
+  } catch (cause) {
+    loginError.value = cause instanceof Error ? `无法确认登录状态：${cause.message}` : '无法确认登录状态，请检查服务后重试。'
+    loading.value = false
+  } finally {
+    authReady.value = true
+  }
+}
+
+async function submitLogin(): Promise<void> {
+  if (!loginForm.value.username.trim() || !loginForm.value.password) return
+  loginBusy.value = true
+  loginError.value = ''
+  try {
+    authState.value = await api.login(loginForm.value.username.trim(), loginForm.value.password)
+    loginForm.value.password = ''
+    await loadAll()
+  } catch (cause) {
+    loginError.value = cause instanceof Error ? cause.message : '登录失败，请稍后再试。'
+  } finally {
+    loginBusy.value = false
+  }
+}
+
+async function signOut(): Promise<void> {
+  try {
+    authState.value = await api.logout()
+  } finally {
+    stopRunPolling()
+    stopShowcasePolling()
+    activeRun.value = null
+    loading.value = false
+    loginForm.value.password = ''
+    loginError.value = ''
+  }
+}
+
+function returnToLogin(): void {
+  authState.value = { enabled: true, authenticated: false, username: null }
+  stopRunPolling()
+  stopShowcasePolling()
+  loading.value = false
+  loginError.value = '登录已失效，请重新登录。'
+}
+
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenTarget)
-  loadAll()
+  window.addEventListener('jianghu:login-required', returnToLogin)
+  void initializeAuth()
 })
 onUnmounted(() => {
   stopRunPolling()
   stopShowcasePolling()
   document.removeEventListener('fullscreenchange', syncFullscreenTarget)
+  window.removeEventListener('jianghu:login-required', returnToLogin)
 })
 </script>
 
 <template>
-  <div class="jh-shell">
+  <section v-if="!authReady" class="auth-gate auth-pending"><LoaderCircle class="spin" />正在确认江湖入口</section>
+  <section v-else-if="authState.enabled && !authState.authenticated" class="auth-gate">
+    <form class="auth-card" @submit.prevent="submitLogin">
+      <div class="auth-mark">江</div>
+      <span>江湖 Online · 安全入口</span>
+      <h1>请先亮明身份</h1>
+      <p>此江湖已启用访问保护。登录失败次数过多时，入口会暂时锁定以防止暴力猜测。</p>
+      <label><UserRound />账号<input v-model="loginForm.username" autocomplete="username" :disabled="loginBusy" placeholder="输入账号" /></label>
+      <label><LockKeyhole />密码<input v-model="loginForm.password" type="password" autocomplete="current-password" :disabled="loginBusy" placeholder="输入密码" /></label>
+      <p v-if="loginError" class="auth-error">{{ loginError }}</p>
+      <button class="jh-primary" :disabled="loginBusy || !loginForm.username.trim() || !loginForm.password"><LoaderCircle v-if="loginBusy" class="spin" /><LogIn v-else />{{ loginBusy ? '正在验证…' : '进入江湖' }}</button>
+    </form>
+  </section>
+  <div v-else class="jh-shell">
     <aside class="jh-sidebar">
       <button class="jh-brand" @click="go('jianghu')"><span>江</span><div><strong>江湖 Online</strong><small>LIVING AGENT SOCIETY</small></div></button>
       <nav>
@@ -2011,7 +2080,7 @@ onUnmounted(() => {
     </aside>
 
     <div class="jh-main">
-      <header class="jh-topbar"><div><span>{{ organization?.user_identity ?? '发起人' }}</span><strong>{{ organizationName }}</strong></div><button title="刷新真实数据" @click="loadAll"><RefreshCw /></button></header>
+      <header class="jh-topbar"><div><span>{{ organization?.user_identity ?? '发起人' }}</span><strong>{{ organizationName }}</strong></div><div class="topbar-actions"><span v-if="authState.enabled">{{ authState.username }}</span><button title="刷新真实数据" @click="loadAll"><RefreshCw /></button><button v-if="authState.enabled" title="退出登录" @click="signOut"><LogOut /></button></div></header>
       <div v-if="error" class="jh-error"><XCircle /><span>{{ error }}</span><button @click="error = ''">关闭</button></div>
       <div v-if="notice" class="jh-notice"><Sparkles /><span>{{ notice }}</span><button @click="notice = ''">知道了</button></div>
       <div v-if="loading" class="jh-loading"><LoaderCircle class="spin" />正在读取江湖状态</div>

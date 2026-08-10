@@ -2,14 +2,26 @@
 // 独立部署时仍可通过 VITE_API_URL 指定完整 API 地址。
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
+export class LoginRequiredError extends Error {
+  constructor() {
+    super('login_required')
+    this.name = 'LoginRequiredError'
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     ...init,
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: response.statusText }))
     const detail = body.detail
+    if (response.status === 401 && detail === 'login_required') {
+      window.dispatchEvent(new Event('jianghu:login-required'))
+      throw new LoginRequiredError()
+    }
     const message = typeof detail === 'string'
       ? detail
       : (detail?.message ? String(detail.message) : JSON.stringify(detail ?? body))
@@ -19,6 +31,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  authSession: () => request<{ enabled: boolean, authenticated: boolean, username: string | null }>('/api/auth/session'),
+  login: (username: string, password: string) => request<{ enabled: boolean, authenticated: boolean, username: string | null }>('/api/auth/login', {
+    method: 'POST', body: JSON.stringify({ username, password }),
+  }),
+  logout: () => request<{ enabled: boolean, authenticated: boolean, username: string | null }>('/api/auth/logout', { method: 'POST' }),
   platformOverview: () => request<Record<string, unknown>>('/api/platform/overview'),
   organizations: () => request<Record<string, unknown>[]>('/api/platform/organizations'),
   updateOrganization: (organizationId: string, payload: Record<string, unknown>) =>
