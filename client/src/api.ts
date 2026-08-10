@@ -157,30 +157,30 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ workflow_id: workflowId, task, project_id: projectId, clarification_id: clarificationId, commission_id: commissionId }),
     }),
-  getPlatformRun: (runId: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}`),
-  artifactDownloadUrl: (artifactId: string) =>
-    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download`,
-  startPlatformRun: (runId: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/start`, { method: 'POST' }),
-  retryPlatformRun: (runId: string, fromTaskId?: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/retry`, {
+  getPlatformRun: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
+  artifactDownloadUrl: (artifactId: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  startPlatformRun: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/start${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
+  retryPlatformRun: (runId: string, fromTaskId?: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/retry${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
       method: 'POST', body: JSON.stringify(fromTaskId ? { from_task_id: fromTaskId } : {}),
     }),
-  cancelPlatformRun: (runId: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/cancel`, { method: 'POST' }),
-  pausePlatformRun: (runId: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/pause`, { method: 'POST' }),
-  resumePlatformRun: (runId: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/resume`, { method: 'POST' }),
-  extendPlatformRun: (runId: string, minutes: number) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/extend`, {
+  cancelPlatformRun: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/cancel${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
+  pausePlatformRun: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/pause${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
+  resumePlatformRun: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/resume${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
+  extendPlatformRun: (runId: string, minutes: number, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/extend${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
       method: 'POST', body: JSON.stringify({ minutes }),
     }),
-  intervenePlatformRun: (runId: string, payload: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}/interventions`, {
+  intervenePlatformRun: (runId: string, payload: Record<string, unknown>, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/interventions${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
       method: 'POST', body: JSON.stringify(payload),
     }),
-  runCodeDownloadUrl: (runId: string) =>
-    `${API_BASE}/api/platform/runs/${encodeURIComponent(runId)}/code/download`,
+  runCodeDownloadUrl: (runId: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/runs/${encodeURIComponent(runId)}/code/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
 }

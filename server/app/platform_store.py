@@ -441,6 +441,7 @@ class PlatformStore:
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     node_key TEXT NOT NULL,
                     node_name TEXT NOT NULL,
                     agent_id TEXT,
@@ -454,6 +455,7 @@ class PlatformStore:
                 CREATE TABLE IF NOT EXISTS artifacts (
                     id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     task_id TEXT,
                     kind TEXT NOT NULL,
                     title TEXT NOT NULL,
@@ -466,6 +468,7 @@ class PlatformStore:
                 CREATE TABLE IF NOT EXISTS events (
                     id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     sequence INTEGER NOT NULL,
                     type TEXT NOT NULL,
                     category TEXT NOT NULL,
@@ -479,6 +482,7 @@ class PlatformStore:
                 CREATE TABLE IF NOT EXISTS run_interventions (
                     id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
+                    organization_id TEXT NOT NULL DEFAULT 'org_jianghu',
                     task_id TEXT,
                     agent_id TEXT,
                     kind TEXT NOT NULL,
@@ -512,9 +516,27 @@ class PlatformStore:
             if "organization_id" not in run_columns:
                 db.execute("ALTER TABLE runs ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
             task_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
+            if "organization_id" not in task_columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
+            db.execute(
+                """UPDATE tasks SET organization_id=COALESCE(
+                    (SELECT r.organization_id FROM runs r WHERE r.id=tasks.run_id),
+                    organization_id,
+                    'org_jianghu'
+                )"""
+            )
             if "team_id" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN team_id TEXT")
             artifact_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(artifacts)").fetchall()}
+            if "organization_id" not in artifact_columns:
+                db.execute("ALTER TABLE artifacts ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
+            db.execute(
+                """UPDATE artifacts SET organization_id=COALESCE(
+                    (SELECT r.organization_id FROM runs r WHERE r.id=artifacts.run_id),
+                    organization_id,
+                    'org_jianghu'
+                )"""
+            )
             if "relative_path" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN relative_path TEXT NOT NULL DEFAULT ''")
             if "sha256" not in artifact_columns:
@@ -523,6 +545,26 @@ class PlatformStore:
                 db.execute("ALTER TABLE artifacts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'text/markdown'")
             if "size_bytes" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0")
+            event_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(events)").fetchall()}
+            if "organization_id" not in event_columns:
+                db.execute("ALTER TABLE events ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
+            db.execute(
+                """UPDATE events SET organization_id=COALESCE(
+                    (SELECT r.organization_id FROM runs r WHERE r.id=events.run_id),
+                    organization_id,
+                    'org_jianghu'
+                )"""
+            )
+            intervention_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(run_interventions)").fetchall()}
+            if "organization_id" not in intervention_columns:
+                db.execute("ALTER TABLE run_interventions ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
+            db.execute(
+                """UPDATE run_interventions SET organization_id=COALESCE(
+                    (SELECT r.organization_id FROM runs r WHERE r.id=run_interventions.run_id),
+                    organization_id,
+                    'org_jianghu'
+                )"""
+            )
             team_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_teams)").fetchall()}
             if "knowledge_paths_json" not in team_columns:
                 db.execute("ALTER TABLE agent_teams ADD COLUMN knowledge_paths_json TEXT NOT NULL DEFAULT '[]'")
@@ -3161,6 +3203,7 @@ class PlatformStore:
         }
         retry_id = new_id("run")
         now = utc_now()
+        organization_id = str(original.get("organization_id") or workflow.get("organization_id") or "org_jianghu")
         new_task_by_key: dict[str, str] = {}
         with self._connect() as db:
             db.execute(
@@ -3183,9 +3226,9 @@ class PlatformStore:
                 task_id = new_id("task")
                 new_task_by_key[node_key] = task_id
                 db.execute(
-                    "INSERT INTO tasks(id,run_id,node_key,node_name,agent_id,team_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO tasks(id,run_id,organization_id,node_key,node_name,agent_id,team_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
                     (
-                        task_id, retry_id, node["key"], node["name"], node.get("agent_id"), node.get("team_id"),
+                        task_id, retry_id, organization_id, node["key"], node["name"], node.get("agent_id"), node.get("team_id"),
                         "completed" if node_key in preserved_node_keys else "pending", now, now,
                     ),
                 )
@@ -3212,6 +3255,7 @@ class PlatformStore:
         retry_record = {
             "id": retry_id,
             "project_id": original["project_id"],
+            "organization_id": organization_id,
             "workflow_id": original["workflow_id"],
             "task_input": original["task_input"],
             "clarification_id": original.get("clarification_id"),
@@ -3247,6 +3291,7 @@ class PlatformStore:
             )
         run_id = new_id("run")
         now = utc_now()
+        organization_id = str(workflow.get("organization_id") or "org_jianghu")
         with self._connect() as db:
             if db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone() is None:
                 raise ValueError("project_not_found")
@@ -3255,7 +3300,7 @@ class PlatformStore:
                 (
                     run_id,
                     project_id,
-                    str(workflow.get("organization_id") or "org_jianghu"),
+                    organization_id,
                     workflow_id,
                     task_input,
                     "draft",
@@ -3267,13 +3312,14 @@ class PlatformStore:
             )
             for node in workflow["definition"]["nodes"]:
                 db.execute(
-                    "INSERT INTO tasks(id,run_id,node_key,node_name,agent_id,team_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)",
-                    (new_id("task"), run_id, node["key"], node["name"], node.get("agent_id"), node.get("team_id"), "pending", now, now),
+                    "INSERT INTO tasks(id,run_id,organization_id,node_key,node_name,agent_id,team_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    (new_id("task"), run_id, organization_id, node["key"], node["name"], node.get("agent_id"), node.get("team_id"), "pending", now, now),
                 )
             self._event(db, run_id, "run.created", "system", "执行事件已经建立", "工作流版本、负责组织和固定人物绑定已经冻结为本次执行快照。")
         run_record = {
             "id": run_id,
             "project_id": project_id,
+            "organization_id": organization_id,
             "workflow_id": workflow_id,
             "task_input": task_input,
             "clarification_id": clarification_id,
@@ -3282,17 +3328,21 @@ class PlatformStore:
         self._ensure_run_workspace(run_record, workflow)
         return self.get_run(run_id)  # type: ignore[return-value]
 
-    def get_run(self, run_id: str) -> dict[str, Any] | None:
+    def get_run(self, run_id: str, organization_id: str | None = None) -> dict[str, Any] | None:
         with self._connect() as db:
-            row = db.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+            if organization_id:
+                row = db.execute("SELECT * FROM runs WHERE id=? AND organization_id=?", (run_id, organization_id)).fetchone()
+            else:
+                row = db.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
             if not row:
                 return None
-            tasks = db.execute("SELECT * FROM tasks WHERE run_id=? ORDER BY created_at", (run_id,)).fetchall()
-            artifacts = db.execute("SELECT * FROM artifacts WHERE run_id=? ORDER BY created_at", (run_id,)).fetchall()
-            events = db.execute("SELECT * FROM events WHERE run_id=? ORDER BY sequence", (run_id,)).fetchall()
+            run_organization_id = str(row["organization_id"] or "org_jianghu")
+            tasks = db.execute("SELECT * FROM tasks WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
+            artifacts = db.execute("SELECT * FROM artifacts WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
+            events = db.execute("SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence", (run_id, run_organization_id)).fetchall()
             interventions = db.execute(
-                "SELECT * FROM run_interventions WHERE run_id=? ORDER BY created_at",
-                (run_id,),
+                "SELECT * FROM run_interventions WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
             ).fetchall()
         result = dict(row)
         result["tasks"] = [self._task(item) for item in tasks]
@@ -3334,7 +3384,7 @@ class PlatformStore:
         now = utc_now()
         intervention_id = new_id("intervention")
         with self._connect() as db:
-            run = db.execute("SELECT id,status FROM runs WHERE id=?", (run_id,)).fetchone()
+            run = db.execute("SELECT id,status,organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
             if not run:
                 raise ValueError("run_not_found")
             if str(run["status"]) in {"completed", "cancelled", "budget_exhausted", "revision_exhausted"}:
@@ -3343,13 +3393,17 @@ class PlatformStore:
                 task = db.execute("SELECT id FROM tasks WHERE id=? AND run_id=?", (task_id, run_id)).fetchone()
                 if not task:
                     raise ValueError("intervention_task_not_found")
-            if agent_id and not db.execute("SELECT id FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone():
-                raise ValueError("intervention_agent_not_found")
+            if agent_id:
+                agent = db.execute("SELECT id,organization_id FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone()
+                if not agent:
+                    raise ValueError("intervention_agent_not_found")
+                if str(agent["organization_id"]) != str(run["organization_id"]):
+                    raise ValueError("intervention_agent_organization_mismatch")
             db.execute(
                 """INSERT INTO run_interventions
-                (id,run_id,task_id,agent_id,kind,content,status,created_at)
-                VALUES(?,?,?,?,?,?,?,?)""",
-                (intervention_id, run_id, task_id, agent_id, kind, normalized_content, "queued", now),
+                (id,run_id,organization_id,task_id,agent_id,kind,content,status,created_at)
+                VALUES(?,?,?,?,?,?,?,?,?)""",
+                (intervention_id, run_id, run["organization_id"], task_id, agent_id, kind, normalized_content, "queued", now),
             )
         return next(item for item in self.list_run_interventions(run_id) if item["id"] == intervention_id)
 
@@ -3598,12 +3652,16 @@ class PlatformStore:
 
     def create_artifact(self, run_id: str, task_id: str | None, kind: str, title: str, content: str, status: str = "candidate") -> dict[str, Any]:
         with self._connect() as db:
+            run_row = db.execute("SELECT organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
+            if not run_row:
+                raise ValueError("run_not_found")
+            organization_id = str(run_row["organization_id"] or "org_jianghu")
             if task_id is None:
                 version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id IS NULL", (run_id,)).fetchone()
             else:
                 version_row = db.execute("SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=?", (run_id, task_id)).fetchone()
             next_version = int(_row_value(version_row, "value"))
-        artifact = {"id": new_id("artifact"), "run_id": run_id, "task_id": task_id, "kind": kind, "title": title, "content": content, "version": next_version, "status": status, "created_at": utc_now()}
+        artifact = {"id": new_id("artifact"), "run_id": run_id, "organization_id": organization_id, "task_id": task_id, "kind": kind, "title": title, "content": content, "version": next_version, "status": status, "created_at": utc_now()}
         if task_id is None:
             node_key = "run"
         else:
@@ -3620,10 +3678,10 @@ class PlatformStore:
                 db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
             db.execute(
                 """INSERT INTO artifacts
-                (id,run_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (id,run_id,organization_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    artifact["id"], artifact["run_id"], artifact["task_id"], artifact["kind"], artifact["title"],
+                    artifact["id"], artifact["run_id"], artifact["organization_id"], artifact["task_id"], artifact["kind"], artifact["title"],
                     artifact["content"], artifact["version"], artifact["status"], artifact["created_at"],
                     artifact["relative_path"], artifact["sha256"], artifact["media_type"], artifact["size_bytes"],
                 ),
@@ -3633,8 +3691,10 @@ class PlatformStore:
     def _event(self, db: sqlite3.Connection, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> None:
         sequence_row = db.execute("SELECT COALESCE(MAX(sequence),0)+1 AS value FROM events WHERE run_id=?", (run_id,)).fetchone()
         sequence = int(_row_value(sequence_row, "value"))
+        run_row = db.execute("SELECT organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
+        organization_id = str(_row_value(run_row, "organization_id") or "org_jianghu")
         now = utc_now()
-        db.execute("INSERT INTO events(id,run_id,sequence,type,category,title,summary,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?,?)", (new_id("evt"), run_id, sequence, type_, category, title, summary, json.dumps(payload or {}), now))
+        db.execute("INSERT INTO events(id,run_id,organization_id,sequence,type,category,title,summary,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", (new_id("evt"), run_id, organization_id, sequence, type_, category, title, summary, json.dumps(payload or {}), now))
         db.execute("UPDATE runs SET updated_at=? WHERE id=?", (now, run_id))
 
     def _agent(self, row: sqlite3.Row) -> dict[str, Any]:

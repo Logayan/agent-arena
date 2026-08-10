@@ -1099,7 +1099,7 @@ function stopRunPolling(): void {
 
 async function refreshActiveRun(runId: string): Promise<void> {
   try {
-    const result = await api.getPlatformRun(runId)
+    const result = await api.getPlatformRun(runId, currentOrganizationId.value)
     activeRun.value = result.run as Json
     if (!activeRun.value.tasks?.some((task: Json) => task.id === selectedSceneTaskId.value)) {
       selectedSceneTaskId.value = preferredRunTask(activeRun.value.tasks ?? [])?.id ?? ''
@@ -1226,7 +1226,7 @@ async function startShowcaseComparison(comparisonId?: string): Promise<void> {
 
 async function hydrateRun(runId: string, navigate = false): Promise<void> {
   error.value = ''
-  const result = await api.getPlatformRun(runId)
+  const result = await api.getPlatformRun(runId, currentOrganizationId.value)
   activeRun.value = result.run as Json
   selectedSceneTaskId.value = preferredRunTask(activeRun.value.tasks ?? [])?.id ?? ''
   if (navigate) {
@@ -1807,7 +1807,7 @@ async function startWorkflow(flow: Json): Promise<void> {
     const task = `${commission.title}\n\n${commission.description}`
     const created = await api.createPlatformRun(flow.id, task, undefined, 'project_jianghu', commission.id)
     const run = created.run as Json
-    await api.startPlatformRun(run.id)
+    await api.startPlatformRun(run.id, currentOrganizationId.value)
     currentTask.value = (created.commission ?? commission) as Json
     runs.value = await api.platformRuns(currentOrganizationId.value)
     await openRun(run.id)
@@ -1824,7 +1824,7 @@ async function startExistingRun(run: Json): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    await api.startPlatformRun(run.id)
+    await api.startPlatformRun(run.id, currentOrganizationId.value)
     await openRun(run.id)
     beginRunPolling(run.id)
   } catch (cause) {
@@ -1837,7 +1837,7 @@ async function cancelActiveRun(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    const result = await api.cancelPlatformRun(activeRun.value.id)
+    const result = await api.cancelPlatformRun(activeRun.value.id, currentOrganizationId.value)
     activeRun.value = result.run as Json
     stopRunPolling()
     runs.value = await api.platformRuns(currentOrganizationId.value)
@@ -1852,7 +1852,7 @@ async function pauseActiveRun(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    const result = await api.pausePlatformRun(activeRun.value.id)
+    const result = await api.pausePlatformRun(activeRun.value.id, currentOrganizationId.value)
     activeRun.value = result.run as Json
     beginRunPolling(activeRun.value.id)
     notice.value = '停手请求已发出：正在进行的模型回合会完成，下一个受控边界不会继续。'
@@ -1866,7 +1866,7 @@ async function resumeActiveRun(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    const result = await api.resumePlatformRun(activeRun.value.id)
+    const result = await api.resumePlatformRun(activeRun.value.id, currentOrganizationId.value)
     activeRun.value = result.run as Json
     beginRunPolling(activeRun.value.id)
     notice.value = '现场已经恢复，人物会沿用原 Run 和已有产物继续行动。'
@@ -1886,7 +1886,7 @@ async function submitRunIntervention(): Promise<void> {
       task_id: selectedSceneTask.value.id,
       agent_id: interventionForm.value.agent_id || undefined,
     }
-    const result = await api.intervenePlatformRun(activeRun.value.id, payload)
+    const result = await api.intervenePlatformRun(activeRun.value.id, payload, currentOrganizationId.value)
     activeRun.value = result.run as Json
     interventionForm.value.content = ''
     notice.value = payload.kind === 'require_rework'
@@ -1904,7 +1904,7 @@ async function retryActiveRun(fromTask?: Json): Promise<void> {
   error.value = ''
   try {
     const sourceRunId = activeRun.value.id
-    const result = await api.retryPlatformRun(sourceRunId, fromTask?.id)
+    const result = await api.retryPlatformRun(sourceRunId, fromTask?.id, currentOrganizationId.value)
     const run = result.run as Json
     const retryInfo = result.retry as Json | undefined
     runs.value = await api.platformRuns(currentOrganizationId.value)
@@ -1923,7 +1923,7 @@ async function extendActiveRun(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    const result = await api.extendPlatformRun(activeRun.value.id, extensionMinutes.value)
+    const result = await api.extendPlatformRun(activeRun.value.id, extensionMinutes.value, currentOrganizationId.value)
     activeRun.value = result.run as Json
     const extension = result.extension as Json | undefined
     runs.value = await api.platformRuns(currentOrganizationId.value)
@@ -2356,8 +2356,8 @@ onUnmounted(() => {
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>{{ activeRun.id }}</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
           <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? '预算或运行时限已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ eventDetail(latestFailureEvent) }}</p><small>原 Run、失败证据和已有产物不会被覆盖；可以从当前未完成节点定向重试，也可以完整重跑。</small></div></div><div class="failure-retry-actions"><button v-if="selectedSceneTask" class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”重试</button><button class="jh-secondary" :disabled="busy" @click="retryActiveRun()"><RefreshCw />完整重跑</button></div></section>
-          <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
-          <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
+          <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id, currentOrganizationId)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
+          <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
           <section class="society-duty-board">
             <header><div><span>人物当值榜</span><h3>谁在忙、忙什么、最近留下了什么</h3><p>状态由真实 Run 事件推导，不靠前端模拟；点击人物可定位到他当前所在的生产节点。</p></div><b>{{ activePresenceCount }} 人在办事</b></header>
             <div><button v-for="presence in activeRun.agent_presence ?? []" :key="presence.agent_id" :data-state="presence.state" :disabled="!presence.task_id" @click="selectPresence(presence)"><i>{{ initials(presence.name) }}</i><span><strong>{{ presence.name }} · {{ presence.role }}</strong><b>{{ uiRuntimeText(presence.state_label) }}</b><small>{{ presence.node_name || '暂无负责节点' }}</small><em>{{ presencePreview(presence) }}</em></span></button></div>
@@ -2421,7 +2421,7 @@ onUnmounted(() => {
                 <div v-else-if="scenePanelTab === 'evidence'" class="scene-tab-content evidence-ledger">
                   <div v-if="!taskEvidenceEvents(selectedSceneTask).length" class="empty-room">工程人物真实修改文件、执行命令或运行测试后，证据会在这里出现。</div>
                   <details v-for="event in [...taskEvidenceEvents(selectedSceneTask)].reverse()" :key="event.id" class="ledger-detail" :data-type="event.type"><summary><b>{{ eventTypeLabel(event.type) }}</b><span>{{ event.payload?.path ?? event.payload?.command ?? uiRuntimeText(event.summary) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><code v-if="event.payload?.sha256">SHA-256：{{ event.payload.sha256 }}</code><code v-if="event.payload?.exit_code !== undefined && event.payload?.exit_code !== null">退出码：{{ event.payload?.exit_code }} · {{ event.payload?.passed === false ? '未通过' : '已完成' }}</code><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre></details>
-                  <a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" class="code-package-link" :href="api.runCodeDownloadUrl(activeRun.id)"><Download />下载本 Run 的真实工程代码包</a>
+                  <a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" class="code-package-link" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载本 Run 的真实工程代码包</a>
                 </div>
 
                 <div v-else-if="scenePanelTab === 'rationale'" class="scene-tab-content initiator-rationale-panel">
@@ -2438,7 +2438,7 @@ onUnmounted(() => {
             </div>
             <footer class="world-broadcast"><strong>📣 江湖播报</strong><div><article v-for="event in worldBroadcasts" :key="event.id"><span>{{ eventAgent(event)?.name ?? (event.payload?.team_id ? teamById[event.payload.team_id]?.name : '平台') }}</span><p>{{ ['task.failed','run.failed','llm.retrying','task.retrying'].includes(String(event.type)) ? eventDetail(event) : uiRuntimeText(event.payload?.contribution_preview ?? event.summary) }}</p><small>{{ eventTypeLabel(event.type) }} · {{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></article></div></footer>
           </section>
-          <section class="artifact-board"><header><div><span>正式交付</span><h3>节点产物</h3></div><b>{{ activeRun.artifacts?.length ?? 0 }} 份</b></header><div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div><details v-for="artifact in activeRun.artifacts" :key="artifact.id" class="artifact-card"><summary><div><strong>{{ artifact.title }}</strong><small>{{ artifact.kind }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开查看</span></summary><div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id)"><Download />下载独立文件</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div><pre>{{ artifact.content }}</pre></details></section>
+          <section class="artifact-board"><header><div><span>正式交付</span><h3>节点产物</h3></div><b>{{ activeRun.artifacts?.length ?? 0 }} 份</b></header><div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div><details v-for="artifact in activeRun.artifacts" :key="artifact.id" class="artifact-card"><summary><div><strong>{{ artifact.title }}</strong><small>{{ artifact.kind }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开查看</span></summary><div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />下载独立文件</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div><pre>{{ artifact.content }}</pre></details></section>
         </section>
       </main>
 

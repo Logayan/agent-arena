@@ -483,6 +483,13 @@ async def list_platform_runs(organization_id: str | None = None) -> list[dict[st
     return platform_store.list_runs(organization_id=organization_id)
 
 
+def scoped_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = platform_store.get_run(run_id, organization_id=organization_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="run_not_found_in_organization" if organization_id else "run_not_found")
+    return run
+
+
 @app.get("/api/platform/showcases/production-flow-comparison")
 async def get_production_flow_showcase() -> dict[str, object]:
     return showcase_snapshot(platform_store)
@@ -1819,18 +1826,17 @@ async def create_platform_run(request: RunCreateRequest) -> dict[str, object]:
 
 
 @app.get("/api/platform/runs/{run_id}")
-async def get_platform_run(run_id: str) -> dict[str, object]:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def get_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id)
     return {"run": run}
 
 
 @app.get("/api/platform/artifacts/{artifact_id}/download")
-async def download_platform_artifact(artifact_id: str) -> FileResponse:
+async def download_platform_artifact(artifact_id: str, organization_id: str | None = None) -> FileResponse:
     artifact = platform_store.get_artifact(artifact_id)
     if not artifact:
         raise HTTPException(status_code=404, detail="artifact_not_found")
+    run = scoped_platform_run(str(artifact["run_id"]), organization_id)
     try:
         path = platform_store.artifact_file_path(artifact_id)
     except ValueError as exc:
@@ -1840,10 +1846,8 @@ async def download_platform_artifact(artifact_id: str) -> FileResponse:
 
 
 @app.get("/api/platform/runs/{run_id}/code/download")
-async def download_platform_run_code(run_id: str) -> FileResponse:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def download_platform_run_code(run_id: str, organization_id: str | None = None) -> FileResponse:
+    run = scoped_platform_run(run_id, organization_id)
     code_root = Path(str(run["workspace"]["code"])).resolve()
     if not code_root.is_dir() or not any(path.is_file() for path in code_root.rglob("*")):
         raise HTTPException(status_code=404, detail="run_code_artifact_not_found")
@@ -1868,10 +1872,8 @@ async def download_platform_run_code(run_id: str) -> FileResponse:
 
 
 @app.post("/api/platform/runs/{run_id}/start")
-async def start_platform_run(run_id: str) -> dict[str, object]:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def start_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id)
     active = platform_tasks.get(run_id)
     if active and not active.done():
         raise HTTPException(status_code=409, detail="run_already_active")
@@ -1883,13 +1885,16 @@ async def start_platform_run(run_id: str) -> dict[str, object]:
 
 
 @app.post("/api/platform/runs/{run_id}/retry")
-async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None) -> dict[str, object]:
+async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None, organization_id: str | None = None) -> dict[str, object]:
+    scoped_platform_run(run_id, organization_id)
     try:
         retry = platform_store.retry_run(run_id, from_task_id=request.from_task_id if request else None)
     except ValueError as exc:
         status = 404 if str(exc) in {"run_not_found", "workflow_not_found"} else 409
         raise HTTPException(status_code=status, detail=str(exc)) from exc
-    for commission in platform_store.list_company_tasks():
+    source_run = platform_store.get_run(run_id)
+    source_organization_id = str((source_run or {}).get("organization_id") or "")
+    for commission in platform_store.list_company_tasks(source_organization_id or None):
         if commission.get("run_id") == run_id:
             platform_store.link_company_task(commission["id"], workflow_id=retry["workflow_id"], run_id=retry["id"])
             break
@@ -1908,10 +1913,8 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
 
 
 @app.post("/api/platform/runs/{run_id}/cancel")
-async def cancel_platform_run(run_id: str) -> dict[str, object]:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def cancel_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id)
     if run["status"] in {"completed", "failed", "cancelled", "budget_exhausted", "revision_exhausted"}:
         raise HTTPException(status_code=409, detail="run_is_terminal")
     active = platform_tasks.get(run_id)
@@ -1923,10 +1926,8 @@ async def cancel_platform_run(run_id: str) -> dict[str, object]:
 
 
 @app.post("/api/platform/runs/{run_id}/pause")
-async def pause_platform_run(run_id: str) -> dict[str, object]:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def pause_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id)
     if run["status"] in {"pause_requested", "paused"}:
         return {"run": run}
     if run["status"] != "running":
@@ -1943,10 +1944,8 @@ async def pause_platform_run(run_id: str) -> dict[str, object]:
 
 
 @app.post("/api/platform/runs/{run_id}/resume")
-async def resume_platform_run(run_id: str) -> dict[str, object]:
-    run = platform_store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="run_not_found")
+async def resume_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id)
     if run["status"] == "running":
         return {"run": run}
     if run["status"] not in {"pause_requested", "paused"}:
@@ -1967,7 +1966,8 @@ async def resume_platform_run(run_id: str) -> dict[str, object]:
 
 
 @app.post("/api/platform/runs/{run_id}/extend")
-async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest) -> dict[str, object]:
+async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest, organization_id: str | None = None) -> dict[str, object]:
+    scoped_platform_run(run_id, organization_id)
     try:
         extended = platform_store.extend_run_time(run_id, request.minutes)
     except ValueError as exc:
@@ -2000,7 +2000,8 @@ async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest) -> 
 
 
 @app.post("/api/platform/runs/{run_id}/interventions")
-async def intervene_platform_run(run_id: str, request: RunInterventionRequest) -> dict[str, object]:
+async def intervene_platform_run(run_id: str, request: RunInterventionRequest, organization_id: str | None = None) -> dict[str, object]:
+    scoped_platform_run(run_id, organization_id)
     try:
         intervention = platform_store.create_run_intervention(
             run_id,

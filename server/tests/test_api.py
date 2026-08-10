@@ -1227,6 +1227,10 @@ def test_multiple_big_realms_filter_agents_teams_workflows_and_runs(tmp_path) ->
     assert [item["id"] for item in platform.list_workflows(organization_id=second_realm["id"])] == [workflow["id"]]
     assert [item["id"] for item in platform.list_runs(organization_id=second_realm["id"])] == [run["id"]]
     assert all(item["organization_id"] == "org_jianghu" for item in platform.list_agents("org_jianghu"))
+    assert platform.get_run(run["id"], organization_id=second_realm["id"])["organization_id"] == second_realm["id"]
+    assert platform.get_run(run["id"], organization_id="org_jianghu") is None
+    assert all(item["organization_id"] == second_realm["id"] for item in platform.get_run(run["id"])["tasks"])
+    assert all(item["organization_id"] == second_realm["id"] for item in platform.get_run(run["id"])["events"])
 
 
 @pytest.mark.anyio
