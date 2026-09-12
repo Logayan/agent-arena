@@ -1,0 +1,40 @@
+name: jianghu-online
+
+services:
+  jianghu-online:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION:-24}
+        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-2026.7.1-2}
+    image: jianghu-online:${JIANGHU_IMAGE_TAG:-local}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${JIANGHU_PORT:-8000}:8000"
+    environment:
+      JIANGHU_DATA_ROOT: /app/.data
+      JIANGHU_DB_PATH: /app/.data/jianghu.db
+      JIANGHU_SECRET_KEY_FILE: /app/.data/.jianghu-secret.key
+      JIANGHU_WORKSPACE_ROOT: /app/.data/workspaces
+      JIANGHU_KNOWLEDGE_ROOT: /app/.data/knowledge
+      JIANGHU_OPENCLAW_STATE_ROOT: /app/.data/openclaw
+      JIANGHU_OPENCLAW_NODE_PATH: /usr/local/bin/node
+      JIANGHU_OPENCLAW_ENTRY_PATH: /usr/local/lib/node_modules/openclaw/openclaw.mjs
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL:-}
+    volumes:
+      # 默认直接挂载当前平台数据：组织、Agent、团队、生产流、知识、
+      # Memory、运行产物以及模型凭据的加密密钥都会保留。
+      - type: bind
+        source: ${JIANGHU_DATA_DIR:-./.data}
+        target: /app/.data
+    stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 20s
+      timeout: 8s
+      start_period: 25s
+      retries: 6
