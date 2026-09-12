@@ -3215,7 +3215,8 @@ class PlatformStore:
             )
         return self.get_run(run_id)  # type: ignore[return-value]
 
-    def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
+    def validate_retry(self, run_id: str, from_task_id: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Validate a retry without persisting a version or changing existing links."""
         original = self.get_run(run_id)
         if not original:
             raise ValueError("run_not_found")
@@ -3224,6 +3225,12 @@ class PlatformStore:
         workflow = self.get_workflow(str(original["workflow_id"]))
         if not workflow:
             raise ValueError("workflow_not_found")
+        if from_task_id and not any(str(task["id"]) == str(from_task_id) for task in original.get("tasks", [])):
+            raise ValueError("retry_task_not_found")
+        return original, workflow
+
+    def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
+        original, workflow = self.validate_retry(run_id, from_task_id)
         original_task_by_key = {str(task["node_key"]): task for task in original.get("tasks", [])}
         original_task_by_id = {str(task["id"]): task for task in original.get("tasks", [])}
         latest_artifact_by_task: dict[str, dict[str, Any]] = {}
@@ -3233,8 +3240,6 @@ class PlatformStore:
             if current is None or int(artifact.get("version", 0) or 0) > int(current.get("version", 0) or 0):
                 latest_artifact_by_task[task_id] = artifact
         retry_from_task = original_task_by_id.get(str(from_task_id)) if from_task_id else None
-        if from_task_id and retry_from_task is None:
-            raise ValueError("retry_task_not_found")
         node_keys = {str(node["key"]) for node in workflow["definition"].get("nodes", [])}
         retry_node_keys = set(node_keys)
         if retry_from_task:

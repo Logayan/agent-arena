@@ -42,7 +42,9 @@ async def test_legacy_demo_api_is_not_available() -> None:
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.post("/api/demo")
-    assert response.status_code == 405
+    # StaticFiles returns 405 for POST; a source-only checkout returns 404.
+    assert response.status_code in {404, 405}
+    assert "/api/demo" not in app.openapi()["paths"]
 
 
 @pytest.mark.anyio
@@ -238,7 +240,12 @@ async def test_demo_simulation_completes_with_fixed_defect_and_scores() -> None:
 
 
 @pytest.mark.anyio
-async def test_platform_assets_are_persisted_and_workflow_binds_agents() -> None:
+async def test_platform_assets_are_persisted_and_workflow_binds_agents(monkeypatch, tmp_path) -> None:
+    db_path = str(tmp_path / "persisted-assets.db")
+    platform = PlatformStore(db_path)
+    ensure_showcase_assets(platform)
+    # Reopen the database instead of depending on data from a developer's workspace.
+    monkeypatch.setattr("server.app.main.platform_store", PlatformStore(db_path))
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
