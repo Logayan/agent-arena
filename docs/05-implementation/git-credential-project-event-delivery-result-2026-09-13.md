@@ -24,11 +24,11 @@ Git 交付已从“每个项目一份混合配置”拆分为：
 ## 真实远端结果
 
 - Run 隔离源 Commit：`303f351a82a8b22a94f15bb8f31ac5139ceb4479`
-- 目标仓库历史锚定后的远端 Commit：`f3f823a51cbeb5f57848501334897a8a7bba9f5c`
+- 核心实现文件历史锚定后的远端 Commit：`f3f823a51cbeb5f57848501334897a8a7bba9f5c`
 - Merge Request：[GitHub PR #4](https://github.com/Logayan/agent-arena/pull/4)
 - MR 状态：`open`
-- MR 已复用同一事件的远端分支，当前包含 2 个远端 Commit。
-- 当前差异：95 files changed，21967 additions，407 deletions。
+- MR 已复用同一事件的远端分支，后续实现和文档通过 fast-forward 持续更新。
+- 核心实现推送后的验证快照：95 files changed，21967 additions，407 deletions；最终差异以 GitHub MR 页面为准。
 
 ## 历史锚定修复
 
@@ -48,4 +48,3 @@ Run 隔离仓库与目标仓库没有共同祖先时，不再直接使用 Run �
 - MR 最终选定的 10 个核心修改文件与当前工作区 Blob 完全一致
 - MR 差异敏感信息扫描：0 个 GitHub Token、0 个 API Key、0 个私钥命中
 - 浏览器验证：“Git 凭据库”与“项目代码仓库”分类展示，事件入口提供可选 Git 交付区域。
-
