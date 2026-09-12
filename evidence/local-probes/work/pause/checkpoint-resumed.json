@@ -1,0 +1,11 @@
+{
+  "completed_steps": [
+    "prepare",
+    "continue",
+    "finalize"
+  ],
+  "operation_id": "pause-op-run-9226059d74a1",
+  "resumer_pid": 28156,
+  "source_checkpoint_sha256": "253f1f6a028bc946062f01e7812a37c08a70a54ba6fc20622806a694997d3b89",
+  "status": "COMPLETED"
+}

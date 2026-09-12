@@ -1,0 +1,63 @@
+{
+  "schema_version": "jianghu.runtime-probe-final-summary.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "generated_at": "2026-09-12T08:16:32.911526+00:00",
+  "decision": {
+    "engineering_environment": "PASS",
+    "local_probes": "PASS_LOCAL_SCOPE",
+    "cam_pass": "0/13",
+    "claude_agent_sdk_full_runtime_migration": "NO_GO",
+    "openclaw_retirement": "REJECTED"
+  },
+  "evidence_cutoff": {
+    "event_count": 6003,
+    "sequence_last": 6015,
+    "events_sha256": "41171e25f262f44f71aad2273dbac20c556bd807ca95c8ac1ff036aef38ebc40",
+    "projection": "public_agent_safe",
+    "source_database_verified": false
+  },
+  "runtime": {
+    "sdk_bindings": 26,
+    "distinct_bound_actors": 5,
+    "distinct_sdk_sessions": 26,
+    "five_required_roles_bound": false
+  },
+  "tools": {
+    "groups": 979,
+    "complete_four_phase": 979,
+    "failed": 76
+  },
+  "artifacts": {
+    "registry": 38,
+    "raw_bytes_verified": 38,
+    "collected": 36,
+    "download_verified": 36
+  },
+  "public_submission_review": {
+    "byte_audit_mismatch_count": 0,
+    "decision_counts": {
+      "ADOPTED_AS_PRIMARY_BASELINE": 13,
+      "REJECTED_DELETION": 32,
+      "REJECTED_PARALLEL_IMPLEMENTATION": 6,
+      "REVISED_AND_MERGED": 9,
+      "SUPERSEDED_BY_CONSOLIDATED_REPORT": 4,
+      "SUPERSEDED_BY_CURRENT_RUN_REBUILD": 140,
+      "SUPERSEDED_BY_FINAL_MANIFEST": 1
+    },
+    "deletion_marker_count": 32,
+    "manifest_change_row_count": 205,
+    "non_deleted_row_count": 173,
+    "publicly_attested_not_materialized_rows": 12,
+    "raw_byte_verified_non_deleted_rows": 161,
+    "selected_public_files_copied": 6
+  },
+  "formal_files": {
+    "report": "docs/Claude_Runtime_取证与故障注入验收报告.md",
+    "gap_markdown": "docs/Claude_Runtime_迁移缺口清单.md",
+    "gap_json": "gaps/runtime-probe-gap-list.json",
+    "evidence_index": "evidence/runtime_probe/evidence-index.json",
+    "submission_review": "evidence/runtime_probe/public-submission-review.json",
+    "command_results": "evidence/runtime_probe/final-command-results.json"
+  }
+}

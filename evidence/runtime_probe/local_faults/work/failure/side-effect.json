@@ -1,0 +1,6 @@
+{
+  "operation_id": "RP-OP-FAILURE-001",
+  "idempotency_key": "RP-IDEMPOTENCY-001",
+  "occurrences": 1,
+  "committing_pid": 14256
+}

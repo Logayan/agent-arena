@@ -1,0 +1,14 @@
+{
+  "schema_version": "jianghu.local-negative-gate.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "blocker_id": "NEG-001-MISSING-PLATFORM-EVIDENCE-BINDING",
+  "declared_before_candidate_execution": true,
+  "first_candidate_requirement": "platform_evidence_binding must be intentionally absent",
+  "expected_first_verdict": "REJECT",
+  "expected_first_exit_code": 42,
+  "repair": "create a new candidate that binds the frozen projection SHA-256, sequence cutoff, rejected candidate SHA-256 and verdict SHA-256",
+  "expected_repaired_verdict": "ACCEPT",
+  "scope": "local executable negative gate only; not a Jianghu platform Judge event",
+  "acceptance_eligible_for_platform_judge": false
+}

@@ -1,0 +1,27 @@
+test_01_projection_identity_and_boundary (test_runtime_acceptance.RuntimeProbeTests.test_01_projection_identity_and_boundary) ... ok
+test_02_projection_sequences_ids_and_source_hashes (test_runtime_acceptance.RuntimeProbeTests.test_02_projection_sequences_ids_and_source_hashes) ... ok
+test_03_snapshot_reanalysis_matches (test_runtime_acceptance.RuntimeProbeTests.test_03_snapshot_reanalysis_matches) ... ok
+test_04_runtime_route_attested (test_runtime_acceptance.RuntimeProbeTests.test_04_runtime_route_attested) ... ok
+test_05_sdk_bindings_resolve_to_completed_turns (test_runtime_acceptance.RuntimeProbeTests.test_05_sdk_bindings_resolve_to_completed_turns) ... ok
+test_06_sdk_lifecycle_limit_is_explicit (test_runtime_acceptance.RuntimeProbeTests.test_06_sdk_lifecycle_limit_is_explicit) ... ok
+test_07_tool_four_phase_pairing (test_runtime_acceptance.RuntimeProbeTests.test_07_tool_four_phase_pairing) ... ok
+test_08_tool_raw_result_limit_is_fail_closed (test_runtime_acceptance.RuntimeProbeTests.test_08_tool_raw_result_limit_is_fail_closed) ... ok
+test_09_registered_artifact_bytes_and_source_events (test_runtime_acceptance.RuntimeProbeTests.test_09_registered_artifact_bytes_and_source_events) ... ok
+test_10_artifact_lifecycle_limit (test_runtime_acceptance.RuntimeProbeTests.test_10_artifact_lifecycle_limit) ... ok
+test_11_public_collaboration_not_five_roles (test_runtime_acceptance.RuntimeProbeTests.test_11_public_collaboration_not_five_roles) ... ok
+test_12_judge_absent_and_rework_partial (test_runtime_acceptance.RuntimeProbeTests.test_12_judge_absent_and_rework_partial) ... ok
+test_13_memory_write_exists_but_roundtrip_not_proven (test_runtime_acceptance.RuntimeProbeTests.test_13_memory_write_exists_but_roundtrip_not_proven) ... ok
+test_14_platform_pause_absent_recovery_partial (test_runtime_acceptance.RuntimeProbeTests.test_14_platform_pause_absent_recovery_partial) ... ok
+test_15_local_faults_are_real_but_not_acceptance_eligible (test_runtime_acceptance.RuntimeProbeTests.test_15_local_faults_are_real_but_not_acceptance_eligible) ... ok
+test_16_local_receipt_hash_chain (test_runtime_acceptance.RuntimeProbeTests.test_16_local_receipt_hash_chain) ... ok
+test_17_predeclared_candidate_rejects_with_42 (test_runtime_acceptance.RuntimeProbeTests.test_17_predeclared_candidate_rejects_with_42) ... ok
+test_18_remediation_creates_v2_without_mutating_v1 (test_runtime_acceptance.RuntimeProbeTests.test_18_remediation_creates_v2_without_mutating_v1) ... ok
+test_19_cam_and_final_verdict_fail_closed (test_runtime_acceptance.RuntimeProbeTests.test_19_cam_and_final_verdict_fail_closed) ... ok
+test_20_schema_and_manifest (test_runtime_acceptance.RuntimeProbeTests.test_20_schema_and_manifest) ... ok
+test_21_full_verifier (test_runtime_acceptance.RuntimeProbeTests.test_21_full_verifier) ... ok
+test_22_gate_cli_exit_code (test_runtime_acceptance.RuntimeProbeTests.test_22_gate_cli_exit_code) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 1.797s
+
+OK

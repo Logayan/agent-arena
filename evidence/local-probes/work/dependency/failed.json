@@ -1,0 +1,5 @@
+{
+  "error_type": "TimeoutError",
+  "status": "DEPENDENCY_UNAVAILABLE",
+  "worker_pid": 6080
+}

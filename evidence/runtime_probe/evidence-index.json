@@ -1,0 +1,1533 @@
+{
+  "schema_version": "jianghu.runtime-probe-evidence-index.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "generated_at": "2026-09-12T08:15:46.607645+00:00",
+  "evidence_boundary": "Frozen public_agent_safe projection and registered raw artifact bytes; not source DB or initiator-private audit data.",
+  "snapshot": {
+    "core_files": {
+      "README.md": {
+        "size_bytes": 1153,
+        "sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc"
+      },
+      "artifact-registry.json": {
+        "size_bytes": 43744,
+        "sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44"
+      },
+      "critical-events.json": {
+        "size_bytes": 789458,
+        "sha256": "373a42eb729b467c90dd940bed946d9e5824addb1f2ab3b13cc739b6daa2c4cb"
+      },
+      "events.ndjson": {
+        "size_bytes": 14040589,
+        "sha256": "41171e25f262f44f71aad2273dbac20c556bd807ca95c8ac1ff036aef38ebc40"
+      },
+      "run-lineage.json": {
+        "size_bytes": 1651,
+        "sha256": "2151683d35365b622cc5805aca5aaf2973cf73d006d26e41f00f5ebfc5f96cbb"
+      },
+      "run-metadata.json": {
+        "size_bytes": 514,
+        "sha256": "cb25d4fe3475eab2a05b0c2e2b9c7e07ea176dc1090544217b73f46c7d51a7e2"
+      },
+      "runtime-attestation.json": {
+        "size_bytes": 24012,
+        "sha256": "063ae7f5519a0b8e4b12e8d9339462bccba06e6d8cb2f6b6e16bf77c60065ca0"
+      },
+      "runtime-source-attestation.json": {
+        "size_bytes": 3566,
+        "sha256": "c65035bc1fb864b3b3febf77161167e9544617b33b0a61841fe866b0afa1fc55"
+      }
+    },
+    "projection": {
+      "event_count": 6003,
+      "metadata_event_count": 6015,
+      "sequence_first": 1,
+      "sequence_last": 6015,
+      "missing_sequences": [
+        687,
+        812,
+        1258,
+        2248,
+        3898,
+        3937,
+        4211,
+        4329,
+        4980,
+        5167,
+        5676,
+        5824
+      ],
+      "event_ids_unique": true,
+      "source_event_hashes_unique_and_well_formed": true,
+      "critical_count": 616,
+      "critical_correspondence": "PASS",
+      "projection": "public_agent_safe",
+      "source_database_verified": false
+    },
+    "run_metadata": {
+      "id": "run_9226059d74a1",
+      "family_id": "run_0886dd109c15",
+      "version": 8,
+      "parent_run_id": "run_7ad4cb297cb5",
+      "organization_id": "org_jianghu",
+      "status": "running",
+      "stage": "Runtime 取证与故障注入执行环境",
+      "progress": 20,
+      "workflow_id": "workflow_f39b9f67783b",
+      "team_ids": [
+        "team_4e36a8a4a812"
+      ],
+      "task_count": 10,
+      "artifact_count": 38,
+      "event_count": 6015,
+      "generated_at": "2026-09-12T08:05:47.692752+00:00",
+      "runtime": "claude_code",
+      "execution_epoch": 2
+    }
+  },
+  "analysis": {
+    "runtime": {
+      "health": {
+        "available": true,
+        "runtime": "claude_code",
+        "mode": "agent-sdk-bridge",
+        "version": "0.3.268",
+        "claude_code_version": "2.1.268",
+        "error": "",
+        "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+        "entry_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\server\\claude_agent_runtime\\bridge.mjs",
+        "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\claude-code\\runs\\run_9226059d74a1",
+        "config_ready": true
+      },
+      "source_attestation_status": "passed",
+      "source_checks": {
+        "runtime_health_is_claude_code": true,
+        "runtime_mode_is_sdk_bridge": true,
+        "registry_constructs_only_claude_default": true,
+        "registry_rejects_non_claude_configuration": true,
+        "registry_does_not_import_openclaw": true,
+        "sdk_dependency_is_pinned": true,
+        "deployment_uses_claude_runtime": true,
+        "deployment_has_no_openclaw_runtime_dependency": true,
+        "new_runtime_events_are_generic": true
+      },
+      "source_file_fingerprint_count": 13,
+      "route_events": [
+        {
+          "sequence": 4,
+          "event_id": "evt_4a4797263797",
+          "payload": {
+            "authorization_decision": "claude_code_only",
+            "entrypoints": [
+              "normal",
+              "parallel",
+              "judge",
+              "rework",
+              "recovery",
+              "scheduled",
+              "callback",
+              "manual",
+              "background"
+            ],
+            "execution_epoch": 1,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge"
+          }
+        },
+        {
+          "sequence": 2522,
+          "event_id": "evt_c72cdb538df1",
+          "payload": {
+            "authorization_decision": "claude_code_only",
+            "entrypoints": [
+              "normal",
+              "parallel",
+              "judge",
+              "rework",
+              "recovery",
+              "scheduled",
+              "callback",
+              "manual",
+              "background"
+            ],
+            "execution_epoch": 2,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge"
+          }
+        }
+      ],
+      "fallback_denial_events": [
+        {
+          "sequence": 5,
+          "event_id": "evt_2855b8316b2c",
+          "payload": {
+            "authorization_decision": "deny",
+            "error_detail": "agent_runtime_not_found",
+            "execution_epoch": 1,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge",
+            "status": "passed"
+          }
+        },
+        {
+          "sequence": 2523,
+          "event_id": "evt_722014a4a38e",
+          "payload": {
+            "authorization_decision": "deny",
+            "error_detail": "agent_runtime_not_found",
+            "execution_epoch": 2,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge",
+            "status": "passed"
+          }
+        }
+      ],
+      "turn_started_count": 29,
+      "turn_completed_count": 26,
+      "binding_count": 26,
+      "binding_verified_count": 26,
+      "distinct_bound_agents": 5,
+      "distinct_sdk_sessions": 26,
+      "bindings": [
+        {
+          "event_sequence": 704,
+          "event_id": "evt_100e9bf46e05",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "a9d6c84812420d073a38c4b6943a6de215a3edbacbbbcee1452ea410315ef392",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "c1557337-3168-445d-8146-d58521099335",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 831,
+          "event_id": "evt_03c7a63a7a59",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "77b169f0180f438639839ca8b98266a07ab0fdd76a2a221c32f4b3104a640adf",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "cd4b4cc4-c78c-4071-bbfa-1b63d5dbc8a3",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 879,
+          "event_id": "evt_2a86b4cb52b2",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "08bd8628899efa35611f0d22045cabd376d3d1f4b48b52d16aba4d7593d56fb5",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "1b859b4e-81ba-4395-be1f-eebb5165b8b2",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 890,
+          "event_id": "evt_1d90af6bec85",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "cd012b740c822d8f4f34bded09f52515bcdc9134260d450bb518267fe3fb1942",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "dc9229bd-d4d9-46a7-9528-5785fed932a7",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 939,
+          "event_id": "evt_17b76854693c",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "3838a640ab8d5c8f28db264562c3b6ed4f462ce0c73049e81e25111b03157efa",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "8584a328-cfc1-4103-8c6a-8424aee2492a",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 954,
+          "event_id": "evt_4bd43d865398",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "ea3d9cdea4b048da9a4e36d48b21dca561fb843c86b114094454fdd1217c8cf8",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch1-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "5127a8dd-a14c-4a2d-8799-0c8bdf5dcfae",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 1272,
+          "event_id": "evt_d05255192913",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "a0e619840eb2c4a33071d6bf87967945724f0085ac3ee4587d274dad12a5f543",
+          "agent_id": "agent_445e5f7e8189",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_445e5f7e8189",
+          "platform_session_id": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch1-loop1-attempt1-independent-agent-attempt2",
+          "platform_session_key": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch1-loop1-attempt1-independent-agent-attempt2",
+          "claude_sdk_session_id": "4a5101c3-950a-40b3-ba1e-ed8c5bc3e314",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 2253,
+          "event_id": "evt_f85ba4c82665",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "f1c0f63625305e47f3c30d7cf86c093455d4bab78131d59dc0d5446d07324e5e",
+          "agent_id": "agent_445e5f7e8189",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_445e5f7e8189",
+          "platform_session_id": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch1-loop2-attempt2-independent-agent-attempt2",
+          "platform_session_key": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch1-loop2-attempt2-independent-agent-attempt2",
+          "claude_sdk_session_id": "706cf1df-fb9b-442b-adea-7cb2960a5cfb",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 3926,
+          "event_id": "evt_40b14e36fee3",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "a41beb0edf8d95a2699e526ed4717c8d3f318f3d1d7b35697f8e6f6087c6968e",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "1983c4e3-cae0-4adc-b6ba-422ab34cdd55",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 3951,
+          "event_id": "evt_30421f9aab4b",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "4a2437177bb940f4c17db321e44f3ee68dcc30b5dbfd112c3c97d56e14f4d594",
+          "agent_id": "agent_445e5f7e8189",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_445e5f7e8189",
+          "platform_session_id": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "5040f5fa-5b6a-456d-a38e-7cf15f26453c",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4243,
+          "event_id": "evt_df3b6ac11653",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "cbc58fe0ae6f5d29b29acc31b294ac9cf3093976e6c58c47ecdf6944fd42bb38",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "d360640a-7aac-4469-97a8-bfe462a25b6c",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4282,
+          "event_id": "evt_1112ed297d52",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "ce409cffcc0c1617433776ec306626b935d091ef964c2a1f23b8c80f8a01d03f",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "e88d7348-4b62-4f32-8dc1-540460bef070",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4292,
+          "event_id": "evt_e527759a9135",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "b7aa5219fa646c5f16cfef1bbb246de47800a9c9171f63b87260a6bfc75548f7",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "a50e83ee-3e7c-4a61-8ba8-e6b76363c770",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4343,
+          "event_id": "evt_530b71db56f3",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "aa63e41be862d10cbe58fecb77d812274577e770922362d00001e7ea3e3e17c6",
+          "agent_id": "agent_708110b6a225",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_708110b6a225",
+          "platform_session_id": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "1a737ffb-2df7-4a9f-ac02-eda3a106f7cf",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4379,
+          "event_id": "evt_d2719ac65062",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "ea749bc0a62ae33898afc729d4aa3e10e825e7bf9e193114a75e1ca062c7a155",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "8805c8da-7ff9-48f9-913e-fd34b4ac2876",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4390,
+          "event_id": "evt_9a48f9919faf",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "f14db09d977d2f66262f9c3d113ca44fe713d99ba355c70743c25fb35756fd9d",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "c8cd5a4a-f9e8-4fc5-89d2-8868b4252136",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4422,
+          "event_id": "evt_20e754a5eca5",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "f4ab2d37d8406a0e5edf64d88d6dbf5c5cab4ba8418903f72165624e5957acab",
+          "agent_id": "agent_708110b6a225",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_708110b6a225",
+          "platform_session_id": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "14096b82-7c30-4513-9d57-c88a3a8793a7",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4433,
+          "event_id": "evt_bb50c4191cb6",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "7c7d3cbe09af0a612de660fa982f577461453c3185f8777f6332ae2e2c5cfdd0",
+          "agent_id": "agent_445e5f7e8189",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_445e5f7e8189",
+          "platform_session_id": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "4b749638-f452-4ffd-8e00-92718041b566",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4518,
+          "event_id": "evt_6888b4fddee7",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "10db3c3ee85650cc731379a95bc704a11e0f67a452fa4bdee7b7174e51e92df6",
+          "agent_id": "agent_708110b6a225",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_708110b6a225",
+          "platform_session_id": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "72af990f-d870-41bf-82e9-2d3634686f8f",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 4620,
+          "event_id": "evt_8b53bc456adc",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "f2b58a619d331210367b254b7b76ca0b510c36df8c1591f4123a8430cadd8c24",
+          "agent_id": "agent_445e5f7e8189",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "公开通信第 2 轮",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_445e5f7e8189",
+          "platform_session_id": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "platform_session_key": "agent:agent_445e5f7e8189:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-message-2-agent-attempt1",
+          "claude_sdk_session_id": "2c204f51-e66a-471f-8235-947605e02921",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 5003,
+          "event_id": "evt_a6742f4d10df",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "28fca43ffd42f4e8f29cc5b95536050594c47470f3904977ee1fb0a05457c671",
+          "agent_id": "agent_708110b6a225",
+          "node_key": "acceptance_evidence_contract",
+          "phase": "团队合议与正式提交",
+          "role_instance_id": "role:run_9226059d74a1:acceptance_evidence_contract:agent_708110b6a225",
+          "platform_session_id": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-synthesis-agent-attempt1",
+          "platform_session_key": "agent:agent_708110b6a225:run_9226059d74a1-acceptance_evidence_contract-epoch2-loop1-attempt1-synthesis-agent-attempt1",
+          "claude_sdk_session_id": "9a17820a-6267-491f-a8f9-1da63f42dd96",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 5204,
+          "event_id": "evt_b7f8a4855dd3",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "a15ff875123d10fa61644a848ea83c0674410f099afff3acb8217c91c44538d3",
+          "agent_id": "agent_cb495a9bea1e",
+          "node_key": "openclaw_baseline_mapping",
+          "phase": "团队合议与正式提交",
+          "role_instance_id": "role:run_9226059d74a1:openclaw_baseline_mapping:agent_cb495a9bea1e",
+          "platform_session_id": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-synthesis-agent-attempt1",
+          "platform_session_key": "agent:agent_cb495a9bea1e:run_9226059d74a1-openclaw_baseline_mapping-epoch2-loop1-attempt1-synthesis-agent-attempt1",
+          "claude_sdk_session_id": "a7c1f72c-5f96-4b51-b87a-16f19899ff4f",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 5754,
+          "event_id": "evt_bab723ba0f60",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "cea633ff9c4cf25d92d3f5aba80f7f3f03121c989483316e91fcdb6a26613d24",
+          "agent_id": "agent_eac0b56ad320",
+          "node_key": "runtime_probe_harness",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:runtime_probe_harness:agent_eac0b56ad320",
+          "platform_session_id": "agent:agent_eac0b56ad320:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_eac0b56ad320:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "784390db-f30a-49a9-bdf7-72fdb3876124",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 5953,
+          "event_id": "evt_e64abe8b621a",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "72bf9afee34ab1c852d5e578fcc095ba050bb37c07d8d422d03c9edf208f1ebd",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "runtime_probe_harness",
+          "phase": "隔离独立贡献",
+          "role_instance_id": "role:run_9226059d74a1:runtime_probe_harness:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-independent-agent-attempt1",
+          "claude_sdk_session_id": "1a65a444-4756-478b-90bb-93c31a1acfff",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 5991,
+          "event_id": "evt_1bbefb726d79",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "64756cac292898a00c924f4cce1cd36f924bb59040e63f75146b79354f369796",
+          "agent_id": "agent_eac0b56ad320",
+          "node_key": "runtime_probe_harness",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:runtime_probe_harness:agent_eac0b56ad320",
+          "platform_session_id": "agent:agent_eac0b56ad320:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_eac0b56ad320:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "9d8a83d2-b9a9-4a30-8b18-419d2cc2665f",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        },
+        {
+          "event_sequence": 6002,
+          "event_id": "evt_5fb5191a3f21",
+          "run_id": "run_9226059d74a1",
+          "source_event_sha256": "5d97e0b25b413b72479628684da743f699b9bc76f60139b412c352245c5acba4",
+          "agent_id": "agent_bcde21fdede6",
+          "node_key": "runtime_probe_harness",
+          "phase": "公开通信第 1 轮",
+          "role_instance_id": "role:run_9226059d74a1:runtime_probe_harness:agent_bcde21fdede6",
+          "platform_session_id": "agent:agent_bcde21fdede6:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "platform_session_key": "agent:agent_bcde21fdede6:run_9226059d74a1-runtime_probe_harness-epoch2-loop1-attempt1-message-1-agent-attempt1",
+          "claude_sdk_session_id": "ce608129-cf84-40bc-995c-2b32f6f59f2e",
+          "model": "gpt-5.6-sol",
+          "runtime": "agent-sdk-bridge"
+        }
+      ],
+      "explicit_sdk_session_started_event_count": 0,
+      "sdk_session_continued_event_count": 0,
+      "boundary": "attested binding to agent.turn.completed; model field is not treated as proof of model-provider identity"
+    },
+    "tools": {
+      "group_count": 979,
+      "complete_four_phase_groups": 979,
+      "incomplete_group_count": 0,
+      "incomplete_tool_call_ids": [],
+      "node_group_count": 73,
+      "authorization_decisions": {
+        "allow": 979
+      },
+      "completion_statuses": {
+        "completed": 903,
+        "failed": 76
+      },
+      "side_effect_statuses": {
+        "completed": 903,
+        "failed_preserved": 76
+      },
+      "tool_names": {
+        "Bash": 360,
+        "Edit": 124,
+        "Read": 384,
+        "Write": 111
+      },
+      "native_result_linkage_group_coverage": {
+        "sdk_session_id": 0,
+        "invocation_id": 0,
+        "result_digest": 0,
+        "output_sha256": 0
+      },
+      "raw_tool_request_or_result_bytes_available": false
+    },
+    "files": {
+      "created": 269,
+      "modified": 94,
+      "deleted": 38
+    },
+    "artifacts": {
+      "registry_count": 38,
+      "byte_verified_count": 38,
+      "created_count": 38,
+      "collected_count": 36,
+      "download_verified_count": 36,
+      "registry_sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44",
+      "receipts": [
+        {
+          "artifact_id": "artifact_ba4614262648",
+          "registry_path": "artifacts/artifact_ba4614262648.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ba4614262648.md",
+          "source_event_sequence": 5016,
+          "source_event_id": "evt_a9c89390ed42",
+          "source_event_sha256": "c1d89148b75c254fc8541d4e50e9cb1478bde98b63dca7f58d477ae5d8992b16",
+          "expected_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+          "observed_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+          "size_bytes": 4621,
+          "node_key": "acceptance_evidence_contract",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_8abbe3008279",
+          "registry_path": "artifacts/artifact_8abbe3008279.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8abbe3008279.md",
+          "source_event_sequence": 5217,
+          "source_event_id": "evt_87f0f12e8762",
+          "source_event_sha256": "a80befe8b7375f044964541e8ac1993ce4d7f9401312f908f9819f3e15d8741a",
+          "expected_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+          "observed_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+          "size_bytes": 8670,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_f6cf34107d5b",
+          "registry_path": "artifacts/artifact_f6cf34107d5b.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_f6cf34107d5b.json",
+          "source_event_sequence": 5218,
+          "source_event_id": "evt_980e1fe09dfb",
+          "source_event_sha256": "69c33dbfd4886ae1e199308c24c42d872cae70182144c0ce34ea5df5587fe869",
+          "expected_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+          "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+          "size_bytes": 437594,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_32aa43936bc1",
+          "registry_path": "artifacts/artifact_32aa43936bc1.ndjson",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_32aa43936bc1.ndjson",
+          "source_event_sequence": 5221,
+          "source_event_id": "evt_d9107873aacc",
+          "source_event_sha256": "161cf6bd867cbce9eb12929873901e54b6b792275afed6622e78f69eb0dd1ac0",
+          "expected_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+          "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+          "size_bytes": 10475209,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_059b9d1ccf74",
+          "registry_path": "artifacts/artifact_059b9d1ccf74.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_059b9d1ccf74.json",
+          "source_event_sequence": 5224,
+          "source_event_id": "evt_c4b4772cf8cb",
+          "source_event_sha256": "4005841d658a8a0351c2bd2ebeb626978e0287a75cab66d4889cc60f00fa6970",
+          "expected_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+          "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+          "size_bytes": 1650,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_6d668ff53013",
+          "registry_path": "artifacts/artifact_6d668ff53013.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6d668ff53013.json",
+          "source_event_sequence": 5227,
+          "source_event_id": "evt_a74480cc3baa",
+          "source_event_sha256": "37f9b5e6b5ca3037fc0f5614e5dc1c4250fed686383ffc0c1ed2e3c6f29303e5",
+          "expected_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+          "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+          "size_bytes": 507,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_9082a3f16b4c",
+          "registry_path": "artifacts/artifact_9082a3f16b4c.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_9082a3f16b4c.json",
+          "source_event_sequence": 5230,
+          "source_event_id": "evt_cecfaac24956",
+          "source_event_sha256": "2665fb0ac0094b9f5750f9fd3bb1e76496883dbbe0b100ff9e32c5201a9f9626",
+          "expected_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+          "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+          "size_bytes": 15312,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_b6054d97f177",
+          "registry_path": "artifacts/artifact_b6054d97f177.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_b6054d97f177.json",
+          "source_event_sequence": 5233,
+          "source_event_id": "evt_3687866c426b",
+          "source_event_sha256": "ece7cddf915f6f14f6fbcc7a567fa793fc8f32f96e4ea6b76851b242b64dca5d",
+          "expected_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+          "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+          "size_bytes": 3566,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_093ddde9e3ad",
+          "registry_path": "artifacts/artifact_093ddde9e3ad.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_093ddde9e3ad.md",
+          "source_event_sequence": 5236,
+          "source_event_id": "evt_63a7a284556f",
+          "source_event_sha256": "fd3cdd402c6a69b3b0905d683846c85d20f2f86d5dc41d57f06aea0eec9b44b2",
+          "expected_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+          "observed_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+          "size_bytes": 4995,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_6daf11b45a73",
+          "registry_path": "artifacts/artifact_6daf11b45a73.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6daf11b45a73.json",
+          "source_event_sequence": 5239,
+          "source_event_id": "evt_15f35e1bf311",
+          "source_event_sha256": "ceee60cff74c7fc2d464229bf66c0f5c4097d04b64315062e037d7bc559612ab",
+          "expected_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+          "observed_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+          "size_bytes": 5565,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_97dffb953b48",
+          "registry_path": "artifacts/artifact_97dffb953b48.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_97dffb953b48.md",
+          "source_event_sequence": 5242,
+          "source_event_id": "evt_170d2cb98d1c",
+          "source_event_sha256": "02af3407cc967d126b5a3749ed20937fa99338803893ba9b71c08231d6bec438",
+          "expected_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+          "observed_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+          "size_bytes": 3809,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_855d1a37379a",
+          "registry_path": "artifacts/artifact_855d1a37379a.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_855d1a37379a.md",
+          "source_event_sequence": 5245,
+          "source_event_id": "evt_e84182c32ced",
+          "source_event_sha256": "4828c39dc1d496c0ea567f311258ab9f200889a121f949b14b4f163bb6fdd0b7",
+          "expected_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+          "observed_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+          "size_bytes": 6076,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_88b1de177798",
+          "registry_path": "artifacts/artifact_88b1de177798.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_88b1de177798.md",
+          "source_event_sequence": 5248,
+          "source_event_id": "evt_14f3f66dbbe5",
+          "source_event_sha256": "90a381c1229d860a8443f00c0fee1853efab2de6bf735027f50608346cd6acfb",
+          "expected_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+          "observed_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+          "size_bytes": 19234,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_41a9cb57fcc0",
+          "registry_path": "artifacts/artifact_41a9cb57fcc0.log",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_41a9cb57fcc0.log",
+          "source_event_sequence": 5251,
+          "source_event_id": "evt_0e36edfdde17",
+          "source_event_sha256": "df129b0b338da4e9f358756ab797fe9fc8aff2fe8cf9919be9951a4bf8bd9e1e",
+          "expected_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+          "observed_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+          "size_bytes": 3780,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_64b77102da82",
+          "registry_path": "artifacts/artifact_64b77102da82.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_64b77102da82.json",
+          "source_event_sequence": 5254,
+          "source_event_id": "evt_999ba40607f1",
+          "source_event_sha256": "491535131e423565ca015f0b07e49e015c33798bdfd06535f29ee39eb169d4d5",
+          "expected_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+          "observed_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+          "size_bytes": 43550,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_971b7c0beebf",
+          "registry_path": "artifacts/artifact_971b7c0beebf.md",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_971b7c0beebf.md",
+          "source_event_sequence": 5257,
+          "source_event_id": "evt_3fa2608790d0",
+          "source_event_sha256": "c56203360c47ffa446c1f7c87200ff7732b0f886f2959eaeb712136dd0881285",
+          "expected_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+          "observed_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+          "size_bytes": 1153,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_5c75230fa3d9",
+          "registry_path": "artifacts/artifact_5c75230fa3d9.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_5c75230fa3d9.json",
+          "source_event_sequence": 5260,
+          "source_event_id": "evt_8328f37f481b",
+          "source_event_sha256": "dbd4b60a2e942f61ebfbaf689fc98eeebafde28baadd4b1d293bab3264592bf8",
+          "expected_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+          "observed_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+          "size_bytes": 3,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_8fb5e09beb8d",
+          "registry_path": "artifacts/artifact_8fb5e09beb8d.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8fb5e09beb8d.json",
+          "source_event_sequence": 5263,
+          "source_event_id": "evt_deb8ac5fcd4c",
+          "source_event_sha256": "5d50d29092a7a4a485a493295daf225f70c3d5fb78834c4343d2bd1106459730",
+          "expected_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+          "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+          "size_bytes": 437594,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_646cf534aa6d",
+          "registry_path": "artifacts/artifact_646cf534aa6d.ndjson",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_646cf534aa6d.ndjson",
+          "source_event_sequence": 5266,
+          "source_event_id": "evt_cbbf56ced4cc",
+          "source_event_sha256": "d1ca8805b93a9c6ea2915717fa346b814530c726cad7930c4609d5377b233b94",
+          "expected_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+          "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+          "size_bytes": 10475209,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_e981c2d9b7f9",
+          "registry_path": "artifacts/artifact_e981c2d9b7f9.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_e981c2d9b7f9.json",
+          "source_event_sequence": 5269,
+          "source_event_id": "evt_cc44a8660b8e",
+          "source_event_sha256": "a49821c5cf14d44fc02dd2b392d986f47c45092b2f517a8b4d4032379dace3ca",
+          "expected_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+          "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+          "size_bytes": 1650,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_3f6da84ff8a7",
+          "registry_path": "artifacts/artifact_3f6da84ff8a7.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_3f6da84ff8a7.json",
+          "source_event_sequence": 5272,
+          "source_event_id": "evt_d6a2e406d0fd",
+          "source_event_sha256": "715183c40edb8cc62348411d536c8cc9e49d5831b1bb1266dd13938a9d93d604",
+          "expected_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+          "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+          "size_bytes": 507,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_2edfccfb5e5e",
+          "registry_path": "artifacts/artifact_2edfccfb5e5e.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2edfccfb5e5e.json",
+          "source_event_sequence": 5275,
+          "source_event_id": "evt_ff4672321342",
+          "source_event_sha256": "616ac05ffedf31d9f8d4522795023b7b2bc96bea556819c64a1a6bf0b8bdb702",
+          "expected_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+          "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+          "size_bytes": 15312,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_a4c887bd0081",
+          "registry_path": "artifacts/artifact_a4c887bd0081.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_a4c887bd0081.json",
+          "source_event_sequence": 5278,
+          "source_event_id": "evt_c46b25d4b3cc",
+          "source_event_sha256": "0db8e37112fa9279b0233931e8f7dd6c435cc55f43f1d2b00f23b6b875a3dedd",
+          "expected_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+          "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+          "size_bytes": 3566,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_1f01400f4a5a",
+          "registry_path": "artifacts/artifact_1f01400f4a5a.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_1f01400f4a5a.json",
+          "source_event_sequence": 5281,
+          "source_event_id": "evt_51a27b920d09",
+          "source_event_sha256": "5ab892e74f67af1dfbb39b9dccbd2937d5dc554f67ec4868269cac8f6d85768b",
+          "expected_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+          "observed_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+          "size_bytes": 25967,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_45697b532701",
+          "registry_path": "artifacts/artifact_45697b532701.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_45697b532701.json",
+          "source_event_sequence": 5284,
+          "source_event_id": "evt_d7cc3818a402",
+          "source_event_sha256": "8d46979963859a1c5776036ad8bb14761c83de26a2641d2211f206d992eeda0f",
+          "expected_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+          "observed_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+          "size_bytes": 14504,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_2f3bbaa498d6",
+          "registry_path": "artifacts/artifact_2f3bbaa498d6.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2f3bbaa498d6.json",
+          "source_event_sequence": 5287,
+          "source_event_id": "evt_48d99f299e6f",
+          "source_event_sha256": "155539d1191d49330eb9528ce8254280dd5483833dfac79f0401f466cdef7730",
+          "expected_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+          "observed_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+          "size_bytes": 14546,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_ebd68905f429",
+          "registry_path": "artifacts/artifact_ebd68905f429.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ebd68905f429.json",
+          "source_event_sequence": 5290,
+          "source_event_id": "evt_c6a037d85a57",
+          "source_event_sha256": "b7a99053a9e318f4d516c0b1b6d0956dc9f04c372bcb70821ba7ef037e698891",
+          "expected_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+          "observed_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+          "size_bytes": 2429,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_bb4489fb0776",
+          "registry_path": "artifacts/artifact_bb4489fb0776.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_bb4489fb0776.json",
+          "source_event_sequence": 5293,
+          "source_event_id": "evt_3dab2e804296",
+          "source_event_sha256": "663af1ff8afedc56f4752a95d5928f40ebd60e3ef3f82701072b123400c3e23e",
+          "expected_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+          "observed_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+          "size_bytes": 66794,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_23d9ac338865",
+          "registry_path": "artifacts/artifact_23d9ac338865.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_23d9ac338865.json",
+          "source_event_sequence": 5296,
+          "source_event_id": "evt_2955a1e2b565",
+          "source_event_sha256": "c9bac50471bc8a8235e8a7f3d180a65001280ddc8a33f3fd29555faeeb0efd0a",
+          "expected_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+          "observed_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+          "size_bytes": 1412,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_26da112b416b",
+          "registry_path": "artifacts/artifact_26da112b416b.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_26da112b416b.json",
+          "source_event_sequence": 5299,
+          "source_event_id": "evt_bb9c62f01c27",
+          "source_event_sha256": "a0d5ee7dc256afeab8b42ba99ee5dcf6ef9c90bd737376b9cb10c91826576832",
+          "expected_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+          "observed_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+          "size_bytes": 11236,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_d36dc898fc6b",
+          "registry_path": "artifacts/artifact_d36dc898fc6b.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_d36dc898fc6b.json",
+          "source_event_sequence": 5302,
+          "source_event_id": "evt_5a9e5a563264",
+          "source_event_sha256": "8fbf56142c32d5fac06487cd4bafb388b1bcc9018ee701a0b9678fa568ff13d7",
+          "expected_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+          "observed_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+          "size_bytes": 15045,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_0ded60e4c6d1",
+          "registry_path": "artifacts/artifact_0ded60e4c6d1.toml",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_0ded60e4c6d1.toml",
+          "source_event_sequence": 5305,
+          "source_event_id": "evt_52599f325617",
+          "source_event_sha256": "bf3902d02ac419d882c4be71e60d57357728ffb70f8297d3a8c778b7017c8044",
+          "expected_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+          "observed_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+          "size_bytes": 258,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_13f393035b78",
+          "registry_path": "artifacts/artifact_13f393035b78.py",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_13f393035b78.py",
+          "source_event_sequence": 5308,
+          "source_event_id": "evt_2ab98efcfb34",
+          "source_event_sha256": "da44ab52d0962ed1e83f47c5622f90b319b1d6cfe38555568658c1498ff74ffa",
+          "expected_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+          "observed_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+          "size_bytes": 2778,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_afe623e1e952",
+          "registry_path": "artifacts/artifact_afe623e1e952.py",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_afe623e1e952.py",
+          "source_event_sequence": 5311,
+          "source_event_id": "evt_9c58eea15fb9",
+          "source_event_sha256": "b9089251845cdbf544631b207217d2bc92dbae7ea500a889193cc0d7b0cd066d",
+          "expected_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+          "observed_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+          "size_bytes": 287,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_eaa0841ecf79",
+          "registry_path": "artifacts/artifact_eaa0841ecf79.py",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_eaa0841ecf79.py",
+          "source_event_sequence": 5314,
+          "source_event_id": "evt_2900e2fe5580",
+          "source_event_sha256": "0b5986bf54acfd3347d9ea0c7273b1013851f125281d5ba6c4592934aff5c648",
+          "expected_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+          "observed_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+          "size_bytes": 49710,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_c151ce54e66a",
+          "registry_path": "artifacts/artifact_c151ce54e66a.json",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_c151ce54e66a.json",
+          "source_event_sequence": 5317,
+          "source_event_id": "evt_ae051f8b40eb",
+          "source_event_sha256": "e7eb5a617a3d74f831c31b72efb2824d3dece7a08bf0eefeee7b891503047d9a",
+          "expected_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+          "observed_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+          "size_bytes": 12529,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_09a876e28c8b",
+          "registry_path": "artifacts/artifact_09a876e28c8b.py",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_09a876e28c8b.py",
+          "source_event_sequence": 5320,
+          "source_event_id": "evt_b8c3f554309e",
+          "source_event_sha256": "43233940069c6bcfb08ed60f6f4a892d00992362aad51cd956fe248e413fa9c7",
+          "expected_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+          "observed_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+          "size_bytes": 15721,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        },
+        {
+          "artifact_id": "artifact_917a5d39cc7c",
+          "registry_path": "artifacts/artifact_917a5d39cc7c.py",
+          "snapshot_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_917a5d39cc7c.py",
+          "source_event_sequence": 5323,
+          "source_event_id": "evt_1716b1919900",
+          "source_event_sha256": "758632312844dfdc8afbfaa709fd83754a526cfd19f66e40a7f32ea28121a9ac",
+          "expected_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+          "observed_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+          "size_bytes": 11173,
+          "node_key": "openclaw_baseline_mapping",
+          "status": "PASS_BYTES_AND_SOURCE_EVENT"
+        }
+      ]
+    },
+    "collaboration": {
+      "message_count": 14,
+      "distinct_actor_count": 5,
+      "rounds": {
+        "1": 8,
+        "2": 6
+      },
+      "anchors": [
+        {
+          "sequence": 900,
+          "event_id": "evt_40b16026bf09",
+          "from_agent_id": "agent_cb495a9bea1e",
+          "to_agent_id": "agent_bcde21fdede6",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 901,
+          "event_id": "evt_2e0658f45fd8",
+          "from_agent_id": "agent_bcde21fdede6",
+          "to_agent_id": "agent_cb495a9bea1e",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 964,
+          "event_id": "evt_eb806bb29c8c",
+          "from_agent_id": "agent_cb495a9bea1e",
+          "to_agent_id": "agent_bcde21fdede6",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 965,
+          "event_id": "evt_598b5df789a6",
+          "from_agent_id": "agent_bcde21fdede6",
+          "to_agent_id": "agent_cb495a9bea1e",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 4302,
+          "event_id": "evt_3bb1ba02b88c",
+          "from_agent_id": "agent_cb495a9bea1e",
+          "to_agent_id": "agent_bcde21fdede6",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 4303,
+          "event_id": "evt_59415349eb36",
+          "from_agent_id": "agent_bcde21fdede6",
+          "to_agent_id": "agent_cb495a9bea1e",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 4400,
+          "event_id": "evt_860e5ad9a04f",
+          "from_agent_id": "agent_cb495a9bea1e",
+          "to_agent_id": "agent_bcde21fdede6",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 4401,
+          "event_id": "evt_0060ecdfc87c",
+          "from_agent_id": "agent_bcde21fdede6",
+          "to_agent_id": "agent_cb495a9bea1e",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 4443,
+          "event_id": "evt_c43db6361a03",
+          "from_agent_id": "agent_708110b6a225",
+          "to_agent_id": "agent_445e5f7e8189",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 4444,
+          "event_id": "evt_fd74d685e185",
+          "from_agent_id": "agent_445e5f7e8189",
+          "to_agent_id": "agent_708110b6a225",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 4630,
+          "event_id": "evt_a852078e8d37",
+          "from_agent_id": "agent_708110b6a225",
+          "to_agent_id": "agent_445e5f7e8189",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 4631,
+          "event_id": "evt_fef9fbe762f9",
+          "from_agent_id": "agent_445e5f7e8189",
+          "to_agent_id": "agent_708110b6a225",
+          "message_type": "reply"
+        },
+        {
+          "sequence": 6012,
+          "event_id": "evt_77374f388fd4",
+          "from_agent_id": "agent_eac0b56ad320",
+          "to_agent_id": "agent_bcde21fdede6",
+          "message_type": "challenge"
+        },
+        {
+          "sequence": 6013,
+          "event_id": "evt_309be2d5109d",
+          "from_agent_id": "agent_bcde21fdede6",
+          "to_agent_id": "agent_eac0b56ad320",
+          "message_type": "support"
+        }
+      ]
+    },
+    "judge": {
+      "event_count": 0,
+      "anchors": []
+    },
+    "rework": {
+      "attempt_count": 6,
+      "linked_attempt_count": 1,
+      "anchors": [
+        {
+          "sequence": 6,
+          "event_id": "evt_e9a6b1159f0d",
+          "platform_attempt_id": "attempt:run_9226059d74a1:acceptance_evidence_contract:epoch1:loop1:node1",
+          "rework_of": null
+        },
+        {
+          "sequence": 8,
+          "event_id": "evt_efda6f4b4114",
+          "platform_attempt_id": "attempt:run_9226059d74a1:openclaw_baseline_mapping:epoch1:loop1:node1",
+          "rework_of": null
+        },
+        {
+          "sequence": 1307,
+          "event_id": "evt_5365c2c17c1d",
+          "platform_attempt_id": "attempt:run_9226059d74a1:acceptance_evidence_contract:epoch1:loop2:node2",
+          "rework_of": "attempt:run_9226059d74a1:acceptance_evidence_contract:epoch1:loop1:node1"
+        },
+        {
+          "sequence": 2528,
+          "event_id": "evt_41e0e9588dce",
+          "platform_attempt_id": "attempt:run_9226059d74a1:acceptance_evidence_contract:epoch2:loop1:node1",
+          "rework_of": null
+        },
+        {
+          "sequence": 2530,
+          "event_id": "evt_4be431328407",
+          "platform_attempt_id": "attempt:run_9226059d74a1:openclaw_baseline_mapping:epoch2:loop1:node1",
+          "rework_of": null
+        },
+        {
+          "sequence": 5333,
+          "event_id": "evt_4a121128ac24",
+          "platform_attempt_id": "attempt:run_9226059d74a1:runtime_probe_harness:epoch2:loop1:node1",
+          "rework_of": null
+        }
+      ]
+    },
+    "memory": {
+      "candidate_count": 4,
+      "reviewed_count": 4,
+      "committed_count": 4,
+      "persisted_count": 2,
+      "retrieved_count": 232,
+      "used_count": 208,
+      "commit_anchors": [
+        {
+          "sequence": 5019,
+          "event_id": "evt_2d4680c2339f",
+          "memory_id": "memory_8497630ff5b4"
+        },
+        {
+          "sequence": 5022,
+          "event_id": "evt_c1d0f6601289",
+          "memory_id": "memory_5130e6224029"
+        },
+        {
+          "sequence": 5328,
+          "event_id": "evt_c1ba6d8382c1",
+          "memory_id": "memory_83fde2504351"
+        },
+        {
+          "sequence": 5331,
+          "event_id": "evt_3e9f4a625669",
+          "memory_id": "memory_5200c09a9b56"
+        }
+      ],
+      "later_commit_retrieve_use_roundtrips": [],
+      "cross_session_roundtrip_proven": false
+    },
+    "pause": {
+      "event_count": 0,
+      "anchors": []
+    },
+    "recovery": {
+      "chain": [
+        {
+          "sequence": 2519,
+          "event_id": "evt_990a82e9307e",
+          "type": "run.interrupted",
+          "payload": {}
+        },
+        {
+          "sequence": 2520,
+          "event_id": "evt_cfae787120d6",
+          "type": "run.recovered",
+          "payload": {
+            "completed_node_keys": [],
+            "execution_epoch": 2,
+            "interrupted_node_keys": [
+              "acceptance_evidence_contract",
+              "openclaw_baseline_mapping"
+            ],
+            "model": "gpt-5.6-sol",
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge"
+          }
+        },
+        {
+          "sequence": 2521,
+          "event_id": "evt_2a24838a3d43",
+          "type": "agent.runtime.recovered",
+          "payload": {
+            "execution_epoch": 2,
+            "mode": "agent-sdk-bridge",
+            "model": "gpt-5.6-sol",
+            "models": [
+              "gpt-5.6-sol"
+            ],
+            "runtime": "claude_code"
+          }
+        },
+        {
+          "sequence": 2522,
+          "event_id": "evt_c72cdb538df1",
+          "type": "runtime.route.attested",
+          "payload": {
+            "authorization_decision": "claude_code_only",
+            "entrypoints": [
+              "normal",
+              "parallel",
+              "judge",
+              "rework",
+              "recovery",
+              "scheduled",
+              "callback",
+              "manual",
+              "background"
+            ],
+            "execution_epoch": 2,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge"
+          }
+        },
+        {
+          "sequence": 2523,
+          "event_id": "evt_722014a4a38e",
+          "type": "runtime.fallback.denied",
+          "payload": {
+            "authorization_decision": "deny",
+            "error_detail": "agent_runtime_not_found",
+            "execution_epoch": 2,
+            "runtime": "claude_code",
+            "runtime_mode": "agent-sdk-bridge",
+            "status": "passed"
+          }
+        },
+        {
+          "sequence": 2524,
+          "event_id": "evt_645e0a15b9be",
+          "type": "worker.lease.acquired",
+          "payload": {
+            "execution_epoch": 2,
+            "interrupted_node_keys": [
+              "acceptance_evidence_contract",
+              "openclaw_baseline_mapping"
+            ],
+            "lease_id": "lease:run_9226059d74a1:epoch2",
+            "status": "acquired",
+            "worker_id": "worker:25884:epoch2"
+          }
+        },
+        {
+          "sequence": 2525,
+          "event_id": "evt_57c3bd34191f",
+          "type": "worker.fencing.verified",
+          "payload": {
+            "authorization_decision": "old_epoch_denied",
+            "execution_epoch": 2,
+            "lease_id": "lease:run_9226059d74a1:epoch2",
+            "worker_id": "worker:25884:epoch2"
+          }
+        },
+        {
+          "sequence": 2526,
+          "event_id": "evt_f3eb80c9934b",
+          "type": "run.checkpoint.loaded",
+          "payload": {
+            "completed_node_keys": [],
+            "execution_epoch": 2,
+            "interrupted_node_keys": [
+              "acceptance_evidence_contract",
+              "openclaw_baseline_mapping"
+            ],
+            "status": "loaded"
+          }
+        },
+        {
+          "sequence": 2527,
+          "event_id": "evt_8928b43ace1e",
+          "type": "worker.duplicate_side_effect.scan",
+          "payload": {
+            "execution_epoch": 2,
+            "status": "monitoring",
+            "worker_id": "worker:25884:epoch2"
+          }
+        }
+      ],
+      "terminal_duplicate_effect_reconciliation": false,
+      "run_converged_or_completed": false
+    }
+  },
+  "controls": [
+    {
+      "control_id": "CAM-00",
+      "name": "OpenClaw capability baseline and retirement evidence",
+      "status": "NOT_PASS",
+      "basis": "Mapping artifact exists, but parity, zero traffic, no bypass, single writer and rollback are not proven."
+    },
+    {
+      "control_id": "CAM-01",
+      "name": "Claude Agent SDK runtime identity and session lifecycle",
+      "status": "PARTIAL",
+      "basis": "26 completed-turn bindings verified; explicit SDK session start/continue lifecycle is incomplete."
+    },
+    {
+      "control_id": "CAM-02",
+      "name": "Five distinct production roles",
+      "status": "NOT_PASS",
+      "basis": "5 distinct bound agents are visible, but they are not bound to the five required named roles; role-to-session proof is absent."
+    },
+    {
+      "control_id": "CAM-03",
+      "name": "Tool request, authorization, result and side effect",
+      "status": "PARTIAL",
+      "basis": "979/979 projected groups have four platform phases; raw request/result bytes, independent schema denial and result digests are absent."
+    },
+    {
+      "control_id": "CAM-04",
+      "name": "File delivery and Artifact Registry",
+      "status": "PARTIAL",
+      "basis": "38/38 registered bytes verify; full collect/download lifecycle covers 36 artifacts, not every artifact."
+    },
+    {
+      "control_id": "CAM-05",
+      "name": "Typed public collaboration",
+      "status": "PARTIAL",
+      "basis": "14 public messages across 5 actors are visible, not a five-role production flow."
+    },
+    {
+      "control_id": "CAM-06",
+      "name": "Independent Judge rejection and re-judgment",
+      "status": "NOT_PASS",
+      "basis": "Projected Judge/gate event count is 0."
+    },
+    {
+      "control_id": "CAM-07",
+      "name": "Immutable rework attempt causality",
+      "status": "PARTIAL",
+      "basis": "1 attempt.created event has rework_of, but no independent Judge causation is visible."
+    },
+    {
+      "control_id": "CAM-08",
+      "name": "Memory write, commit, new-session read and use",
+      "status": "PARTIAL",
+      "basis": "Committed=4; later cross-session commit→retrieve→use proven=False."
+    },
+    {
+      "control_id": "CAM-09",
+      "name": "Intentional platform pause and resume",
+      "status": "NOT_PASS",
+      "basis": "Intentional pause/resume event count is 0."
+    },
+    {
+      "control_id": "CAM-10",
+      "name": "Failure recovery and exactly-once reconciliation",
+      "status": "PARTIAL",
+      "basis": "Platform interruption/recovery chain exists, but terminal duplicate-side-effect reconciliation and convergence are absent."
+    },
+    {
+      "control_id": "CAM-11",
+      "name": "Terminal Run reconciliation",
+      "status": "NOT_PASS",
+      "basis": "Frozen Run status is running."
+    },
+    {
+      "control_id": "CAM-12",
+      "name": "OpenClaw retirement",
+      "status": "NOT_PASS",
+      "basis": "No complete entrypoint inventory, zero-traffic window, no silent fallback and retirement rollback evidence."
+    }
+  ],
+  "acceptance": {
+    "pass_count": 0,
+    "partial_count": 7,
+    "not_pass_count": 6,
+    "claude_agent_sdk_full_runtime_migration": "NO_GO",
+    "openclaw_retirement": "REJECTED"
+  }
+}

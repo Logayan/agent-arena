@@ -1,0 +1,10 @@
+{
+  "deletion_markers": 32,
+  "manifest_rows": 205,
+  "mismatches": [],
+  "non_deleted_rows": 173,
+  "publicly_attested_not_materialized_rows": 12,
+  "raw_byte_verified_non_deleted_rows": 161,
+  "run_id": "run_9226059d74a1",
+  "status": "PASS_WITH_EXPLICIT_NONMATERIALIZED_ROWS"
+}

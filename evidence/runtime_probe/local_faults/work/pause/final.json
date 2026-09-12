@@ -1,0 +1,13 @@
+{
+  "logical_execution_id": "RP-PAUSE-EXEC-001",
+  "state": "COMPLETED",
+  "completed_steps": [
+    "input_loaded",
+    "checkpoint_committed",
+    "finalize"
+  ],
+  "pending_steps": [],
+  "recovery_pid": 30372,
+  "loaded_checkpoint_sha256": "11ad7a9dd38b42d8d59eaf504257dcccea56b7ae69f172eb595c2bd161cbd5a1",
+  "old_worker_fenced": true
+}

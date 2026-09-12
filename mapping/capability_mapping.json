@@ -1,0 +1,237 @@
+{
+  "schema_version": "jianghu.openclaw-claude-sdk-capability-map.v3",
+  "run_id": "run_9226059d74a1",
+  "node_key": "openclaw_baseline_mapping",
+  "snapshot_time": "2026-09-12T07:21:23.750273+00:00",
+  "evidence_policy": {
+    "levels": [
+      "platform_event_plus_raw_bytes",
+      "platform_event",
+      "platform_attestation_without_raw_source_bytes",
+      "local_only_probe",
+      "design_only",
+      "not_observed"
+    ],
+    "unknown_rule": "Absence from the authorized current-Run evidence set is recorded as not observed or unknown, never as proof that a capability does not exist.",
+    "model_non_conflation_rule": "runtime.route.attested and the model field on agent.turn.completed bindings are separate facts. model=gpt-5.6-sol is not end-to-end proof of Claude model execution."
+  },
+  "observed_snapshot": {
+    "projection": "public_agent_safe",
+    "event_projection_count": 4395,
+    "metadata_event_count": 4403,
+    "sequence_first": 1,
+    "sequence_last": 4403,
+    "missing_sequences": [687, 812, 1258, 2248, 3898, 3937, 4211, 4329],
+    "events_ndjson_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+    "execution_epoch": 2,
+    "run_status": "running",
+    "runtime": "claude_code",
+    "runtime_mode": "agent-sdk-bridge",
+    "sdk_session_binding_count": 16,
+    "node_sdk_session_binding_count": 12,
+    "run_wide_tool_call_group_count": 785,
+    "node_tool_call_group_count": 371,
+    "node_tool_groups_bound_to_frozen_sdk_sessions": 240,
+    "node_tool_groups_unbound_at_snapshot": 131,
+    "run_wide_memory_retrieval_count": 168,
+    "node_memory_retrieval_count": 104,
+    "artifact_registry_count": 0,
+    "latest_public_collaboration_message_count": 4,
+    "all_public_collaboration_message_count": 8
+  },
+  "architecture_boundaries": {
+    "claude_agent_sdk_or_bridge": [
+      "single-Agent model turn execution",
+      "SDK Session creation or continuation",
+      "Invocation and SDK-native Tool protocol",
+      "SDK hooks, cancellation and provider usage metadata"
+    ],
+    "jianghu_online_control_plane": [
+      "Run, Node, Task, Attempt, Role and platform Session identity",
+      "team orchestration and public collaboration",
+      "Judge, rejection, rework and rejudge state machine",
+      "pause, retry, recovery policy and final convergence",
+      "policy selection, audit projection and product-visible status"
+    ],
+    "controlled_tool_gateway": [
+      "schema validation and authorization",
+      "credential isolation and redaction",
+      "tool_call_id, operation_id and idempotency_key",
+      "side-effect verification, reconciliation and denial paths"
+    ],
+    "durable_state_layer": [
+      "Event ledger",
+      "Artifact Registry and materialized Artifact bytes",
+      "Memory candidate/review/commit/read/tombstone",
+      "Checkpoint",
+      "Worker Lease and fencing token",
+      "Operation journal and exactly-once reconciliation"
+    ]
+  },
+  "capabilities": [
+    {
+      "id": "runtime_route",
+      "openclaw_baseline": "Historical OpenClaw adapter files are named by source attestation as migration baseline exclusions; raw OpenClaw source/config/runtime bytes were not available in the authorized snapshot, so historical semantics remain unknown beyond that attestation.",
+      "claude_sdk_or_bridge": "claude_code with agent-sdk-bridge; route selection and turn execution adapter",
+      "jianghu_control_plane": "Runtime Registry, entrypoint routing, fail-closed fallback policy",
+      "tool_gateway": "not primary",
+      "durable_stores": ["Event ledger", "runtime source attestation"],
+      "current_status": "PASS_PLATFORM_ATTESTED",
+      "evidence_strength": "platform_event_plus_platform_attestation_without_raw_source_bytes",
+      "evidence": ["sequence 3 agent.runtime.ready", "sequences 4 and 2522 runtime.route.attested", "sequences 5 and 2523 runtime.fallback.denied", "runtime-source-attestation.json"],
+      "boundary_risk": "Attested source fingerprints cannot be independently source-audited from this package."
+    },
+    {
+      "id": "sdk_session_and_invocation",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Own SDK Session and Invocation lifecycle and emit stable native IDs",
+      "jianghu_control_plane": "Bind Run/Node/Attempt/Role/platform Session to SDK Session/Invocation",
+      "tool_gateway": "Propagate SDK and Invocation identity into Tool operations",
+      "durable_stores": ["Event ledger", "Checkpoint"],
+      "current_status": "PARTIAL_PLATFORM_TURN_BINDINGS",
+      "evidence_strength": "platform_event_plus_platform_attestation",
+      "evidence": ["16 agent.turn.completed bindings", "12 node bindings at sequences 704, 831, 879, 890, 939, 954, 3926, 4243, 4282, 4292, 4379, 4390"],
+      "boundary_risk": "No explicit sdk.session.* or sdk.invocation.* lifecycle events; Invocation IDs and close/continue lifecycle are absent."
+    },
+    {
+      "id": "tool_lifecycle",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Produce SDK-native Tool Use request/result identity",
+      "jianghu_control_plane": "Associate operation with Run, Node, Attempt, Role and platform Session",
+      "tool_gateway": "Authorize, start, complete, preserve failures and verify side effects",
+      "durable_stores": ["Event ledger", "Operation journal"],
+      "current_status": "PARTIAL_PLATFORM_LIFECYCLE_COMPLETE_SDK_LINKAGE_MISSING",
+      "evidence_strength": "platform_event",
+      "evidence": ["785 Run-wide complete four-event groups", "371 node-scoped groups", "324 node completed and 47 failed_preserved", "240 node groups bound to frozen SDK Sessions and 131 unbound at cutoff"],
+      "boundary_risk": "No deny sample; no sdk_session_id, invocation_id, result_digest or output_sha256 on Tool lifecycle."
+    },
+    {
+      "id": "workspace_file_publication",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "May invoke controlled file tools",
+      "jianghu_control_plane": "Publish file change events and engineering submission manifests",
+      "tool_gateway": "Constrain paths and verify file bytes",
+      "durable_stores": ["Workspace", "Event ledger", "engineering submission manifest"],
+      "current_status": "PASS_FILES_NOT_FORMAL_ARTIFACTS",
+      "evidence_strength": "platform_event_plus_raw_public_submission_bytes_for_45_of_53_non_deleted_rows",
+      "evidence": ["58 latest manifest change rows reviewed", "45 non-deleted rows independently reread", "8 non-deleted rows matched manifest plus platform event but were not materialized in public export", "5 deletion markers"],
+      "boundary_risk": "A workspace file or published engineering submission is not a formal Artifact."
+    },
+    {
+      "id": "formal_artifact_lifecycle",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "No ownership of Artifact Registry semantics",
+      "jianghu_control_plane": "Register Artifact identity and publication status",
+      "tool_gateway": "Safely materialize/download/reread bytes",
+      "durable_stores": ["Artifact Registry", "Artifact object store", "Event ledger"],
+      "current_status": "BLOCKED_NO_CURRENT_RUN_FORMAL_ARTIFACT",
+      "evidence_strength": "platform_event_plus_raw_registry_bytes",
+      "evidence": ["artifact-registry.json is exactly []", "registry SHA-256 37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570", "run metadata artifact_count=0"],
+      "boundary_risk": "No artifact ID, registry digest/materialized digest pair, download or reread receipt."
+    },
+    {
+      "id": "public_collaboration",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Execute each actor turn under an isolated SDK Session",
+      "jianghu_control_plane": "Publish submissions, start/complete rounds, deliver challenge/reply and synthesize",
+      "tool_gateway": "not primary",
+      "durable_stores": ["Event ledger", "public message store", "engineering submission manifests"],
+      "current_status": "PASS_TWO_ACTORS_TWO_ROUNDS_SYNTHESIS_NOT_COMPLETED",
+      "evidence_strength": "platform_event",
+      "evidence": ["historical cycle sequences 843-967", "current cycle submissions 4255/4256", "current round 1 sequences 4257, 4302, 4303, 4304", "current round 2 sequences 4305, 4400, 4401, 4402", "team.synthesis.started sequence 4403"],
+      "boundary_risk": "No team.synthesis.completed event at snapshot cutoff; required five-role production team is not present in this node cycle."
+    },
+    {
+      "id": "judge_rework_rejudge",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Provide isolated Judge execution turn when invoked",
+      "jianghu_control_plane": "Own verdict, gate rejection, new Attempt, replacement Artifact and rejudge transitions",
+      "tool_gateway": "Enforce Judge read-only or narrowly authorized tools",
+      "durable_stores": ["Event ledger", "Artifact Registry", "Attempt store", "decision store"],
+      "current_status": "BLOCKED_NOT_OBSERVED",
+      "evidence_strength": "not_observed",
+      "evidence": ["No judge.verdict, gate.rejected, revision_request or rejudge lifecycle event in 4,395-event projection"],
+      "boundary_risk": "Independent Judge identity, V1/V2 Artifact linkage and negative-path transition remain unproven."
+    },
+    {
+      "id": "memory_roundtrip",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Consume control-plane-selected Memory context; no direct durable ownership",
+      "jianghu_control_plane": "Select namespace, review candidate, authorize commit and retrieval",
+      "tool_gateway": "Prevent cross-namespace access and redact sensitive fields",
+      "durable_stores": ["Memory store", "Event ledger"],
+      "current_status": "PARTIAL_READ_USE_ONLY",
+      "evidence_strength": "platform_event",
+      "evidence": ["168 Run-wide retrievals and 128 uses", "104 node retrievals and 96 uses", "32 Run-wide and 16 node Memory IDs"],
+      "boundary_risk": "No candidate/review/commit/persist lifecycle, later distinct-Session retrieval proof, namespace denial, supersede or tombstone."
+    },
+    {
+      "id": "intentional_pause_resume",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Expose cancellation/continuation contract or clean restart semantics",
+      "jianghu_control_plane": "Own intentional pause request, quiescence, resume and execution epoch",
+      "tool_gateway": "Stop admitting new side effects and reconcile in-flight operations",
+      "durable_stores": ["Checkpoint", "Lease store", "Operation journal", "Event ledger"],
+      "current_status": "BLOCKED_NOT_OBSERVED",
+      "evidence_strength": "not_observed",
+      "evidence": ["No run.pause.requested, run.paused or run.resumed events"],
+      "boundary_risk": "Backend interruption recovery cannot substitute for intentional product-level pause/resume."
+    },
+    {
+      "id": "backend_failure_recovery",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Recover or recreate an execution context and expose continuation identity",
+      "jianghu_control_plane": "Increment epoch, acquire lease, fence old worker, load checkpoint and converge Run",
+      "tool_gateway": "Reconcile duplicate/non-idempotent effects to a terminal result",
+      "durable_stores": ["Checkpoint", "Lease store", "Operation journal", "Event ledger"],
+      "current_status": "PARTIAL_PLATFORM_RECOVERY_OBSERVED_NOT_CONVERGED_AT_SNAPSHOT",
+      "evidence_strength": "platform_event",
+      "evidence": ["sequences 2519-2527 interruption, recovery, route, fallback denial, lease, fencing, checkpoint and duplicate-side-effect scan"],
+      "boundary_risk": "No sdk.session.continued, terminal duplicate-effect reconciliation, run.converged or run.completed."
+    },
+    {
+      "id": "exactly_once_side_effects",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Provide stable Tool Use identity but not own business exactly-once semantics",
+      "jianghu_control_plane": "Fence epochs and coordinate retries",
+      "tool_gateway": "Own operation identity, idempotency, deduplication and compensation",
+      "durable_stores": ["Operation journal", "Lease/fencing store", "Event ledger"],
+      "current_status": "PARTIAL_MONITORING_ONLY",
+      "evidence_strength": "platform_event",
+      "evidence": ["operation_id/idempotency_key present on Tool authorization and side-effect verification", "sequence 2527 duplicate side-effect scan status=monitoring"],
+      "boundary_risk": "No terminal reconciliation receipt or externally observed exactly-once result."
+    },
+    {
+      "id": "event_audit_and_projection",
+      "openclaw_baseline": "unknown_current_run",
+      "claude_sdk_or_bridge": "Emit Runtime observations to bridge",
+      "jianghu_control_plane": "Assign stable event_id/sequence, create public_agent_safe projection and critical event export",
+      "tool_gateway": "Emit authorization and side-effect evidence",
+      "durable_stores": ["Append-only Event ledger", "projection store"],
+      "current_status": "PASS_PUBLIC_PROJECTION_NOT_SOURCE_DATABASE",
+      "evidence_strength": "platform_event_plus_raw_snapshot_bytes",
+      "evidence": ["4,395 ordered unique projected events", "330 critical events correspond", "eight documented filtered sequence gaps", "events SHA-256 3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782"],
+      "boundary_risk": "Projection is filtered and does not prove the source database itself."
+    },
+    {
+      "id": "openclaw_retirement",
+      "openclaw_baseline": "Only platform-attested historical exclusions are visible; no raw parity corpus, traffic baseline or rollback drill is available.",
+      "claude_sdk_or_bridge": "Must demonstrate parity for all approved Runtime responsibilities",
+      "jianghu_control_plane": "Prove zero OpenClaw traffic, no bypass, single writer, fail-closed route and governed rollback",
+      "tool_gateway": "Prevent hidden OpenClaw side paths",
+      "durable_stores": ["route audit", "traffic telemetry", "rollback evidence", "parity suite"],
+      "current_status": "NOT_APPROVED",
+      "evidence_strength": "platform_attestation_plus_missing_required_evidence",
+      "evidence": ["current Claude-only route attested", "OpenClaw exclusions named by source attestation", "no raw OpenClaw baseline or retirement drill"],
+      "boundary_risk": "Current route evidence does not prove complete historical capability parity or irreversible retirement readiness."
+    }
+  ],
+  "verdict": {
+    "current_claude_only_route": "PASS_PLATFORM_ATTESTED",
+    "complete_claude_agent_sdk_runtime_migration": "NOT_PROVEN",
+    "complete_migration": "NOT_PROVEN",
+    "openclaw_retirement": "NOT_APPROVED",
+    "interruption_recovery": "PARTIAL_PLATFORM_RECOVERY_OBSERVED_NOT_CONVERGED_AT_SNAPSHOT",
+    "node_delivery": "CONDITIONAL_PASS_MAPPING_AND_BOUNDARY_DELIVERED"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "schema_version": "jianghu.runtime-probe-command-results.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "recorded_at": "2026-09-12T08:15:56.340281+00:00",
+  "workdir": "delivery/",
+  "commands": [
+    {
+      "command": "python -m py_compile run_runtime_probe.py runtime_probe/*.py src/run_local_probes.py tasks/probe_worker.py tools/review_public_submissions.py tests/*.py",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "python run_runtime_probe.py build",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "python -m unittest discover -s tests -v",
+      "exit_code": 0,
+      "tests_run": 34,
+      "result": "OK"
+    },
+    {
+      "command": "python run_runtime_probe.py gate config/candidate-v1.json",
+      "exit_code": 42,
+      "expected_exit_code": 42,
+      "result": "EXPECTED_REJECT"
+    }
+  ],
+  "log_path": "evidence/runtime_probe/final-build-test.log",
+  "log_sha256": "c37bad3a414eeb504b3c8ad5046548d698e3e7fdd048c0f4051c3f4c424c336b",
+  "all_expected": true,
+  "prior_failure_preserved": {
+    "command": "python -m unittest discover -s tests -v",
+    "exit_code": 1,
+    "tests_run": 34,
+    "failure": "legacy OpenClaw test invoked its node-specific manifest verifier against the runtime_probe_harness manifest",
+    "repair": "scope the legacy manifest assertion to its own node and add node_key to the current manifest",
+    "rerun_exit_code": 0
+  },
+  "postseal_commands": [
+    {
+      "command": "python run_runtime_probe.py write-manifest",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "python run_runtime_probe.py verify",
+      "exit_code": 0,
+      "result": "PASS_ENGINEERING_NO_GO_MIGRATION"
+    },
+    {
+      "command": "python run_runtime_probe.py check-manifest",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "additional_validation_history": {
+    "command": "python -m unittest discover -s tests -p 'test_runtime_probe_current.py' -v",
+    "exit_code": 1,
+    "tests_run": 15,
+    "errors": 1,
+    "failure": "manifest was intentionally stale after wording corrections; test_whole_package_verification detected five changed files",
+    "disposition": "not ignored; regenerate manifest before the final full-suite rerun"
+  }
+}

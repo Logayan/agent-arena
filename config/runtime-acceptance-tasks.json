@@ -1,0 +1,23 @@
+{
+  "schema_version": "jianghu.runtime-probe-plan.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "platform_capture": [
+    "runtime.route.attested", "runtime.fallback.denied", "agent.turn.completed", "agent.tool.authorization.decided",
+    "agent.tool.started", "agent.tool.completed", "agent.side_effect.verified", "agent.file.created", "agent.file.modified",
+    "engineering.submission.published", "agent.message.sent", "agent.memory.candidate", "agent.memory.reviewed",
+    "agent.memory.committed", "agent.memory.persisted", "agent.memory.retrieved", "agent.memory.used", "run.pause_requested",
+    "run.paused", "run.resumed", "run.interrupted", "run.recovered", "run.checkpoint.loaded", "judge.verdict",
+    "gate.rejected", "revision_request", "attempt.rework_created", "artifact.created", "artifact.collected",
+    "artifact.download.verified", "run.converged", "run.completed"
+  ],
+  "local_reversible_probes": [
+    {"id": "LP-01", "name": "predeclared negative gate", "expected": "v1 exit 42 REJECT; immutable v1; v2 exit 0 ACCEPT", "platform_acceptance_eligible": false},
+    {"id": "LP-02", "name": "SQLite Memory cross-process", "expected": "different writer/reader PIDs; wrong namespace exit 77", "platform_acceptance_eligible": false},
+    {"id": "LP-03", "name": "pause/checkpoint/resume", "expected": "pause exit 75; 0.25s immutable checkpoint; new process exit 0", "platform_acceptance_eligible": false},
+    {"id": "LP-04", "name": "OS force-kill and idempotent side-effect recovery", "expected": "old process killed; checkpoint/database durable; side-effect count remains one", "platform_acceptance_eligible": false},
+    {"id": "LP-05", "name": "dependency unavailable/recovered", "expected": "closed TCP endpoint exit 69; live one-shot endpoint exit 0", "platform_acceptance_eligible": false},
+    {"id": "LP-06", "name": "file delivery and path escape", "expected": "byte digest matches; ../ escape exits 64", "platform_acceptance_eligible": false}
+  ],
+  "prohibition": "Local probe records must never be converted into or labeled as Jianghu platform success events."
+}

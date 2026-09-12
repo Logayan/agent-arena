@@ -1,0 +1,58 @@
+{
+  "schema_version": "jianghu.snapshot-history.v2",
+  "run_id": "run_9226059d74a1",
+  "policy": "Earlier public projections are retained only as observation cutoffs. The latest self-consistent frozen snapshot is the sole active evidence input for acceptance verification. A later snapshot does not retroactively alter an isolated earlier observation.",
+  "snapshots": [
+    {
+      "label": "architect_isolation_cutoff",
+      "event_count": 37,
+      "sequence_first": 1,
+      "sequence_last": 37,
+      "events_ndjson_sha256": "74714fffc8ed3289976bf5e49a828ff32fa166fca16031bdd5aed002a63a0b19",
+      "status": "HISTORICAL_NOT_ACTIVE",
+      "document": "docs/01_架构视角隔离盘点.md"
+    },
+    {
+      "label": "early_public_comparison_cutoff",
+      "event_count": 50,
+      "sequence_first": 1,
+      "sequence_last": 50,
+      "events_ndjson_sha256": "8736669755f53d9dc7d74820dafc14dd6f3e0c00a6dd78efef96ec7e91698338",
+      "status": "HISTORICAL_NOT_ACTIVE"
+    },
+    {
+      "label": "architect_first_submission_snapshot",
+      "event_count": 2555,
+      "metadata_event_count": 2559,
+      "sequence_first": 1,
+      "sequence_last": 2559,
+      "filtered_missing_sequences": [687, 812, 1258, 2248],
+      "events_ndjson_sha256": "170ab7f2eb83947cc6359d3682c55d1f665fa8732decbf8e7e1bdc488e594eaa",
+      "status": "HISTORICAL_SUPERSEDED"
+    },
+    {
+      "label": "sre_submission_snapshot",
+      "event_count": 2568,
+      "events_ndjson_sha256": "2ef46c33739fd5aef3393d104ec0b7c26e7be3d7ea14646b69631ffa8d130e30",
+      "status": "HISTORICAL_SUPERSEDED",
+      "note": "Public SRE submission cutoff; retained for provenance, not used as the active verifier input."
+    },
+    {
+      "label": "latest_self_consistent_platform_snapshot",
+      "captured_at": "2026-09-12T07:21:23.750273+00:00",
+      "platform_metadata_generated_at": "2026-09-12T07:18:46.744368+00:00",
+      "event_count": 4395,
+      "metadata_event_count": 4403,
+      "sequence_first": 1,
+      "sequence_last": 4403,
+      "filtered_missing_sequences": [687, 812, 1258, 2248, 3898, 3937, 4211, 4329],
+      "events_ndjson_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+      "critical_event_count": 330,
+      "artifact_registry_count": 0,
+      "run_status": "running",
+      "execution_epoch": 2,
+      "status": "ACTIVE_IMMUTABLE",
+      "index": "evidence/platform_snapshot_index.json"
+    }
+  ]
+}

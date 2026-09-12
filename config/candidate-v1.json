@@ -1,0 +1,13 @@
+{
+  "schema_version": "jianghu.runtime-probe-candidate.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "candidate_version": 1,
+  "status": "SUBMITTED_WITH_PREDECLARED_REPAIRABLE_BLOCKER",
+  "blocker_id": "RP-BLOCKER-001",
+  "collector_provenance": null,
+  "rework_of_sha256": null,
+  "platform_attempt_id": "attempt:run_9226059d74a1:runtime_probe_harness:epoch2:loop1:node1",
+  "acceptance_claim": "NO_GO_PENDING_REAL_JUDGE_AND_PLATFORM_LIFECYCLES",
+  "immutability": "candidate-v1 must not be edited during remediation"
+}

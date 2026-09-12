@@ -1,0 +1,3819 @@
+{
+  "authorized_source": "collaboration/runtime_probe_harness/loop-1-attempt-1/*/{manifest.json,files/**}",
+  "copied_files": [
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "d3d29e6076c45770b83ad11ad5bdc7bcf19fc0a391b1975cb9fb39c8e5f31be8",
+      "destination_path": "config/supplemental-predeclared-blocker.json",
+      "source_path": "config/predeclared-blocker.json",
+      "source_sha256": "d3d29e6076c45770b83ad11ad5bdc7bcf19fc0a391b1975cb9fb39c8e5f31be8"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "566c32e1cb4b85aecb5c5615a00685e74a04c67551043f0c2741d3f5e75a6e45",
+      "destination_path": "config/runtime-acceptance-tasks.json",
+      "source_path": "config/runtime-acceptance-tasks.json",
+      "source_sha256": "566c32e1cb4b85aecb5c5615a00685e74a04c67551043f0c2741d3f5e75a6e45"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "cff7c9451fc4d032d0af7a3450e8e4056249c9e3ce8d25f0dc235896dfc79b8a",
+      "destination_path": "config/team-roles.json",
+      "source_path": "config/team-roles.json",
+      "source_sha256": "cff7c9451fc4d032d0af7a3450e8e4056249c9e3ce8d25f0dc235896dfc79b8a"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "cc63e0539459ee43226d2544d79a50cfd558ce81635302a265920b96c53937fa",
+      "destination_path": "schemas/runtime-evidence-event.schema.json",
+      "source_path": "schemas/runtime-evidence-event.schema.json",
+      "source_sha256": "cc63e0539459ee43226d2544d79a50cfd558ce81635302a265920b96c53937fa"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "8a5c4b0fa9647a17009c050f1ac27e4a58fb7fe496c6f723b05fb69faec6f3b7",
+      "destination_path": "src/run_local_probes.py",
+      "source_path": "src/run_local_probes.py",
+      "source_sha256": "8a5c4b0fa9647a17009c050f1ac27e4a58fb7fe496c6f723b05fb69faec6f3b7"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "copied_sha256": "d14553dc0e97d7917ae0878b44a1aebfedc764714238670b80e8a9d80b63ecf0",
+      "destination_path": "tasks/probe_worker.py",
+      "source_path": "tasks/probe_worker.py",
+      "source_sha256": "d14553dc0e97d7917ae0878b44a1aebfedc764714238670b80e8a9d80b63ecf0"
+    }
+  ],
+  "node_key": "runtime_probe_harness",
+  "private_conversation_or_memory_read": false,
+  "reviewed_at": "2026-09-12T08:10:26.097004+00:00",
+  "reviews": [
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "e8bbf8fb2903e029845c93819d8a9f84bf14ebc80aa766702275a31a18167c5f",
+        "observed_size_bytes": 867,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "e8bbf8fb2903e029845c93819d8a9f84bf14ebc80aa766702275a31a18167c5f",
+      "declared_size_bytes": 867,
+      "merged_path": "README_Runtime_Probe.md",
+      "path": "README_Runtime_Probe.md",
+      "reason": "Retained as report structure and regenerated from the current evidence index.",
+      "row_index": 1
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "f2bc270f6a2fb8cc7fd90a3f02f09db5f1245bdf3a59d1d72d6fde12e5975318",
+        "observed_size_bytes": 20848,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_FINAL_MANIFEST",
+      "declared_sha256": "f2bc270f6a2fb8cc7fd90a3f02f09db5f1245bdf3a59d1d72d6fde12e5975318",
+      "declared_size_bytes": 20848,
+      "merged_path": null,
+      "path": "artifacts/sha256_manifest.json",
+      "reason": "Earlier manifest is replaced only after final build/test/verification.",
+      "row_index": 2
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "4343af1343a1ba0712582a0a4c67ddfe5cabe3101f3cdf45bf60d2e0f629e1e5",
+        "observed_size_bytes": 553,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "4343af1343a1ba0712582a0a4c67ddfe5cabe3101f3cdf45bf60d2e0f629e1e5",
+      "declared_size_bytes": 553,
+      "merged_path": "config/candidate-v1.json",
+      "path": "config/candidate-v1.json",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 3
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c91c1a4df801b5536a9cf422ff35f9fa6d1b25b49f44359508021804870d4ef5",
+        "observed_size_bytes": 627,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "c91c1a4df801b5536a9cf422ff35f9fa6d1b25b49f44359508021804870d4ef5",
+      "declared_size_bytes": 627,
+      "merged_path": "config/predeclared-blocker.json",
+      "path": "config/predeclared-blocker.json",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 4
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "551ac8b3bed206dbe85957766669f1e68df6d9a38cbf71368abef9be8542f6c6",
+        "observed_size_bytes": 1360,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "551ac8b3bed206dbe85957766669f1e68df6d9a38cbf71368abef9be8542f6c6",
+      "declared_size_bytes": 1360,
+      "merged_path": "config/runtime-probe.json",
+      "path": "config/runtime-probe.json",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 5
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c66dfd13f465a3f42cb0c7cb6fc8898da829652f2307e5e398604d9b3149d243",
+        "observed_size_bytes": 814,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "c66dfd13f465a3f42cb0c7cb6fc8898da829652f2307e5e398604d9b3149d243",
+      "declared_size_bytes": 814,
+      "merged_path": "config/test-tasks.json",
+      "path": "config/test-tasks.json",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 6
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c52bae08c6381ef3395a600ab4cd1948acc8d5a057e638d8aec2313988a612a1",
+        "observed_size_bytes": 8633,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "c52bae08c6381ef3395a600ab4cd1948acc8d5a057e638d8aec2313988a612a1",
+      "declared_size_bytes": 8633,
+      "merged_path": "docs/Claude_Runtime_取证与故障注入验收报告.md",
+      "path": "docs/Claude_Runtime_取证与故障注入验收报告.md",
+      "reason": "Retained as report structure and regenerated from the current evidence index.",
+      "row_index": 7
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "58f15f54b2b654280857e6483c04994bcafc42fbde380306d9565446bc7f3faf",
+        "observed_size_bytes": 3047,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "58f15f54b2b654280857e6483c04994bcafc42fbde380306d9565446bc7f3faf",
+      "declared_size_bytes": 3047,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/build-test.log",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 8
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/candidate-v1-pre-gate-receipt.json",
+        "matches_manifest": true,
+        "observed_sha256": "5ba207949abc4e469ddc07bb5c7d5daeaedfbbfe47cb87fc6a72f8a2a2f39b7c",
+        "observed_size_bytes": 975,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "5ba207949abc4e469ddc07bb5c7d5daeaedfbbfe47cb87fc6a72f8a2a2f39b7c",
+      "declared_size_bytes": 975,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/candidate-v1-pre-gate-receipt.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 9
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "2ca17cc362c23ac4ca8046dbc5a4682e8018dbbe72c119f07e204e6a139c170a",
+        "observed_size_bytes": 70948,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "2ca17cc362c23ac4ca8046dbc5a4682e8018dbbe72c119f07e204e6a139c170a",
+      "declared_size_bytes": 70948,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/evidence-index.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 10
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "6b2a60e62849455dd417c8980f3f754f071268aad937b09031dfbadb69abb212",
+        "observed_size_bytes": 88069,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6b2a60e62849455dd417c8980f3f754f071268aad937b09031dfbadb69abb212",
+      "declared_size_bytes": 88069,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/failed-tool-inventory.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 11
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/local-process-receipts.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "5468bb8d1a35b82f44edf885c3b9ab9b9d22efe90c79cd30be6db7cc710a7557",
+        "observed_size_bytes": 3340,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "5468bb8d1a35b82f44edf885c3b9ab9b9d22efe90c79cd30be6db7cc710a7557",
+      "declared_size_bytes": 3340,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/local-process-receipts.ndjson",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 12
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "45bee303e4c2fcd4b611f4e454261965ad19af341b8ec273254f6f946ca70ea1",
+        "observed_size_bytes": 1193,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "45bee303e4c2fcd4b611f4e454261965ad19af341b8ec273254f6f946ca70ea1",
+      "declared_size_bytes": 1193,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/result.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 13
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/failure/fault.json",
+        "matches_manifest": true,
+        "observed_sha256": "746863d26ba2b52308661c1608f7c3ecf56e70d46b380407d9357ecad2acaff3",
+        "observed_size_bytes": 146,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "746863d26ba2b52308661c1608f7c3ecf56e70d46b380407d9357ecad2acaff3",
+      "declared_size_bytes": 146,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/failure/fault.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 14
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/failure/recovery.json",
+        "matches_manifest": true,
+        "observed_sha256": "e537b24b93c7035609284c5d15451baf972a5c3eed9c8b7462b1af2a527430bb",
+        "observed_size_bytes": 299,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "e537b24b93c7035609284c5d15451baf972a5c3eed9c8b7462b1af2a527430bb",
+      "declared_size_bytes": 299,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/failure/recovery.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 15
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/failure/side-effect.json",
+        "matches_manifest": true,
+        "observed_sha256": "809084d458da43f5c4eee618b3ffcc21111c33a2397baf0063afd323d7da9bfd",
+        "observed_size_bytes": 138,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "809084d458da43f5c4eee618b3ffcc21111c33a2397baf0063afd323d7da9bfd",
+      "declared_size_bytes": 138,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/failure/side-effect.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 16
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/pause/checkpoint.json",
+        "matches_manifest": true,
+        "observed_sha256": "ca91865c32f9b1a8429f911b04e48adcc1cc1ae56fb97df86a1bd593690bdfd6",
+        "observed_size_bytes": 243,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ca91865c32f9b1a8429f911b04e48adcc1cc1ae56fb97df86a1bd593690bdfd6",
+      "declared_size_bytes": 243,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/pause/checkpoint.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 17
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/pause/final.json",
+        "matches_manifest": true,
+        "observed_sha256": "3e4c96b8544a7f9164b61baa02167f0162b14d8887a3a8783018c71c6fb0004b",
+        "observed_size_bytes": 353,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3e4c96b8544a7f9164b61baa02167f0162b14d8887a3a8783018c71c6fb0004b",
+      "declared_size_bytes": 353,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/pause/final.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 18
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/pause/lease.json",
+        "matches_manifest": true,
+        "observed_sha256": "4fea90aa6b2cbfad56ef5691c16a7581327670933506f7bffeea7e1967571de9",
+        "observed_size_bytes": 108,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "4fea90aa6b2cbfad56ef5691c16a7581327670933506f7bffeea7e1967571de9",
+      "declared_size_bytes": 108,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/pause/lease.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 19
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/local_faults/work/pause/old-lease.json",
+        "matches_manifest": true,
+        "observed_sha256": "befc1998ec7d815b4124956e56bcf31443adc933308fd6246cfc3e926fa76c87",
+        "observed_size_bytes": 135,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "befc1998ec7d815b4124956e56bcf31443adc933308fd6246cfc3e926fa76c87",
+      "declared_size_bytes": 135,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/local_faults/work/pause/old-lease.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 20
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/README.md",
+        "matches_manifest": true,
+        "observed_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+        "observed_size_bytes": 1153,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+      "declared_size_bytes": 1153,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/README.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 21
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifact-byte-receipts.json",
+        "matches_manifest": true,
+        "observed_sha256": "a7505894abfa2456c95dfa91cde9d605b87b628fdfd2fe656e757c6c8ac1050e",
+        "observed_size_bytes": 26471,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "a7505894abfa2456c95dfa91cde9d605b87b628fdfd2fe656e757c6c8ac1050e",
+      "declared_size_bytes": 26471,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifact-byte-receipts.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 22
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifact-registry.json",
+        "matches_manifest": true,
+        "observed_sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44",
+        "observed_size_bytes": 43744,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44",
+      "declared_size_bytes": 43744,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifact-registry.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 23
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_059b9d1ccf74.json",
+        "matches_manifest": true,
+        "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+        "observed_size_bytes": 1650,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+      "declared_size_bytes": 1650,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_059b9d1ccf74.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 24
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_093ddde9e3ad.md",
+        "matches_manifest": true,
+        "observed_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+        "observed_size_bytes": 4995,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+      "declared_size_bytes": 4995,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_093ddde9e3ad.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 25
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_09a876e28c8b.py",
+        "matches_manifest": true,
+        "observed_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+        "observed_size_bytes": 15721,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+      "declared_size_bytes": 15721,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_09a876e28c8b.py",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 26
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_0ded60e4c6d1.toml",
+        "matches_manifest": true,
+        "observed_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+        "observed_size_bytes": 258,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+      "declared_size_bytes": 258,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_0ded60e4c6d1.toml",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 27
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_13f393035b78.py",
+        "matches_manifest": true,
+        "observed_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+        "observed_size_bytes": 2778,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+      "declared_size_bytes": 2778,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_13f393035b78.py",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 28
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_1f01400f4a5a.json",
+        "matches_manifest": true,
+        "observed_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+        "observed_size_bytes": 25967,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+      "declared_size_bytes": 25967,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_1f01400f4a5a.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 29
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_23d9ac338865.json",
+        "matches_manifest": true,
+        "observed_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+        "observed_size_bytes": 1412,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+      "declared_size_bytes": 1412,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_23d9ac338865.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 30
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_26da112b416b.json",
+        "matches_manifest": true,
+        "observed_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+        "observed_size_bytes": 11236,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+      "declared_size_bytes": 11236,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_26da112b416b.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 31
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2edfccfb5e5e.json",
+        "matches_manifest": true,
+        "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+        "observed_size_bytes": 15312,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+      "declared_size_bytes": 15312,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2edfccfb5e5e.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 32
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2f3bbaa498d6.json",
+        "matches_manifest": true,
+        "observed_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+        "observed_size_bytes": 14546,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+      "declared_size_bytes": 14546,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_2f3bbaa498d6.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 33
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_32aa43936bc1.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+        "observed_size_bytes": 10475209,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+      "declared_size_bytes": 10475209,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_32aa43936bc1.ndjson",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 34
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_3f6da84ff8a7.json",
+        "matches_manifest": true,
+        "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+        "observed_size_bytes": 507,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+      "declared_size_bytes": 507,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_3f6da84ff8a7.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 35
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_41a9cb57fcc0.log",
+        "matches_manifest": true,
+        "observed_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+        "observed_size_bytes": 3780,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+      "declared_size_bytes": 3780,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_41a9cb57fcc0.log",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 36
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_45697b532701.json",
+        "matches_manifest": true,
+        "observed_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+        "observed_size_bytes": 14504,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+      "declared_size_bytes": 14504,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_45697b532701.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 37
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_5c75230fa3d9.json",
+        "matches_manifest": true,
+        "observed_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "observed_size_bytes": 3,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "declared_size_bytes": 3,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_5c75230fa3d9.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 38
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_646cf534aa6d.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+        "observed_size_bytes": 10475209,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+      "declared_size_bytes": 10475209,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_646cf534aa6d.ndjson",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 39
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_64b77102da82.json",
+        "matches_manifest": true,
+        "observed_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+        "observed_size_bytes": 43550,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+      "declared_size_bytes": 43550,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_64b77102da82.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 40
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6d668ff53013.json",
+        "matches_manifest": true,
+        "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+        "observed_size_bytes": 507,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+      "declared_size_bytes": 507,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6d668ff53013.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 41
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6daf11b45a73.json",
+        "matches_manifest": true,
+        "observed_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+        "observed_size_bytes": 5565,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+      "declared_size_bytes": 5565,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_6daf11b45a73.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 42
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_855d1a37379a.md",
+        "matches_manifest": true,
+        "observed_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+        "observed_size_bytes": 6076,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+      "declared_size_bytes": 6076,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_855d1a37379a.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 43
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_88b1de177798.md",
+        "matches_manifest": true,
+        "observed_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+        "observed_size_bytes": 19234,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+      "declared_size_bytes": 19234,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_88b1de177798.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 44
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8abbe3008279.md",
+        "matches_manifest": true,
+        "observed_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+        "observed_size_bytes": 8670,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+      "declared_size_bytes": 8670,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8abbe3008279.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 45
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8fb5e09beb8d.json",
+        "matches_manifest": true,
+        "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+        "observed_size_bytes": 437594,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+      "declared_size_bytes": 437594,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_8fb5e09beb8d.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 46
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_9082a3f16b4c.json",
+        "matches_manifest": true,
+        "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+        "observed_size_bytes": 15312,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+      "declared_size_bytes": 15312,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_9082a3f16b4c.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 47
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_917a5d39cc7c.py",
+        "matches_manifest": true,
+        "observed_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+        "observed_size_bytes": 11173,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+      "declared_size_bytes": 11173,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_917a5d39cc7c.py",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 48
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_971b7c0beebf.md",
+        "matches_manifest": true,
+        "observed_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+        "observed_size_bytes": 1153,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+      "declared_size_bytes": 1153,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_971b7c0beebf.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 49
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_97dffb953b48.md",
+        "matches_manifest": true,
+        "observed_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+        "observed_size_bytes": 3809,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+      "declared_size_bytes": 3809,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_97dffb953b48.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 50
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_a4c887bd0081.json",
+        "matches_manifest": true,
+        "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+        "observed_size_bytes": 3566,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_a4c887bd0081.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 51
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_afe623e1e952.py",
+        "matches_manifest": true,
+        "observed_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+        "observed_size_bytes": 287,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+      "declared_size_bytes": 287,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_afe623e1e952.py",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 52
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_b6054d97f177.json",
+        "matches_manifest": true,
+        "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+        "observed_size_bytes": 3566,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_b6054d97f177.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 53
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ba4614262648.md",
+        "matches_manifest": true,
+        "observed_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+        "observed_size_bytes": 4621,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+      "declared_size_bytes": 4621,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ba4614262648.md",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 54
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_bb4489fb0776.json",
+        "matches_manifest": true,
+        "observed_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+        "observed_size_bytes": 66794,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+      "declared_size_bytes": 66794,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_bb4489fb0776.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 55
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_c151ce54e66a.json",
+        "matches_manifest": true,
+        "observed_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+        "observed_size_bytes": 12529,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+      "declared_size_bytes": 12529,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_c151ce54e66a.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 56
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_d36dc898fc6b.json",
+        "matches_manifest": true,
+        "observed_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+        "observed_size_bytes": 15045,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+      "declared_size_bytes": 15045,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_d36dc898fc6b.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 57
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_e981c2d9b7f9.json",
+        "matches_manifest": true,
+        "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+        "observed_size_bytes": 1650,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+      "declared_size_bytes": 1650,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_e981c2d9b7f9.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 58
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_eaa0841ecf79.py",
+        "matches_manifest": true,
+        "observed_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+        "observed_size_bytes": 49710,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+      "declared_size_bytes": 49710,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_eaa0841ecf79.py",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 59
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ebd68905f429.json",
+        "matches_manifest": true,
+        "observed_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+        "observed_size_bytes": 2429,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+      "declared_size_bytes": 2429,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_ebd68905f429.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 60
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_f6cf34107d5b.json",
+        "matches_manifest": true,
+        "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+        "observed_size_bytes": 437594,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+      "declared_size_bytes": 437594,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/artifacts/artifact_f6cf34107d5b.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 61
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/critical-events.json",
+        "matches_manifest": true,
+        "observed_sha256": "c3c884901854b131ea381992621b2b9857e2a5989f3bd695cf936dd074108f6a",
+        "observed_size_bytes": 697636,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "c3c884901854b131ea381992621b2b9857e2a5989f3bd695cf936dd074108f6a",
+      "declared_size_bytes": 697636,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/critical-events.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 62
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/events.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "d7950a97b07fee5e69daab3f413c5c0e1fc61df009d7ee526d7fa7a9bbf5bfdd",
+        "observed_size_bytes": 12584007,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "d7950a97b07fee5e69daab3f413c5c0e1fc61df009d7ee526d7fa7a9bbf5bfdd",
+      "declared_size_bytes": 12584007,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/events.ndjson",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 63
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/run-lineage.json",
+        "matches_manifest": true,
+        "observed_sha256": "a0f625ee6329bb3b822740912cb9454b75c3c7337839ebaeb584e3b9895320cb",
+        "observed_size_bytes": 1651,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "a0f625ee6329bb3b822740912cb9454b75c3c7337839ebaeb584e3b9895320cb",
+      "declared_size_bytes": 1651,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/run-lineage.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 64
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/run-metadata.json",
+        "matches_manifest": true,
+        "observed_sha256": "40a8cf62affa347cd8fe0c3eaf37676cc6c8f2e9820e1a75f3e391c3417b0c4f",
+        "observed_size_bytes": 514,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "40a8cf62affa347cd8fe0c3eaf37676cc6c8f2e9820e1a75f3e391c3417b0c4f",
+      "declared_size_bytes": 514,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/run-metadata.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 65
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/runtime-attestation.json",
+        "matches_manifest": true,
+        "observed_sha256": "363418cea0882c911a49cf137fc4eb6c53ac80a4e11f09a2f6794432b999ffc6",
+        "observed_size_bytes": 20598,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "363418cea0882c911a49cf137fc4eb6c53ac80a4e11f09a2f6794432b999ffc6",
+      "declared_size_bytes": 20598,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/runtime-attestation.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 66
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "evidence/runtime_probe/platform_snapshot/runtime-source-attestation.json",
+        "matches_manifest": true,
+        "observed_sha256": "1dd196be98d636d1635dad5e521ca64f7e5233bfca934a8889a828939222b0a7",
+        "observed_size_bytes": 3566,
+        "raw_bytes_available": true,
+        "status": "PASS_EXISTING_DELIVERY_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "1dd196be98d636d1635dad5e521ca64f7e5233bfca934a8889a828939222b0a7",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/runtime_probe/platform_snapshot/runtime-source-attestation.json",
+      "reason": "Earlier frozen cutoff is preserved in public audit but current formal evidence is regenerated.",
+      "row_index": 67
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "95fb17266ddcd272a06701c6af42452fc46be4841660e5d384c9759379486000",
+        "observed_size_bytes": 3515,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "95fb17266ddcd272a06701c6af42452fc46be4841660e5d384c9759379486000",
+      "declared_size_bytes": 3515,
+      "merged_path": "gaps/runtime-probe-gap-list.json",
+      "path": "gaps/runtime-probe-gap-list.json",
+      "reason": "Retained as report structure and regenerated from the current evidence index.",
+      "row_index": 68
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "bb803b432a98b290b6cd67125d6b57bbbd0ca3652302170847cdb9f5a75521ca",
+        "observed_size_bytes": 146,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "bb803b432a98b290b6cd67125d6b57bbbd0ca3652302170847cdb9f5a75521ca",
+      "declared_size_bytes": 146,
+      "merged_path": "pyproject.toml",
+      "path": "pyproject.toml",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 69
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "3c8c894ad27356cd1418b068ea2443d3780164c9ceac9d0b4b20aeae679398be",
+        "observed_size_bytes": 3012,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "3c8c894ad27356cd1418b068ea2443d3780164c9ceac9d0b4b20aeae679398be",
+      "declared_size_bytes": 3012,
+      "merged_path": "run_runtime_probe.py",
+      "path": "run_runtime_probe.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 70
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "fa4edd42506083de3e6b6f3bd94dead130ae78d3704b48f2322ef8c6ffb8b96a",
+        "observed_size_bytes": 171,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "fa4edd42506083de3e6b6f3bd94dead130ae78d3704b48f2322ef8c6ffb8b96a",
+      "declared_size_bytes": 171,
+      "merged_path": "runtime_probe/__init__.py",
+      "path": "runtime_probe/__init__.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 71
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "69da31f3d9488335126e551a311bf3cb6b77001ada4e95fd56f4e4e62b78b257",
+        "observed_size_bytes": 17162,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "69da31f3d9488335126e551a311bf3cb6b77001ada4e95fd56f4e4e62b78b257",
+      "declared_size_bytes": 17162,
+      "merged_path": "runtime_probe/delivery.py",
+      "path": "runtime_probe/delivery.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 72
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "47ca2961b37093648d7068a74c5c2c1f0007dd2a6fabf77e376668383bd0503b",
+        "observed_size_bytes": 9796,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "47ca2961b37093648d7068a74c5c2c1f0007dd2a6fabf77e376668383bd0503b",
+      "declared_size_bytes": 9796,
+      "merged_path": "runtime_probe/faults.py",
+      "path": "runtime_probe/faults.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 73
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c79884940aa19cf266f0431d36995817096c56bc21f786eb15c1f213e134cf19",
+        "observed_size_bytes": 2897,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "c79884940aa19cf266f0431d36995817096c56bc21f786eb15c1f213e134cf19",
+      "declared_size_bytes": 2897,
+      "merged_path": "runtime_probe/gate.py",
+      "path": "runtime_probe/gate.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 74
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "fe87e9f5ee889a1aadff805fa5d7369654ca2560db1c31b7de9e9bdbd7f89498",
+        "observed_size_bytes": 26765,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "fe87e9f5ee889a1aadff805fa5d7369654ca2560db1c31b7de9e9bdbd7f89498",
+      "declared_size_bytes": 26765,
+      "merged_path": "runtime_probe/platform.py",
+      "path": "runtime_probe/platform.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 75
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "7df979739b8b4e1403eecbd291171bc53ee724db3f34fb1d5d7ec46941ed15d5",
+        "observed_size_bytes": 1021,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "7df979739b8b4e1403eecbd291171bc53ee724db3f34fb1d5d7ec46941ed15d5",
+      "declared_size_bytes": 1021,
+      "merged_path": "schemas/runtime-evidence-event.schema.json",
+      "path": "schemas/runtime-evidence-event.schema.json",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 76
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_eac0b56ad320",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "112dfa0322c33274bd849bc01fcdf4ab43c8b1ab41deba35f85f0018263194ae",
+        "observed_size_bytes": 10741,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "ADOPTED_AS_PRIMARY_BASELINE",
+      "declared_sha256": "112dfa0322c33274bd849bc01fcdf4ab43c8b1ab41deba35f85f0018263194ae",
+      "declared_size_bytes": 10741,
+      "merged_path": "tests/test_runtime_acceptance.py",
+      "path": "tests/test_runtime_acceptance.py",
+      "reason": "Selected as the primary implementation/configuration baseline; subsequent edits are tracked by the final package manifest.",
+      "row_index": 77
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "a4748026cae37470871e30675d87f8d5abab44eba8178b666fd31fc5510d291c",
+        "observed_size_bytes": 1453,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "a4748026cae37470871e30675d87f8d5abab44eba8178b666fd31fc5510d291c",
+      "declared_size_bytes": 1453,
+      "merged_path": null,
+      "path": "README.md",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 1
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "926a880c1bf1f7d932f3e603104cb76a5857f3b784849ce06effd4d9e187b484",
+        "observed_size_bytes": 7087,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CONSOLIDATED_REPORT",
+      "declared_sha256": "926a880c1bf1f7d932f3e603104cb76a5857f3b784849ce06effd4d9e187b484",
+      "declared_size_bytes": 7087,
+      "merged_path": null,
+      "path": "Runtime-取证与故障注入执行环境报告.md",
+      "reason": "Substantive observations are retained in the owner report, while duplicate report bytes are not made the formal entrypoint.",
+      "row_index": 2
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "architecture/runtime-event-envelope.schema.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 3
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c19ae33a5c8bf7f7eed96d99f2e0706b64e593a8af0bcece616ce1c532461cdc",
+        "observed_size_bytes": 18430,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "c19ae33a5c8bf7f7eed96d99f2e0706b64e593a8af0bcece616ce1c532461cdc",
+      "declared_size_bytes": 18430,
+      "merged_path": null,
+      "path": "artifacts/sha256-manifest.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 4
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "artifacts/sha256_manifest.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 5
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "d3d29e6076c45770b83ad11ad5bdc7bcf19fc0a391b1975cb9fb39c8e5f31be8",
+        "observed_size_bytes": 721,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "d3d29e6076c45770b83ad11ad5bdc7bcf19fc0a391b1975cb9fb39c8e5f31be8",
+      "declared_size_bytes": 721,
+      "merged_path": "config/supplemental-predeclared-blocker.json",
+      "path": "config/predeclared-blocker.json",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 6
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "566c32e1cb4b85aecb5c5615a00685e74a04c67551043f0c2741d3f5e75a6e45",
+        "observed_size_bytes": 2127,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "566c32e1cb4b85aecb5c5615a00685e74a04c67551043f0c2741d3f5e75a6e45",
+      "declared_size_bytes": 2127,
+      "merged_path": "config/runtime-acceptance-tasks.json",
+      "path": "config/runtime-acceptance-tasks.json",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 7
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "cff7c9451fc4d032d0af7a3450e8e4056249c9e3ce8d25f0dc235896dfc79b8a",
+        "observed_size_bytes": 1352,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "cff7c9451fc4d032d0af7a3450e8e4056249c9e3ce8d25f0dc235896dfc79b8a",
+      "declared_size_bytes": 1352,
+      "merged_path": "config/team-roles.json",
+      "path": "config/team-roles.json",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 8
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "docs/01_架构视角隔离盘点.md",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 9
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "docs/02_运行保障视角隔离盘点.md",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 10
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 11
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "926a880c1bf1f7d932f3e603104cb76a5857f3b784849ce06effd4d9e187b484",
+        "observed_size_bytes": 7087,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CONSOLIDATED_REPORT",
+      "declared_sha256": "926a880c1bf1f7d932f3e603104cb76a5857f3b784849ce06effd4d9e187b484",
+      "declared_size_bytes": 7087,
+      "merged_path": null,
+      "path": "docs/Runtime-取证与故障注入执行环境报告.md",
+      "reason": "Substantive observations are retained in the owner report, while duplicate report bytes are not made the formal entrypoint.",
+      "row_index": 12
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "eb27e1d7f88e82c6b48471f34d7ebe60bab29ca672a7bad2f38e4b83f9bed71e",
+        "observed_size_bytes": 21285,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "eb27e1d7f88e82c6b48471f34d7ebe60bab29ca672a7bad2f38e4b83f9bed71e",
+      "declared_size_bytes": 21285,
+      "merged_path": null,
+      "path": "evidence/artifact-reread-receipts.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 13
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/build_test_run.log",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 14
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "c425e4747a63b44e73c73c3777b6af5699b3a4bbc3528ca2c2f038b22b8a6a41",
+        "observed_size_bytes": 80857,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "c425e4747a63b44e73c73c3777b6af5699b3a4bbc3528ca2c2f038b22b8a6a41",
+      "declared_size_bytes": 80857,
+      "merged_path": null,
+      "path": "evidence/event-index.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 15
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "045f7133bbc152af08b809ae5f0ba0936bd4338a95f59ac1b79fe3c39845f36e",
+        "observed_size_bytes": 2707,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "045f7133bbc152af08b809ae5f0ba0936bd4338a95f59ac1b79fe3c39845f36e",
+      "declared_size_bytes": 2707,
+      "merged_path": null,
+      "path": "evidence/evidence-index.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 16
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/final_verification.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 17
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "ca1e29812b4a0be575107cc66b39a386e7088f39d13faf0367e1f7a7f40bb14b",
+        "observed_size_bytes": 30544,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ca1e29812b4a0be575107cc66b39a386e7088f39d13faf0367e1f7a7f40bb14b",
+      "declared_size_bytes": 30544,
+      "merged_path": null,
+      "path": "evidence/lifecycle-index.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 18
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "a0edd91c9fa3e8ee306b2b22ed47af55a91f06cd4d84a75569a53820eedfbc22",
+        "observed_size_bytes": 13462,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "a0edd91c9fa3e8ee306b2b22ed47af55a91f06cd4d84a75569a53820eedfbc22",
+      "declared_size_bytes": 13462,
+      "merged_path": null,
+      "path": "evidence/local-probes/commands.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 19
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "6257b2d64c09cc4920070b87f7bc7b1c8bb320dca6959e47a72231574bcfd3f5",
+        "observed_size_bytes": 13154,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6257b2d64c09cc4920070b87f7bc7b1c8bb320dca6959e47a72231574bcfd3f5",
+      "declared_size_bytes": 13154,
+      "merged_path": null,
+      "path": "evidence/local-probes/events.ndjson",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 20
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "bca9a7530e3f377b8ed2276b4d055e4da3a16836d740b4aecbb1028d3056aafc",
+        "observed_size_bytes": 1845,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "bca9a7530e3f377b8ed2276b4d055e4da3a16836d740b4aecbb1028d3056aafc",
+      "declared_size_bytes": 1845,
+      "merged_path": null,
+      "path": "evidence/local-probes/local-probe-proof.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 21
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "fead7e5bfa17c2351d2c7160385290fee1e399f2c54367aea52869e814fb2b42",
+        "observed_size_bytes": 96,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "fead7e5bfa17c2351d2c7160385290fee1e399f2c54367aea52869e814fb2b42",
+      "declared_size_bytes": 96,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/dependency/failed.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 22
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ce8fee567a8ffa06d08a2b11137a4fe6f47de114ce22cb7b5cd6ed9966e70dd0",
+      "declared_size_bytes": 62,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/dependency/recovered.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 23
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "c4f4b1d028a4b44a9bf321acb7a53a25cab4355adc84ae85f0f4b7c51c7b5e63",
+      "declared_size_bytes": 201,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/failure/checkpoint.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 24
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "cc7d48c1668728670d220be119ccc944d9329f6754d11329e89373762d64d767",
+      "declared_size_bytes": 16384,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/failure/effects.sqlite3",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 25
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "56f107a1a18e9bf4772159b52e60a5aadd2773d66193228f10c621f6de80e13a",
+        "observed_size_bytes": 42,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "56f107a1a18e9bf4772159b52e60a5aadd2773d66193228f10c621f6de80e13a",
+      "declared_size_bytes": 42,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/failure/ready.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 26
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "272428b356d325d10f54c2b4967d2b4f3728ef45ec4884df21a30f4cd0ed19bf",
+        "observed_size_bytes": 331,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "272428b356d325d10f54c2b4967d2b4f3728ef45ec4884df21a30f4cd0ed19bf",
+      "declared_size_bytes": 331,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/failure/recovery.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 27
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "11ba8a832354b510459e8085287e425193b40ae2967fd71e41e4f072ecf32b3a",
+        "observed_size_bytes": 28,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "11ba8a832354b510459e8085287e425193b40ae2967fd71e41e4f072ecf32b3a",
+      "declared_size_bytes": 28,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/file/delivered.txt",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 28
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "3329e7b2a2bd4a8cafcdc2f6279fa3465278d94ae1de9274b01bf8b279237353",
+        "observed_size_bytes": 106,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3329e7b2a2bd4a8cafcdc2f6279fa3465278d94ae1de9274b01bf8b279237353",
+      "declared_size_bytes": 106,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/file/deny.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 29
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "64e1a7f36332b34db939c62f938d71a33ec0bd9aef468da7143d6be04a5bcf5d",
+        "observed_size_bytes": 181,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "64e1a7f36332b34db939c62f938d71a33ec0bd9aef468da7143d6be04a5bcf5d",
+      "declared_size_bytes": 181,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/file/write.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 30
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "99c53c5d2937eb57912a34ffa782facd707d3aa52758a439fa52aef1d40a2be6",
+      "declared_size_bytes": 270,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/judge/candidate-v1.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 31
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6c6edf71f7fe212d99a5a45fe9a06579214615c121c8f402739813ca4e5d3a9e",
+      "declared_size_bytes": 642,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/judge/candidate-v2.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 32
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "997b02cc362c1c5bcb18fb3e3ffeb5d7e45f29e2f130fbe065ecb99a1503e38e",
+        "observed_size_bytes": 334,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "997b02cc362c1c5bcb18fb3e3ffeb5d7e45f29e2f130fbe065ecb99a1503e38e",
+      "declared_size_bytes": 334,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/judge/verdict-v1.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 33
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "46ed4cd78512811fd4ca22aebe83d096c94fbdf208086e115b211d2b8739d6e8",
+        "observed_size_bytes": 319,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "46ed4cd78512811fd4ca22aebe83d096c94fbdf208086e115b211d2b8739d6e8",
+      "declared_size_bytes": 319,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/judge/verdict-v2.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 34
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "8215bf891df28ce2d02b8768023f5666601288ec08156bb5f29b6946c4eceef3",
+        "observed_size_bytes": 12288,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "8215bf891df28ce2d02b8768023f5666601288ec08156bb5f29b6946c4eceef3",
+      "declared_size_bytes": 12288,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/memory/memory.sqlite3",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 35
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ad132c407c54d70b47663c0bc935f85b477b21c53219387ad39169a9af594200",
+      "declared_size_bytes": 172,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/memory/read-receipt.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 36
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "10a63cd7549608942fa2ca47c96bbfe156ae67e008f11afca85925d7d383d26f",
+      "declared_size_bytes": 225,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/memory/write-receipt.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 37
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "039bca1dd9aa8e5dfffc6023f7ccb8f2a51b1a8edb8417157615651b2d1de349",
+      "declared_size_bytes": 91,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/memory/wrong-namespace.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 38
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ead0be42e57daaa50bde5dc98904b1ce8ec2ac7280304f9f30159dd63610e27c",
+      "declared_size_bytes": 221,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/pause/checkpoint-paused.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 39
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "04e3641a2fdd32c16931203f7c111a7f4b091c0432ee8809db401c02b09d3e35",
+      "declared_size_bytes": 271,
+      "merged_path": null,
+      "path": "evidence/local-probes/work/pause/checkpoint-resumed.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 40
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "42d1ef8817371d105485f7afb17d5efcd486ca06aca3f4b314cb1813352be3be",
+        "observed_size_bytes": 1848,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "42d1ef8817371d105485f7afb17d5efcd486ca06aca3f4b314cb1813352be3be",
+      "declared_size_bytes": 1848,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot-receipt.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 41
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44",
+        "observed_size_bytes": 43744,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "fcb672952ddae343fd87a69da6aef9ee54f5893445ffb85782d75ef2e418ac44",
+      "declared_size_bytes": 43744,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifact-registry.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 42
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_e981c2d9b7f9.json",
+        "matches_manifest": true,
+        "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+        "observed_size_bytes": 1650,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+      "declared_size_bytes": 1650,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_059b9d1ccf74.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 43
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_093ddde9e3ad.md",
+        "matches_manifest": true,
+        "observed_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+        "observed_size_bytes": 4995,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "b7d00fec28b1512a71c7f2ea68312fbf909c8efa3c563a1b0c0c9bcc8885ed0d",
+      "declared_size_bytes": 4995,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_093ddde9e3ad.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 44
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_09a876e28c8b.py",
+        "matches_manifest": true,
+        "observed_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+        "observed_size_bytes": 15721,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+      "declared_size_bytes": 15721,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_09a876e28c8b.py",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 45
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_0ded60e4c6d1.toml",
+        "matches_manifest": true,
+        "observed_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+        "observed_size_bytes": 258,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+      "declared_size_bytes": 258,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_0ded60e4c6d1.toml",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 46
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_13f393035b78.py",
+        "matches_manifest": true,
+        "observed_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+        "observed_size_bytes": 2778,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "703944f939350e439bb74d3a14ac529e3153cf3e93c110f126e4cf65f4518878",
+      "declared_size_bytes": 2778,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_13f393035b78.py",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 47
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_1f01400f4a5a.json",
+        "matches_manifest": true,
+        "observed_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+        "observed_size_bytes": 25967,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "4acd6073ac93391837c94502b2598146303147ce86b540ca251cd497bc45302b",
+      "declared_size_bytes": 25967,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_1f01400f4a5a.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 48
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_23d9ac338865.json",
+        "matches_manifest": true,
+        "observed_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+        "observed_size_bytes": 1412,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "849d4dfab12adc6b328d86b171b393b80e2b90c7760098cf992397eafdb8fcfe",
+      "declared_size_bytes": 1412,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_23d9ac338865.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 49
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_26da112b416b.json",
+        "matches_manifest": true,
+        "observed_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+        "observed_size_bytes": 11236,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "88833be42a0a5a1afa306e8a0e55266cd4238b1c5db9febbc8327f28a5e7bfc9",
+      "declared_size_bytes": 11236,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_26da112b416b.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 50
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_9082a3f16b4c.json",
+        "matches_manifest": true,
+        "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+        "observed_size_bytes": 15312,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+      "declared_size_bytes": 15312,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_2edfccfb5e5e.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 51
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_2f3bbaa498d6.json",
+        "matches_manifest": true,
+        "observed_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+        "observed_size_bytes": 14546,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "350b9765e5dc99d6794ce8d6d07774dfaea596eb12ae0cae4e56b7a0852129a0",
+      "declared_size_bytes": 14546,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_2f3bbaa498d6.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 52
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_646cf534aa6d.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+        "observed_size_bytes": 10475209,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+      "declared_size_bytes": 10475209,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_32aa43936bc1.ndjson",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 53
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_6d668ff53013.json",
+        "matches_manifest": true,
+        "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+        "observed_size_bytes": 507,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+      "declared_size_bytes": 507,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_3f6da84ff8a7.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 54
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_41a9cb57fcc0.log",
+        "matches_manifest": true,
+        "observed_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+        "observed_size_bytes": 3780,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "63796e1d6f89fc8e3c8f1605caa9cd772f43c368390ea93ae30bd13756166659",
+      "declared_size_bytes": 3780,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_41a9cb57fcc0.log",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 55
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_45697b532701.json",
+        "matches_manifest": true,
+        "observed_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+        "observed_size_bytes": 14504,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "8075914c4e4039e8a80f24e0423c55c8702ced0e59e1af4331a2875fc315614b",
+      "declared_size_bytes": 14504,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_45697b532701.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 56
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_5c75230fa3d9.json",
+        "matches_manifest": true,
+        "observed_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "observed_size_bytes": 3,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "declared_size_bytes": 3,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_5c75230fa3d9.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 57
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_646cf534aa6d.ndjson",
+        "matches_manifest": true,
+        "observed_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+        "observed_size_bytes": 10475209,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+      "declared_size_bytes": 10475209,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_646cf534aa6d.ndjson",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 58
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_64b77102da82.json",
+        "matches_manifest": true,
+        "observed_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+        "observed_size_bytes": 43550,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "e93ba899a7acefae149d1a8490f3d34abf38a71d1c58d5f0a7756ee96e3833d9",
+      "declared_size_bytes": 43550,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_64b77102da82.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 59
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_6d668ff53013.json",
+        "matches_manifest": true,
+        "observed_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+        "observed_size_bytes": 507,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6e70971dad26cb61f8a55aaa96254571a5ab6b3984862fc93f250a837cc032c8",
+      "declared_size_bytes": 507,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_6d668ff53013.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 60
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_6daf11b45a73.json",
+        "matches_manifest": true,
+        "observed_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+        "observed_size_bytes": 5565,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "00d48afae3b823d2e8fd988d011937b7dda698a2b926764ae99d174f17c1f7d6",
+      "declared_size_bytes": 5565,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_6daf11b45a73.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 61
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_855d1a37379a.md",
+        "matches_manifest": true,
+        "observed_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+        "observed_size_bytes": 6076,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "9db550789c6f93af9fc3b08d13c1b77a2c9e6f7fcea78c7e352fed5dab2a64a3",
+      "declared_size_bytes": 6076,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_855d1a37379a.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 62
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_88b1de177798.md",
+        "matches_manifest": true,
+        "observed_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+        "observed_size_bytes": 19234,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "6a9f3022d0b328b57185681f28ee9470f09d2a1ad17dcad1365727c2b666ba37",
+      "declared_size_bytes": 19234,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_88b1de177798.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 63
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_8abbe3008279.md",
+        "matches_manifest": true,
+        "observed_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+        "observed_size_bytes": 8670,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "fe75e476a15a958eda1dcd695ca42f082c311c9c84a4d3e22117568477f20a74",
+      "declared_size_bytes": 8670,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_8abbe3008279.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 64
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_f6cf34107d5b.json",
+        "matches_manifest": true,
+        "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+        "observed_size_bytes": 437594,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+      "declared_size_bytes": 437594,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_8fb5e09beb8d.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 65
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_9082a3f16b4c.json",
+        "matches_manifest": true,
+        "observed_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+        "observed_size_bytes": 15312,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "da0317bebdec4b90a0d56f8a40353ce2c1e6f220ba936cb819aa92beb61d8d1f",
+      "declared_size_bytes": 15312,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_9082a3f16b4c.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 66
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_917a5d39cc7c.py",
+        "matches_manifest": true,
+        "observed_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+        "observed_size_bytes": 11173,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0d141e028b738b8cc8c951800dc61eda613779b782629982ca5bbed7b3b87330",
+      "declared_size_bytes": 11173,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_917a5d39cc7c.py",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 67
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_971b7c0beebf.md",
+        "matches_manifest": true,
+        "observed_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+        "observed_size_bytes": 1153,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+      "declared_size_bytes": 1153,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_971b7c0beebf.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 68
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_97dffb953b48.md",
+        "matches_manifest": true,
+        "observed_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+        "observed_size_bytes": 3809,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3e75a5f9c9a86032db402721adcd176eb8f1aab58b52f0a84863b83fe4d420a2",
+      "declared_size_bytes": 3809,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_97dffb953b48.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 69
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_b6054d97f177.json",
+        "matches_manifest": true,
+        "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+        "observed_size_bytes": 3566,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_a4c887bd0081.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 70
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_afe623e1e952.py",
+        "matches_manifest": true,
+        "observed_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+        "observed_size_bytes": 287,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+      "declared_size_bytes": 287,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_afe623e1e952.py",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 71
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_b6054d97f177.json",
+        "matches_manifest": true,
+        "observed_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+        "observed_size_bytes": 3566,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "015dc05d5ce0550117c8b3b53922970faf368b8d6a3418b79b7fc7c3b3b36f64",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_b6054d97f177.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 72
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_ba4614262648.md",
+        "matches_manifest": true,
+        "observed_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+        "observed_size_bytes": 4621,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0ae82a9910ff4023ca74789b62ad31ff1968a49ccba68bf69b297cd6255aaee0",
+      "declared_size_bytes": 4621,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_ba4614262648.md",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 73
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_bb4489fb0776.json",
+        "matches_manifest": true,
+        "observed_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+        "observed_size_bytes": 66794,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "dbc7106cb58e72b929961a5938cb9a39ff77e47d17e94a7371a646d0bcc9e2b1",
+      "declared_size_bytes": 66794,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_bb4489fb0776.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 74
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_c151ce54e66a.json",
+        "matches_manifest": true,
+        "observed_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+        "observed_size_bytes": 12529,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "b172d39344c5ca7abc76597167f1d32eafcc9724d2f7dd086cb6bf166e5d7ec5",
+      "declared_size_bytes": 12529,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_c151ce54e66a.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 75
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_d36dc898fc6b.json",
+        "matches_manifest": true,
+        "observed_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+        "observed_size_bytes": 15045,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "20ecae044f5a240abc92b5f56beebe3b592612ba916a3c1375bab9e5586ac168",
+      "declared_size_bytes": 15045,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_d36dc898fc6b.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 76
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_e981c2d9b7f9.json",
+        "matches_manifest": true,
+        "observed_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+        "observed_size_bytes": 1650,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "abd4260dfc685ac4bd6df592c33ff95ae5fe3f824351bd0b1e3eba4bf182f9d5",
+      "declared_size_bytes": 1650,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_e981c2d9b7f9.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 77
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_eaa0841ecf79.py",
+        "matches_manifest": true,
+        "observed_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+        "observed_size_bytes": 49710,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "0ae84d37189ca4a55997ac74386fbf3e76a42428afe576701292f28102294ded",
+      "declared_size_bytes": 49710,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_eaa0841ecf79.py",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 78
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_ebd68905f429.json",
+        "matches_manifest": true,
+        "observed_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+        "observed_size_bytes": 2429,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "afac12920a7648add84e77231aee7fc7004ae1033ddad52ec5ab31d193e1d55e",
+      "declared_size_bytes": 2429,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_ebd68905f429.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 79
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": ".jianghu-platform-evidence/artifacts/artifact_f6cf34107d5b.json",
+        "matches_manifest": true,
+        "observed_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+        "observed_size_bytes": 437594,
+        "raw_bytes_available": true,
+        "status": "PASS_PLATFORM_ARTIFACT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "139889095fc0e4657d3c499b10fb7ce28678b5cee20e046825b4e022c00d3ac1",
+      "declared_size_bytes": 437594,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/artifacts/artifact_f6cf34107d5b.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 80
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "e700f3c00020a2d9b984c21ab26bfc24cf34f26b405a5cb554c691d9d88fb044",
+        "observed_size_bytes": 708132,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "e700f3c00020a2d9b984c21ab26bfc24cf34f26b405a5cb554c691d9d88fb044",
+      "declared_size_bytes": 708132,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/critical-events.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 81
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "3228b7cc97d49a88270052acc7a5e51c2099ceb8613a49c92b62f3e78f060325",
+        "observed_size_bytes": 12597209,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3228b7cc97d49a88270052acc7a5e51c2099ceb8613a49c92b62f3e78f060325",
+      "declared_size_bytes": 12597209,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/events.ndjson",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 82
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "dc710de764a14243ebe6c7197f0af5693cc66c117cf11cf23e93a7e1da2511dc",
+        "observed_size_bytes": 1651,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "dc710de764a14243ebe6c7197f0af5693cc66c117cf11cf23e93a7e1da2511dc",
+      "declared_size_bytes": 1651,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/run-lineage.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 83
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "ed1adbf781b16a70e5e0d00932298b37aff78ac4704a60fcf6360ec14bfaaedb",
+        "observed_size_bytes": 514,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "ed1adbf781b16a70e5e0d00932298b37aff78ac4704a60fcf6360ec14bfaaedb",
+      "declared_size_bytes": 514,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/run-metadata.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 84
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "3cfdcceeb9a1ceb5160fd158a50b85a313803f21369789e22a20494d852b110a",
+      "declared_size_bytes": 20598,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/runtime-attestation.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 85
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": false,
+        "raw_bytes_available": false,
+        "status": "PUBLICLY_ATTESTED_NOT_MATERIALIZED_FOR_OWNER_READBACK"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "5194de0aff906636e74aacb023e1d0ca588d3adf4e3abc779ca0164ee4db2d33",
+      "declared_size_bytes": 3566,
+      "merged_path": null,
+      "path": "evidence/platform-snapshot/runtime-source-attestation.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 86
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "2e17fee989c47537936364cdeb7a4c6d1f24dde628f3ae4259408efead159011",
+        "observed_size_bytes": 92602,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "2e17fee989c47537936364cdeb7a4c6d1f24dde628f3ae4259408efead159011",
+      "declared_size_bytes": 92602,
+      "merged_path": null,
+      "path": "evidence/platform-verification.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 87
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/README.md",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 88
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/artifact-registry.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 89
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/critical-events.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 90
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/events.ndjson",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 91
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/run-lineage.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 92
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/run-metadata.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 93
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/runtime-attestation.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 94
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot/runtime-source-attestation.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 95
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/platform_snapshot_index.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 96
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/public-collaboration-index.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 97
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/public_collaboration.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 98
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/recovery-index.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 99
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "b2bacde08f9d5e639a263e0ea4079b0dd0d0bcd760e705eb5303821244252337",
+        "observed_size_bytes": 12862,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "b2bacde08f9d5e639a263e0ea4079b0dd0d0bcd760e705eb5303821244252337",
+      "declared_size_bytes": 12862,
+      "merged_path": null,
+      "path": "evidence/runtime-session-bindings.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 100
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/runtime_session_bindings.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 101
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/snapshot_history.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 102
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/sre-isolated-inventory.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 103
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/submission_review.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 104
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "d23c9cbf24310ccc9904824b4caeadc6a12f0f5802d8111be5bae103e2c8756a",
+        "observed_size_bytes": 16867,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "d23c9cbf24310ccc9904824b4caeadc6a12f0f5802d8111be5bae103e2c8756a",
+      "declared_size_bytes": 16867,
+      "merged_path": null,
+      "path": "evidence/tool-lifecycle-summary.json",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 105
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "evidence/tool_lifecycle_summary.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 106
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "d80daf999ec2768803c0420fa3795e7365ae3da58f9025e52ceb0844bf047f20",
+        "observed_size_bytes": 3748,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CONSOLIDATED_REPORT",
+      "declared_sha256": "d80daf999ec2768803c0420fa3795e7365ae3da58f9025e52ceb0844bf047f20",
+      "declared_size_bytes": 3748,
+      "merged_path": null,
+      "path": "gaps/Claude-Runtime-migration-gaps.json",
+      "reason": "Substantive observations are retained in the owner report, while duplicate report bytes are not made the formal entrypoint.",
+      "row_index": 107
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "ba2cc341ccc3011e40c23e571867ee4073e8c39d8ae01ea6dfc647a1380c579f",
+        "observed_size_bytes": 2855,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CONSOLIDATED_REPORT",
+      "declared_sha256": "ba2cc341ccc3011e40c23e571867ee4073e8c39d8ae01ea6dfc647a1380c579f",
+      "declared_size_bytes": 2855,
+      "merged_path": null,
+      "path": "gaps/Claude-Runtime-migration-gaps.md",
+      "reason": "Substantive observations are retained in the owner report, while duplicate report bytes are not made the formal entrypoint.",
+      "row_index": 108
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "gaps/migration-gap-list.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 109
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "mapping/capability_mapping.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 110
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "92adbba5a0d781cb37efdf822b21b001e549a87c92239defc78db013e57005b0",
+        "observed_size_bytes": 280,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "92adbba5a0d781cb37efdf822b21b001e549a87c92239defc78db013e57005b0",
+      "declared_size_bytes": 280,
+      "merged_path": null,
+      "path": "pyproject.toml",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 111
+    },
+    {
+      "action": "modified",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "5a54cea508219e5fe0597ba936873f15d72fda77249cc38c15a0d6fcf95dcd4f",
+        "observed_size_bytes": 18076,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "5a54cea508219e5fe0597ba936873f15d72fda77249cc38c15a0d6fcf95dcd4f",
+      "declared_size_bytes": 18076,
+      "merged_path": null,
+      "path": "run_acceptance.py",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 112
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "runtime_acceptance/__init__.py",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 113
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "runtime_acceptance/verifier.py",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 114
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "1e078b1c5a043ec544adc9d2d3c01239611b0feddccb34d1f88bb9d2d7e1b1a3",
+        "observed_size_bytes": 346,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "1e078b1c5a043ec544adc9d2d3c01239611b0feddccb34d1f88bb9d2d7e1b1a3",
+      "declared_size_bytes": 346,
+      "merged_path": null,
+      "path": "runtime_forensics/__init__.py",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 115
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "34b801b44607a1345641f653e0ce7e430d92b842d9f5391bf8ec1850488201fa",
+        "observed_size_bytes": 34194,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "34b801b44607a1345641f653e0ce7e430d92b842d9f5391bf8ec1850488201fa",
+      "declared_size_bytes": 34194,
+      "merged_path": null,
+      "path": "runtime_forensics/core.py",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 116
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "schemas/runtime-event-envelope.schema.json",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 117
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "cc63e0539459ee43226d2544d79a50cfd558ce81635302a265920b96c53937fa",
+        "observed_size_bytes": 1551,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "cc63e0539459ee43226d2544d79a50cfd558ce81635302a265920b96c53937fa",
+      "declared_size_bytes": 1551,
+      "merged_path": "schemas/runtime-evidence-event.schema.json",
+      "path": "schemas/runtime-evidence-event.schema.json",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 118
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "src/capture_platform_snapshot.py",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 119
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "8a5c4b0fa9647a17009c050f1ac27e4a58fb7fe496c6f723b05fb69faec6f3b7",
+        "observed_size_bytes": 16350,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "8a5c4b0fa9647a17009c050f1ac27e4a58fb7fe496c6f723b05fb69faec6f3b7",
+      "declared_size_bytes": 16350,
+      "merged_path": "src/run_local_probes.py",
+      "path": "src/run_local_probes.py",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 120
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "d14553dc0e97d7917ae0878b44a1aebfedc764714238670b80e8a9d80b63ecf0",
+        "observed_size_bytes": 11053,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REVISED_AND_MERGED",
+      "declared_sha256": "d14553dc0e97d7917ae0878b44a1aebfedc764714238670b80e8a9d80b63ecf0",
+      "declared_size_bytes": 11053,
+      "merged_path": "tasks/probe_worker.py",
+      "path": "tasks/probe_worker.py",
+      "reason": "Selected after byte audit. It adds five-role contract, target schema, SQLite Memory, OS force-kill, dependency and path-confinement probes; local evidence remains acceptance-ineligible.",
+      "row_index": 121
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "tests/test_runtime_acceptance.py",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 122
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "6dd797fa89d84b879a6040fe20d01848a5e6bc19fa3257b634889890de5bb0e2",
+        "observed_size_bytes": 9049,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "REJECTED_PARALLEL_IMPLEMENTATION",
+      "declared_sha256": "6dd797fa89d84b879a6040fe20d01848a5e6bc19fa3257b634889890de5bb0e2",
+      "declared_size_bytes": 9049,
+      "merged_path": null,
+      "path": "tests/test_runtime_forensics.py",
+      "reason": "The existing runtime_probe implementation is the primary fail-closed path. Relevant probe/test requirements are merged without replacing it with a second incompatible CLI and snapshot namespace.",
+      "row_index": 123
+    },
+    {
+      "action": "deleted",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "matches_manifest": true,
+        "status": "DELETION_MARKER_NO_SOURCE_BYTES"
+      },
+      "decision": "REJECTED_DELETION",
+      "declared_sha256": "",
+      "declared_size_bytes": 0,
+      "merged_path": null,
+      "path": "verification/build-test.log",
+      "reason": "Deletion marker is not applied: upstream formal inputs and the selected primary implementation remain independently traceable.",
+      "row_index": 124
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "observed_size_bytes": 2,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "declared_size_bytes": 2,
+      "merged_path": null,
+      "path": "verification/final-preseal.exit-code",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 125
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "01cc535a12f5ee4c8e642c5c6deae62238a81233a3c443dbf61ae877e56bd437",
+        "observed_size_bytes": 3731,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "01cc535a12f5ee4c8e642c5c6deae62238a81233a3c443dbf61ae877e56bd437",
+      "declared_size_bytes": 3731,
+      "merged_path": null,
+      "path": "verification/final-preseal.log",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 126
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "observed_size_bytes": 2,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "declared_size_bytes": 2,
+      "merged_path": null,
+      "path": "verification/unit-tests.exit-code",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 127
+    },
+    {
+      "action": "created",
+      "agent_id": "agent_bcde21fdede6",
+      "byte_audit": {
+        "audit_path": "authorized-public-export",
+        "matches_manifest": true,
+        "observed_sha256": "7db38c59b8f36e8022723cb0d9fcea28fc2d133c30dbc689ca9fae05060bc3d2",
+        "observed_size_bytes": 3304,
+        "raw_bytes_available": true,
+        "status": "PASS_PUBLIC_EXPORT_BYTES"
+      },
+      "decision": "SUPERSEDED_BY_CURRENT_RUN_REBUILD",
+      "declared_sha256": "7db38c59b8f36e8022723cb0d9fcea28fc2d133c30dbc689ca9fae05060bc3d2",
+      "declared_size_bytes": 3304,
+      "merged_path": null,
+      "path": "verification/unit-tests.log",
+      "reason": "Generated evidence belongs to the contributor's earlier cutoff and is not copied over the fresh owner snapshot or final manifest.",
+      "row_index": 128
+    }
+  ],
+  "run_id": "run_9226059d74a1",
+  "schema_version": "jianghu.public-submission-review.v1",
+  "submissions": [
+    {
+      "agent_id": "agent_eac0b56ad320",
+      "agent_name": "林砚",
+      "change_row_count": 77,
+      "manifest_path": "collaboration/runtime_probe_harness/loop-1-attempt-1/agent_eac0b56ad320/manifest.json",
+      "manifest_sha256": "ae47e0ec75b081bc74fae94e800e8f4e13470938d2401f77164857cf902c6087"
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "change_row_count": 128,
+      "manifest_path": "collaboration/runtime_probe_harness/loop-1-attempt-1/agent_bcde21fdede6/manifest.json",
+      "manifest_sha256": "f1e0e23e5491dc3f667543909416a62ed8544d2d192ad574cea5b6458505305e"
+    }
+  ],
+  "summary": {
+    "byte_audit_mismatch_count": 0,
+    "decision_counts": {
+      "ADOPTED_AS_PRIMARY_BASELINE": 13,
+      "REJECTED_DELETION": 32,
+      "REJECTED_PARALLEL_IMPLEMENTATION": 6,
+      "REVISED_AND_MERGED": 9,
+      "SUPERSEDED_BY_CONSOLIDATED_REPORT": 4,
+      "SUPERSEDED_BY_CURRENT_RUN_REBUILD": 140,
+      "SUPERSEDED_BY_FINAL_MANIFEST": 1
+    },
+    "deletion_marker_count": 32,
+    "manifest_change_row_count": 205,
+    "non_deleted_row_count": 173,
+    "publicly_attested_not_materialized_rows": 12,
+    "raw_byte_verified_non_deleted_rows": 161,
+    "selected_public_files_copied": 6
+  }
+}

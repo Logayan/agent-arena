@@ -1,0 +1,9 @@
+{
+  "state": "COMPLETED",
+  "operation_id": "RP-OP-FAILURE-001",
+  "idempotency_key": "RP-IDEMPOTENCY-001",
+  "recovery_pid": 7812,
+  "side_effect_duplicate_suppressed": true,
+  "occurrences": 1,
+  "side_effect_sha256": "968de5892cd9c22e42b977e0c54bbe1bc5b6d822be7b25cf6c986df302a7fded"
+}

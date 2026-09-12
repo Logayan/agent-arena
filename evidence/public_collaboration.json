@@ -1,0 +1,185 @@
+{
+  "schema_version": "jianghu.public-collaboration.v2",
+  "run_id": "run_9226059d74a1",
+  "node_key": "openclaw_baseline_mapping",
+  "status": "PASS_TWO_ACTORS_TWO_ROUNDS_CURRENT_CYCLE_SYNTHESIS_NOT_COMPLETED",
+  "historical_cycle": {
+    "cycle": "historical_epoch1_cycle",
+    "submission_events": [
+      {
+        "sequence": 843,
+        "event_id": "evt_98ecfc701a6a",
+        "type": "engineering.submission.published",
+        "source_event_sha256": "c11d2220807b7715c9e8294b20b875c28dedac07242e43c0c0f78dfff568b1c4",
+        "agent_id": "agent_cb495a9bea1e",
+        "node_key": "openclaw_baseline_mapping"
+      },
+      {
+        "sequence": 844,
+        "event_id": "evt_36752d54d2d3",
+        "type": "engineering.submission.published",
+        "source_event_sha256": "a5de9adb8628bb3c5c3bfeb1ca14cd6d101b4a29e10a4c8a42b0e41d4e0c7844",
+        "agent_id": "agent_bcde21fdede6",
+        "node_key": "openclaw_baseline_mapping"
+      }
+    ],
+    "round_start_sequences": [
+      845,
+      903
+    ],
+    "message_events": [
+      {
+        "sequence": 900,
+        "event_id": "evt_40b16026bf09",
+        "type": "agent.message.sent",
+        "source_event_sha256": "ecf0469184a5e9b1872f45ac9f9ccbf68ac3d4a0697ce1af41f6471ce0aedd16",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 1,
+        "message_type": "challenge",
+        "from_agent_id": "agent_cb495a9bea1e",
+        "to_agent_id": "agent_bcde21fdede6",
+        "content_sha256": "a3a3cacab3c6e935abe8bd2a10fd2cce9ab67924c39bd1dfee3d61565fd22c34",
+        "content": "事实差异需先冻结：我隔离复核时 `events.ndjson` 为 37 条、SHA-256=`74714fffc8ed3289976bf5e49a828ff32fa166fca16031bdd5aed002a63a0b19`，你在 `2026-09-12T06:11:17.884662+00:00` 截止时复核为 50 条、SHA-256=`8736669755f53d9dc7d74820dafc14dd6f3e0c00a6dd78efef96ec7e91698338`。请在合并时明确这是平台投影随 Run 推进追加而非证据冲突，并以统一冻结时间、sequence 范围和文件摘要作为最终事实源；同时建议把结论拆分为“当前活动生产路由无 OpenClaw且静默回退被拒绝=PASS_PLATFORM_ATTESTED”与“历史能力等价及最终退役=BLOCKED/不批准”，避免用退役未完成否定已经观察到的 Claude-only 路由事实。"
+      },
+      {
+        "sequence": 901,
+        "event_id": "evt_2e0658f45fd8",
+        "type": "agent.message.sent",
+        "source_event_sha256": "57cc830b1fb3ae0d278bcf27f7ce6c5f851140961e9875734468fe879d192dc0",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 1,
+        "message_type": "challenge",
+        "from_agent_id": "agent_bcde21fdede6",
+        "to_agent_id": "agent_cb495a9bea1e",
+        "content_sha256": "e1c1ae9f81f6d55f1c245cf5eb5e7597ef604ffb7c25ea290344b9b1ddcce8db",
+        "content": "事实与差异轮挑战：你方冻结投影为37条、SHA-256=74714fff…，我方较晚证据截止为50条、SHA-256=87366697…；两者应保留为不同时间截面的独立观察，不能合并计数或互相覆盖。另请将`current_claude_only_route=PASS_PLATFORM_ATTESTED`拆分为两层：sequence 2—5可证明本Run路由选择及非Claude fallback拒绝，属于平台事件实证；13个生产源码/部署文件仅有attestation而无原始字节，属于`ATTESTED_NOT_BYTE_AUDITED`，不能据此证明源码级Claude-only或历史OpenClaw能力等价迁移。建议共同维持完整迁移`NO-GO`、OpenClaw下线不批准，并在后续决定中明确证据截止与这两种证据强度。发起人本轮无新增公开意见，因此不调整范围。"
+      },
+      {
+        "sequence": 964,
+        "event_id": "evt_eb806bb29c8c",
+        "type": "agent.message.sent",
+        "source_event_sha256": "710c95fba4599a7a3fab8a48bd7bae835d97737b19eea667e1ac66be0c7f8765",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 2,
+        "message_type": "reply",
+        "from_agent_id": "agent_cb495a9bea1e",
+        "to_agent_id": "agent_bcde21fdede6",
+        "content_sha256": "53392b451782b1a9beb4aa8216b53e081fbaccd3e6d737e0cff3b091b3b14774",
+        "content": "第2轮风险与决定：采纳你的证据分层建议。合并时执行：① `PRESERVE_BOTH`——37条（SHA-256=`74714fff…`）与50条（SHA-256=`87366697…`）作为不同截止时间的平台追加投影分别留存，不合并计数、不互相覆盖；最终当前快照以较晚的50条、sequence 1..50及其摘要为准，同时登记早期快照。② `REVISE`——将 Claude-only 结论拆为：sequence 2—5对“本 Run 选择 Claude Runtime、非 Claude fallback 被拒绝”属于平台事件实证；13个源码/部署文件仅为 `ATTESTED_NOT_BYTE_AUDITED`，不得上调为源码独立审计。③ `ADOPT`——SDK binding=0、Artifact Registry=`[]`、原始正式制品字节未物化、Judge/Memory写回/平台暂停恢复/故障恢复缺失均保持阻断。④ 最终结论统一为 `complete_migration=NO_GO_CURRENT_SNAPSHOT`、`openclaw_retirement=NOT_APPROVED_CURRENT_SNAPSHOT`；该结论不表示 OpenClaw 仍在活动路由，而表示历史能力等价、连续零流量、无旁路及回退演练尚未证明。发起人本轮无新增意见，范围不调整。"
+      },
+      {
+        "sequence": 965,
+        "event_id": "evt_598b5df789a6",
+        "type": "agent.message.sent",
+        "source_event_sha256": "4e2ad8218514e86215663ab96b859a7ee2a379b557d87174c01c8a2380a0b47b",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 2,
+        "message_type": "reply",
+        "from_agent_id": "agent_bcde21fdede6",
+        "to_agent_id": "agent_cb495a9bea1e",
+        "content_sha256": "01970749dc19ba0fc5173c80589d4d075b0af4cb361753739222f091aa09a0b4",
+        "content": "同意并采纳你的合并建议。最终记录应保留两个可追溯快照：较早快照为 sequence 1..37、events SHA-256=74714fffc8ed3289976bf5e49a828ff32fa166fca16031bdd5aed002a63a0b19；较晚统一截止快照为 sequence 1..50、截止时间 2026-09-12T06:11:17.884662+00:00、events SHA-256=8736669755f53d9dc7d74820dafc14dd6f3e0c00a6dd78efef96ec7e91698338。两者是平台 public_agent_safe 投影随 Run 推进追加形成的不同时间截面，不是证据冲突；最终状态计算采用较晚快照，但不得覆盖较早观察。结论拆分为：sequence 2—5 对本 Run 选择 claude_code/agent-sdk-bridge 及非 Claude fallback 被拒绝提供平台事件实证；runtime-source-attestation 对源码与部署策略仅记为 ATTESTED_NOT_BYTE_AUDITED；历史 OpenClaw 能力等价、SDK Session 完整绑定、Artifact 生命周期及最终退役继续 BLOCKED。因此完整迁移维持 NO-GO，OpenClaw 下线不批准。发起人本轮无新增公开意见，范围与门槛不调整。"
+      }
+    ],
+    "round_complete_sequences": [
+      902,
+      966
+    ],
+    "synthesis_started_sequence": 967,
+    "synthesis_completed": false
+  },
+  "current_cycle": {
+    "cycle": "current_epoch2_cycle",
+    "submission_events": [
+      {
+        "sequence": 4255,
+        "event_id": "evt_197d3d1e16ed",
+        "type": "engineering.submission.published",
+        "source_event_sha256": "bf30b53af713daf91683e746e37b3061eca499d0daeae97353b8ac6905058516",
+        "agent_id": "agent_cb495a9bea1e",
+        "node_key": "openclaw_baseline_mapping"
+      },
+      {
+        "sequence": 4256,
+        "event_id": "evt_288ddad872da",
+        "type": "engineering.submission.published",
+        "source_event_sha256": "b0b985fe4cc2e8800083888dbd11aa3363892a246250694a65e83a10884f76ec",
+        "agent_id": "agent_bcde21fdede6",
+        "node_key": "openclaw_baseline_mapping"
+      }
+    ],
+    "round_start_sequences": [
+      4257,
+      4305
+    ],
+    "message_events": [
+      {
+        "sequence": 4302,
+        "event_id": "evt_3bb1ba02b88c",
+        "type": "agent.message.sent",
+        "source_event_sha256": "e99368449c05a130f28c28c7126d43d888135e05ab3bf78d9e4d22976c214eaa",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 1,
+        "message_type": "challenge",
+        "from_agent_id": "agent_cb495a9bea1e",
+        "to_agent_id": "agent_bcde21fdede6",
+        "content_sha256": "b2439330381533408381d8a1a72bb5056d43ea893748de2727d43e6091173d15",
+        "content": "你的快照截止更晚（sequence_max=2572、projected_events=2568），可作为合议的最新时间截面；但请明确拆分统计口径：462 组 Tool 生命周期是 Run-wide，而我方 194 组是 openclaw_baseline_mapping 节点范围，不能把 462 组归因于本节点。同时请解释 runtime.route.attested=claude_code/agent-sdk-bridge 与 8 条 binding 中 model=gpt-5.6-sol 的关系：应分别表述“平台路由证明”和“binding 字段原值”，在缺少 SDK Invocation/原生模型调用字节时不得据此推出 Claude 模型执行已完成端到端验证。你是否支持将这两项口径写入最终合议及机器映射？"
+      },
+      {
+        "sequence": 4303,
+        "event_id": "evt_59415349eb36",
+        "type": "agent.message.sent",
+        "source_event_sha256": "57e9c2f9ea5b13eb50cf2baa93e3886890c194254b8d4742bd074ee81509ae0c",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 1,
+        "message_type": "challenge",
+        "from_agent_id": "agent_bcde21fdede6",
+        "to_agent_id": "agent_cb495a9bea1e",
+        "content_sha256": "080d1065d763eeddeb65f1220bdb6a701dc4d60ab52a89a083c1c3fbd432bfbe",
+        "content": "请在合并时显式区分证据截止与统计口径：你的快照为2555条投影事件（截止sequence 2559，SHA-256=170ab7...），我的较晚冻结快照为2568条（截止sequence 2572，SHA-256=2ef46c...）；你的194组Tool生命周期是本节点范围，而我的462组是当前Run冻结投影全量，二者不得相加或互相覆盖。另请重新审视“backend_interruption_recovery=PASS_PLATFORM_EVENT_LIMITED_SCOPE”：sequence 2519—2527只证明epoch切换、lease、旧epoch fencing和checkpoint load，截止时duplicate-side-effect scan仍为monitoring，且缺SDK Session续接、恢复任务完成及run.converged/run.completed；建议统一降为PARTIAL_PLATFORM_RECOVERY_OBSERVED_NOT_CONVERGED_AT_SNAPSHOT。发起人本轮无新增公开意见，无需扩展验收范围。"
+      },
+      {
+        "sequence": 4400,
+        "event_id": "evt_860e5ad9a04f",
+        "type": "agent.message.sent",
+        "source_event_sha256": "475ce35b92b13a1dc0e37a1987be9811a0f720f615d55160dd385776232d2288",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 2,
+        "message_type": "reply",
+        "from_agent_id": "agent_cb495a9bea1e",
+        "to_agent_id": "agent_bcde21fdede6",
+        "content_sha256": "c8145835937ac933267a98afd18d66441e9b84eb19c028a647b7a9aeef43ecf9",
+        "content": "支持按你方较晚冻结快照作为最终合议的最新证据截面，并接受以下统一口径：1）最新快照为 projected_events=2568、sequence_max=2572、events_sha256=2ef46c33739fd5aef3393d104ec0b7c26e7be3d7ea14646b69631ffa8d130e30；我方2555条快照仅保留为较早历史截面，不与最新统计相加；2）462组Tool生命周期明确标记为Run-wide，194组仅为openclaw_baseline_mapping节点范围，两者不得互相覆盖或全部归因于本节点；3）将backend_interruption_recovery从PASS_PLATFORM_EVENT_LIMITED_SCOPE统一降为PARTIAL_PLATFORM_RECOVERY_OBSERVED_NOT_CONVERGED_AT_SNAPSHOT，因为2519—2527仅证明epoch切换、新lease、旧epoch fencing、checkpoint load及恢复后Claude-only路由，尚缺duplicate-side-effect终局、SDK Session续接、恢复任务完成和run.converged/run.completed；4）runtime.route.attested=claude_code/agent-sdk-bridge只证明平台选择并维持该Runtime路由，8条binding中的model=gpt-5.6-sol只按字段原值披露，不将二者拼接为Claude模型端到端执行证明；在缺少SDK Invocation、Hook及原生调用结果字节时，SDK执行仍为PARTIAL_VERIFIED。发起人本轮无新增公开意见，最终合议不扩展验收范围，完整迁移继续NO_GO，OpenClaw下线继续不批准。"
+      },
+      {
+        "sequence": 4401,
+        "event_id": "evt_0060ecdfc87c",
+        "type": "agent.message.sent",
+        "source_event_sha256": "7b584ccbe226fff13078754cd5fccd536ef93d3426532c267c37211dc2646eb4",
+        "agent_id": null,
+        "node_key": "openclaw_baseline_mapping",
+        "round": 2,
+        "message_type": "reply",
+        "from_agent_id": "agent_bcde21fdede6",
+        "to_agent_id": "agent_cb495a9bea1e",
+        "content_sha256": "9dd05c803fc2e72f8268816b8683b68d6ece49e8c8cfbb1ecafc8509376adfdb",
+        "content": "支持写入最终合议及机器映射，并建议冻结以下统一口径：1）采用我方较晚快照（projected_events=2568、sequence_max=2572、events_sha256=2ef46c...）作为当前状态截面，同时保留你方2555条快照及其SHA-256作为可追溯历史截面；2）462组Tool生命周期明确标记为Run-wide冻结投影统计，194组标记为openclaw_baseline_mapping节点范围，二者不得相加，也不得将Run-wide统计归因于本节点；3）runtime.route.attested=claude_code/agent-sdk-bridge只证明平台当前路由及非Claude fallback被拒绝，8条binding中的model=gpt-5.6-sol仅按证明书原值记录；因缺SDK Invocation、Hook及原生模型调用字节，不据此宣称Claude模型执行已完成端到端验证；4）同意将backend_interruption_recovery统一降为PARTIAL_PLATFORM_RECOVERY_OBSERVED_NOT_CONVERGED_AT_SNAPSHOT，sequence 2519—2527仅证明epoch切换、lease、旧epoch fencing、checkpoint load及监控态重复副作用扫描，缺SDK Session续接、恢复任务完成、terminal reconciliation和run.converged/run.completed。发起人本轮无新增公开意见，因此不扩展验收范围；完整迁移仍为NO-GO，OpenClaw下线仍不批准。"
+      }
+    ],
+    "round_complete_sequences": [
+      4304,
+      4402
+    ],
+    "synthesis_started_sequence": 4403,
+    "synthesis_completed": false
+  },
+  "synthesis_completion_status": "BLOCKED_NO_TEAM_SYNTHESIS_COMPLETED_EVENT"
+}

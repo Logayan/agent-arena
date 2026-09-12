@@ -1,0 +1,7 @@
+{
+  "operation": "read",
+  "reader_pid": 13040,
+  "status": "MATCH",
+  "used": true,
+  "value_sha256": "71ca70f93945ac460b56b29df41d5d60e9468b15975cf122211469c6f436da21"
+}

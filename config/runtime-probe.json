@@ -1,0 +1,34 @@
+{
+  "schema_version": "jianghu.runtime-probe-config.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "evidence_source": ".jianghu-platform-evidence",
+  "snapshot_target": "evidence/runtime_probe/platform_snapshot",
+  "projection_boundary": "public_agent_safe; not source database and excludes initiator-private audit content",
+  "required_platform_files": [
+    "README.md",
+    "artifact-registry.json",
+    "critical-events.json",
+    "events.ndjson",
+    "run-lineage.json",
+    "run-metadata.json",
+    "runtime-attestation.json",
+    "runtime-source-attestation.json"
+  ],
+  "faults": {
+    "pause": {"worker_exit_code": 75, "quiet_window_seconds": 0.35, "recovery_exit_code": 0},
+    "post_side_effect_failure": {"worker_exit_code": 73, "recovery_exit_code": 0},
+    "isolation": "delivery/evidence/runtime_probe/local_faults/work",
+    "external_side_effects_allowed": false
+  },
+  "acceptance_policy": {
+    "fail_closed": true,
+    "local_probe_is_platform_acceptance_evidence": false,
+    "require_five_distinct_runtime_actors": true,
+    "require_independent_judge_reject_rework_rejudge": true,
+    "require_cross_session_memory_roundtrip": true,
+    "require_intentional_platform_pause_resume": true,
+    "require_terminal_recovery_reconciliation": true,
+    "require_openclaw_zero_traffic_and_no_fallback": true
+  }
+}

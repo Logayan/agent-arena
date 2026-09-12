@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jianghu.example/schemas/runtime-event-envelope.v3.json",
+  "title": "Jianghu Runtime migration acceptance event envelope",
+  "description": "Target acceptance contract. It is design-only and intentionally stronger than the currently observed public projection; current events are not claimed to conform until the listed migration gaps are closed.",
+  "type": "object",
+  "required": [
+    "event_id",
+    "run_id",
+    "organization_id",
+    "sequence",
+    "type",
+    "category",
+    "created_at",
+    "source_event_sha256",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "organization_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "type": {"type": "string", "minLength": 1},
+    "category": {"type": "string", "minLength": 1},
+    "title": {"type": "string"},
+    "summary": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source_event_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "projection": {"type": "string"},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "sdk.session.opened",
+              "sdk.session.continued",
+              "sdk.session.closed",
+              "sdk.invocation.started",
+              "sdk.invocation.completed",
+              "sdk.invocation.failed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/runtime_identity"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "agent.tool.authorization.decided",
+              "agent.tool.started",
+              "agent.tool.completed",
+              "agent.side_effect.verified"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/tool_operation"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "artifact.created",
+              "artifact.registered",
+              "artifact.published",
+              "artifact.downloaded",
+              "artifact.reread"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/artifact_binding"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "memory.candidate.created",
+              "memory.reviewed",
+              "memory.committed",
+              "memory.persisted",
+              "agent.memory.retrieved",
+              "agent.memory.used",
+              "memory.superseded",
+              "memory.tombstoned"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/memory_binding"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "run.pause.requested",
+              "run.paused",
+              "run.resumed",
+              "run.interrupted",
+              "run.recovered",
+              "run.checkpoint.loaded",
+              "worker.lease.acquired",
+              "worker.fencing.verified",
+              "worker.duplicate_side_effect.scan",
+              "run.converged"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/recovery_binding"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "judge.verdict",
+              "gate.rejected",
+              "revision.requested",
+              "rework.requested",
+              "rejudge.completed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {"$ref": "#/$defs/judge_binding"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_identity": {
+      "type": "object",
+      "required": [
+        "node_key",
+        "platform_attempt_id",
+        "role_instance_id",
+        "platform_session_id",
+        "sdk_session_id",
+        "invocation_id",
+        "runtime",
+        "runtime_mode",
+        "execution_epoch"
+      ],
+      "properties": {
+        "node_key": {"$ref": "#/$defs/non_empty_string"},
+        "platform_attempt_id": {"$ref": "#/$defs/non_empty_string"},
+        "role_instance_id": {"$ref": "#/$defs/non_empty_string"},
+        "platform_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "sdk_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "invocation_id": {"$ref": "#/$defs/non_empty_string"},
+        "runtime": {"const": "claude_code"},
+        "runtime_mode": {"const": "agent-sdk-bridge"},
+        "execution_epoch": {"type": "integer", "minimum": 1},
+        "model_metadata": {"type": "string"},
+        "model_execution_receipt_id": {"type": ["string", "null"]},
+        "continuation_mode": {
+          "enum": ["same_sdk_session", "recreated_with_checkpoint", "not_applicable"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "tool_operation": {
+      "type": "object",
+      "required": [
+        "node_key",
+        "platform_attempt_id",
+        "role_instance_id",
+        "platform_session_id",
+        "sdk_session_id",
+        "invocation_id",
+        "tool_call_id",
+        "tool_use_id",
+        "operation_id",
+        "idempotency_key",
+        "tool_name",
+        "authorization_decision",
+        "input_digest",
+        "result_status"
+      ],
+      "properties": {
+        "node_key": {"$ref": "#/$defs/non_empty_string"},
+        "platform_attempt_id": {"$ref": "#/$defs/non_empty_string"},
+        "role_instance_id": {"$ref": "#/$defs/non_empty_string"},
+        "platform_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "sdk_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "invocation_id": {"$ref": "#/$defs/non_empty_string"},
+        "tool_call_id": {"$ref": "#/$defs/non_empty_string"},
+        "tool_use_id": {"$ref": "#/$defs/non_empty_string"},
+        "operation_id": {"$ref": "#/$defs/non_empty_string"},
+        "idempotency_key": {"$ref": "#/$defs/non_empty_string"},
+        "tool_name": {"$ref": "#/$defs/non_empty_string"},
+        "authorization_decision": {"enum": ["allow", "deny"]},
+        "authorization_reason": {"type": "string"},
+        "input_digest": {"$ref": "#/$defs/sha256"},
+        "result_status": {
+          "enum": ["started", "completed", "failed", "denied", "failed_preserved"]
+        },
+        "result_digest": {"$ref": "#/$defs/sha256"},
+        "output_sha256": {"$ref": "#/$defs/sha256"},
+        "side_effect_status": {
+          "enum": ["none", "completed", "failed_preserved", "compensated", "deduplicated"]
+        },
+        "schema_validation_status": {"enum": ["passed", "failed"]},
+        "credential_scope_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "artifact_binding": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "run_id",
+        "node_key",
+        "artifact_version",
+        "registry_path",
+        "registry_sha256",
+        "materialized_path",
+        "materialized_sha256",
+        "size_bytes",
+        "publication_status"
+      ],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/non_empty_string"},
+        "run_id": {"$ref": "#/$defs/non_empty_string"},
+        "node_key": {"$ref": "#/$defs/non_empty_string"},
+        "artifact_version": {"$ref": "#/$defs/non_empty_string"},
+        "registry_path": {"$ref": "#/$defs/non_empty_string"},
+        "registry_sha256": {"$ref": "#/$defs/sha256"},
+        "materialized_path": {"$ref": "#/$defs/non_empty_string"},
+        "materialized_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "publication_status": {
+          "enum": ["created", "registered", "published", "downloaded", "reread", "rejected"]
+        },
+        "download_receipt_id": {"type": ["string", "null"]},
+        "reread_receipt_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "memory_binding": {
+      "type": "object",
+      "required": [
+        "memory_id",
+        "memory_key",
+        "memory_version",
+        "namespace",
+        "actor_id",
+        "platform_session_id",
+        "value_sha256",
+        "lifecycle_status"
+      ],
+      "properties": {
+        "memory_id": {"$ref": "#/$defs/non_empty_string"},
+        "memory_key": {"$ref": "#/$defs/non_empty_string"},
+        "memory_version": {"type": "integer", "minimum": 1},
+        "namespace": {"$ref": "#/$defs/non_empty_string"},
+        "actor_id": {"$ref": "#/$defs/non_empty_string"},
+        "platform_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "value_sha256": {"$ref": "#/$defs/sha256"},
+        "lifecycle_status": {
+          "enum": [
+            "candidate",
+            "reviewed",
+            "committed",
+            "persisted",
+            "retrieved",
+            "used",
+            "superseded",
+            "tombstoned",
+            "access_denied"
+          ]
+        },
+        "reviewer_id": {"type": ["string", "null"]},
+        "source_session_id": {"type": ["string", "null"]},
+        "reader_session_id": {"type": ["string", "null"]},
+        "supersedes_memory_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "recovery_binding": {
+      "type": "object",
+      "required": [
+        "execution_epoch",
+        "recovery_id",
+        "checkpoint_id",
+        "lease_id",
+        "fencing_token",
+        "operation_reconciliation_status",
+        "convergence_status"
+      ],
+      "properties": {
+        "execution_epoch": {"type": "integer", "minimum": 1},
+        "recovery_id": {"$ref": "#/$defs/non_empty_string"},
+        "checkpoint_id": {"$ref": "#/$defs/non_empty_string"},
+        "lease_id": {"$ref": "#/$defs/non_empty_string"},
+        "fencing_token": {"$ref": "#/$defs/non_empty_string"},
+        "operation_reconciliation_status": {
+          "enum": ["not_started", "monitoring", "deduplicated", "compensated", "failed", "completed"]
+        },
+        "convergence_status": {
+          "enum": ["not_converged", "converged", "completed", "failed"]
+        },
+        "sdk_session_continuation_id": {"type": ["string", "null"]},
+        "no_duplicate_effect_receipt_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "judge_binding": {
+      "type": "object",
+      "required": [
+        "judge_actor_id",
+        "judge_role_instance_id",
+        "platform_session_id",
+        "sdk_session_id",
+        "attempt_id",
+        "artifact_id",
+        "artifact_version",
+        "verdict",
+        "decision_id"
+      ],
+      "properties": {
+        "judge_actor_id": {"$ref": "#/$defs/non_empty_string"},
+        "judge_role_instance_id": {"$ref": "#/$defs/non_empty_string"},
+        "platform_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "sdk_session_id": {"$ref": "#/$defs/non_empty_string"},
+        "attempt_id": {"$ref": "#/$defs/non_empty_string"},
+        "artifact_id": {"$ref": "#/$defs/non_empty_string"},
+        "artifact_version": {"$ref": "#/$defs/non_empty_string"},
+        "verdict": {"enum": ["accept", "reject", "require_rework"]},
+        "decision_id": {"$ref": "#/$defs/non_empty_string"},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "replacement_attempt_id": {"type": ["string", "null"]},
+        "replacement_artifact_id": {"type": ["string", "null"]},
+        "causation_event_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "x-jianghu-acceptance-note": {
+    "status": "TARGET_ONLY",
+    "observed_projection_conforms": false,
+    "reason": "Current evidence lacks native SDK Invocation linkage, formal Artifact lifecycle, Memory write lifecycle, Judge/rework lifecycle and terminal recovery convergence.",
+    "route_model_non_conflation": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "jianghu.predeclared-blocker.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "blocker_id": "RP-BLOCKER-001",
+  "criterion": "collector_provenance must bind the candidate to the frozen platform projection SHA-256 and capture receipt",
+  "expected_first_gate_result": "REJECT",
+  "expected_exit_code": 42,
+  "repair": "create a new immutable candidate version containing collector_provenance.snapshot_sha256 and rework_of_sha256; never modify candidate-v1.json",
+  "scope": "local deterministic pre-gate only; it is not a Jianghu independent Judge verdict",
+  "active": true
+}

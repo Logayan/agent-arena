@@ -1,0 +1,7 @@
+{
+  "memory_key": "probe-memory",
+  "namespace": "run_9226059d74a1/runtime_probe_harness",
+  "operation": "write",
+  "value_sha256": "71ca70f93945ac460b56b29df41d5d60e9468b15975cf122211469c6f436da21",
+  "writer_pid": 21300
+}

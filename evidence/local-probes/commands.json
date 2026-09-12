@@ -1,0 +1,337 @@
+[
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "judge",
+      "--work-root",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work",
+      "--candidate",
+      "judge/candidate-v1.json",
+      "--verdict",
+      "judge/verdict-v1.json",
+      "--config",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\config\\supplemental-predeclared-blocker.json"
+    ],
+    "completed_at": "2026-09-12T08:15:47.988016+00:00",
+    "cwd": ".",
+    "exit_code": 42,
+    "expected_exit_codes": [
+      42
+    ],
+    "label": "negative-gate-v1-reject",
+    "started_at": "2026-09-12T08:15:47.819410+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "judge",
+      "--work-root",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work",
+      "--candidate",
+      "judge/candidate-v2.json",
+      "--verdict",
+      "judge/verdict-v2.json",
+      "--config",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\config\\supplemental-predeclared-blocker.json"
+    ],
+    "completed_at": "2026-09-12T08:15:48.156658+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "negative-gate-v2-accept",
+    "started_at": "2026-09-12T08:15:47.992626+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "memory-write",
+      "--database",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\memory.sqlite3",
+      "--namespace",
+      "run_9226059d74a1/runtime_probe_harness",
+      "--memory-key",
+      "probe-memory",
+      "--value",
+      "runtime-probe-memory-value-v1",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\write-receipt.json"
+    ],
+    "completed_at": "2026-09-12T08:15:48.385745+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "memory-write-process",
+    "started_at": "2026-09-12T08:15:48.157777+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "memory-read",
+      "--database",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\memory.sqlite3",
+      "--namespace",
+      "run_9226059d74a1/runtime_probe_harness",
+      "--memory-key",
+      "probe-memory",
+      "--expected-sha256",
+      "71ca70f93945ac460b56b29df41d5d60e9468b15975cf122211469c6f436da21",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\read-receipt.json"
+    ],
+    "completed_at": "2026-09-12T08:15:48.557536+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "memory-read-process",
+    "started_at": "2026-09-12T08:15:48.385899+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "memory-read",
+      "--database",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\memory.sqlite3",
+      "--namespace",
+      "other-run",
+      "--memory-key",
+      "probe-memory",
+      "--expected-sha256",
+      "71ca70f93945ac460b56b29df41d5d60e9468b15975cf122211469c6f436da21",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\memory\\wrong-namespace.json"
+    ],
+    "completed_at": "2026-09-12T08:15:48.728687+00:00",
+    "cwd": ".",
+    "exit_code": 77,
+    "expected_exit_codes": [
+      77
+    ],
+    "label": "memory-wrong-namespace-denied",
+    "started_at": "2026-09-12T08:15:48.557660+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "pause",
+      "--checkpoint",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\pause\\checkpoint-paused.json",
+      "--operation-id",
+      "pause-op-run-9226059d74a1"
+    ],
+    "completed_at": "2026-09-12T08:15:48.886951+00:00",
+    "cwd": ".",
+    "exit_code": 75,
+    "expected_exit_codes": [
+      75
+    ],
+    "label": "pause-process",
+    "started_at": "2026-09-12T08:15:48.729833+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "resume",
+      "--checkpoint",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\pause\\checkpoint-paused.json",
+      "--result",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\pause\\checkpoint-resumed.json",
+      "--operation-id",
+      "pause-op-run-9226059d74a1"
+    ],
+    "completed_at": "2026-09-12T08:15:49.306191+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "resume-process",
+    "started_at": "2026-09-12T08:15:49.138803+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "alive_after_kill": false,
+    "alive_before_kill": true,
+    "argv": [
+      "tasks/probe_worker.py",
+      "crash-worker",
+      "--database",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\effects.sqlite3",
+      "--checkpoint",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\checkpoint.json",
+      "--ready",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\ready.json",
+      "--operation-id",
+      "effect-op-run-9226059d74a1",
+      "--idempotency-key",
+      "idempotency-run-9226059d74a1",
+      "--payload",
+      "single-side-effect"
+    ],
+    "cwd": ".",
+    "exit_code": 1,
+    "label": "os-force-kill-worker",
+    "pid": 28524,
+    "status": "EXPECTED_FORCE_TERMINATION",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "recover-effect",
+      "--database",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\effects.sqlite3",
+      "--checkpoint",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\checkpoint.json",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\failure\\recovery.json",
+      "--operation-id",
+      "effect-op-run-9226059d74a1",
+      "--idempotency-key",
+      "idempotency-run-9226059d74a1",
+      "--payload",
+      "single-side-effect"
+    ],
+    "completed_at": "2026-09-12T08:15:49.706894+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "idempotent-recovery-process",
+    "started_at": "2026-09-12T08:15:49.526415+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "dependency",
+      "--port",
+      "65060",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\dependency\\failed.json"
+    ],
+    "completed_at": "2026-09-12T08:15:50.906211+00:00",
+    "cwd": ".",
+    "exit_code": 69,
+    "expected_exit_codes": [
+      69
+    ],
+    "label": "dependency-unavailable-process",
+    "started_at": "2026-09-12T08:15:49.709272+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "dependency",
+      "--port",
+      "65060",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\dependency\\recovered.json"
+    ],
+    "completed_at": "2026-09-12T08:15:51.104896+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "dependency-recovered-process",
+    "started_at": "2026-09-12T08:15:50.906946+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "file-write",
+      "--work-root",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work",
+      "--relative-path",
+      "file/delivered.txt",
+      "--content",
+      "runtime-probe-file-roundtrip",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\file\\write.json"
+    ],
+    "completed_at": "2026-09-12T08:15:51.285393+00:00",
+    "cwd": ".",
+    "exit_code": 0,
+    "expected_exit_codes": [
+      0
+    ],
+    "label": "file-delivery-process",
+    "started_at": "2026-09-12T08:15:51.105152+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  },
+  {
+    "argv": [
+      "C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "tasks/probe_worker.py",
+      "file-write",
+      "--work-root",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work",
+      "--relative-path",
+      "../escape.txt",
+      "--content",
+      "must-not-write",
+      "--receipt",
+      "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\workspaces\\project_jianghu\\runs\\run_9226059d74a1\\tmp\\claude-agents\\agent_eac0b56ad320\\delivery\\evidence\\local-probes\\work\\file\\deny.json"
+    ],
+    "completed_at": "2026-09-12T08:15:51.459766+00:00",
+    "cwd": ".",
+    "exit_code": 64,
+    "expected_exit_codes": [
+      64
+    ],
+    "label": "file-path-escape-denied",
+    "started_at": "2026-09-12T08:15:51.285505+00:00",
+    "status": "EXPECTED",
+    "stderr": "",
+    "stdout": ""
+  }
+]

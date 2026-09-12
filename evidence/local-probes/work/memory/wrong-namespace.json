@@ -1,0 +1,5 @@
+{
+  "operation": "read",
+  "reader_pid": 30616,
+  "status": "NAMESPACE_OR_KEY_NOT_FOUND"
+}

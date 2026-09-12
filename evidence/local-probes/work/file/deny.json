@@ -1,0 +1,5 @@
+{
+  "reason": "path escapes work root: ../escape.txt",
+  "status": "PATH_DENIED",
+  "worker_pid": 23732
+}

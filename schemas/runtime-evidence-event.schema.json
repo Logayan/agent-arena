@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jianghu.runtime-evidence-event.v1",
+  "title": "Target Runtime evidence envelope; not current projection conformance",
+  "type": "object",
+  "required": ["event_id", "sequence", "run_id", "node_key", "attempt_id", "event_type", "created_at", "actor_id", "platform_session_id", "source_sha256", "payload"],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "run_id": {"const": "run_9226059d74a1"},
+    "node_key": {"type": "string", "minLength": 1},
+    "attempt_id": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "actor_id": {"type": "string", "minLength": 1},
+    "platform_session_id": {"type": "string", "minLength": 1},
+    "claude_sdk_session_id": {"type": ["string", "null"]},
+    "invocation_id": {"type": ["string", "null"]},
+    "causation_event_id": {"type": ["string", "null"]},
+    "operation_id": {"type": ["string", "null"]},
+    "idempotency_key": {"type": ["string", "null"]},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": true,
+  "x-acceptance-note": {
+    "status": "TARGET_ONLY",
+    "observed_projection_conforms": false,
+    "reason": "The public-safe projection omits some native SDK linkage and raw Tool Result fields; this schema is a release target, not invented evidence."
+  }
+}

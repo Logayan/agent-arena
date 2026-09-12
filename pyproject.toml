@@ -1,0 +1,10 @@
+[project]
+name = "openclaw-claude-sdk-acceptance"
+version = "2.0.0"
+description = "Dependency-free evidence verifier for Jianghu Runtime migration"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.unittest]
+start-directory = "tests"
+pattern = "test_*.py"

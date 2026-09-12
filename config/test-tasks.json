@@ -1,0 +1,13 @@
+{
+  "schema_version": "jianghu.runtime-probe-test-tasks.v1",
+  "run_id": "run_9226059d74a1",
+  "tasks": [
+    {"id": "T-01", "command": "python run_runtime_probe.py build", "expected_exit": 0},
+    {"id": "T-02", "command": "python -m unittest discover -s tests -v", "expected_exit": 0},
+    {"id": "T-03", "command": "python run_runtime_probe.py gate config/candidate-v1.json", "expected_exit": 42},
+    {"id": "T-04", "command": "python run_runtime_probe.py write-manifest", "expected_exit": 0},
+    {"id": "T-05", "command": "python run_runtime_probe.py verify", "expected_exit": 0},
+    {"id": "T-06", "command": "python run_runtime_probe.py check-manifest", "expected_exit": 0}
+  ],
+  "note": "T-03 is an expected rejection proving the predeclared blocker is effective; it is not a platform Judge verdict."
+}

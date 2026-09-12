@@ -1,0 +1,17 @@
+{
+  "schema_version": "jianghu.local-pre-gate-receipt.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "candidate_path": "D:/Users/User/My Document/多agent协作与对抗实践/.data/workspaces/project_jianghu/runs/run_9226059d74a1/tmp/claude-agents/agent_eac0b56ad320/delivery/config/candidate-v1.json",
+  "candidate_sha256": "4343af1343a1ba0712582a0a4c67ddfe5cabe3101f3cdf45bf60d2e0f629e1e5",
+  "blocker_path": "D:/Users/User/My Document/多agent协作与对抗实践/.data/workspaces/project_jianghu/runs/run_9226059d74a1/tmp/claude-agents/agent_eac0b56ad320/delivery/config/predeclared-blocker.json",
+  "blocker_sha256": "c91c1a4df801b5536a9cf422ff35f9fa6d1b25b49f44359508021804870d4ef5",
+  "verdict": "REJECT",
+  "reasons": [
+    "RP-BLOCKER-001:collector_provenance_missing"
+  ],
+  "exit_code": 42,
+  "evidence_class": "deterministic_local_pre_gate",
+  "acceptance_eligible": false,
+  "not_a_platform_judge_event": true
+}
