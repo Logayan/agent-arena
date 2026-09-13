@@ -2141,7 +2141,14 @@ async function resumeActiveRun(): Promise<void> {
   error.value = ''
   try {
     const result = await api.resumePlatformRun(activeRun.value.id, currentOrganizationId.value)
-    activeRun.value = result.run as Json
+    const snapshot = result.run as Json
+    const taskUpdates = Object.fromEntries((snapshot.tasks ?? []).map((task: Json) => [String(task.id), task]))
+    activeRun.value = {
+      ...activeRun.value,
+      ...snapshot,
+      tasks: (activeRun.value.tasks ?? []).map((task: Json) => ({ ...task, ...(taskUpdates[String(task.id)] ?? {}) })),
+      artifacts: snapshot.artifacts ?? activeRun.value.artifacts,
+    }
     beginRunPolling(activeRun.value.id)
     notice.value = '现场已经恢复，人物会沿用原 Run 和已有产物继续行动。'
   } catch (cause) {

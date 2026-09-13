@@ -2563,9 +2563,17 @@ async def download_platform_git_commit_patch(
 
 @app.post("/api/platform/runs/{run_id}/resume")
 async def resume_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(
-        run_id, organization_id, event_limit=200, include_artifact_content=False
+    run = await asyncio.to_thread(
+        platform_store.get_run_live_snapshot,
+        run_id,
+        organization_id,
+        event_limit=100,
     )
+    if not run:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization" if organization_id else "run_not_found",
+        )
     if run["status"] == "running":
         return {"run": public_platform_run(run)}
     if run["status"] not in {"pause_requested", "paused"}:
@@ -2579,14 +2587,10 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
         "发起人允许继续行动",
         "现场沿用原 Run、原 WorkflowVersion 和已有产物，从暂停边界继续执行。",
     )
-    latest_checkpoint = next(
-        (
-            item for item in reversed((platform_store.get_run(
-                run_id, event_limit=1, include_artifact_content=False
-            ) or run).get("artifacts", []))
-            if item.get("kind") == "run_checkpoint"
-        ),
-        None,
+    latest_checkpoint = await asyncio.to_thread(
+        platform_store.get_latest_run_artifact,
+        run_id,
+        "run_checkpoint",
     )
     platform_store.append_run_event(
         run_id,
@@ -2601,10 +2605,13 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
         },
     )
     if not active or active.done():
-        prepare_agent_runtime_run(run)
+        await asyncio.to_thread(prepare_agent_runtime_run, run)
         schedule_platform_execution(run_id)
-    current_run = platform_store.get_run(
-        run_id, event_limit=200, include_artifact_content=False
+    current_run = await asyncio.to_thread(
+        platform_store.get_run_live_snapshot,
+        run_id,
+        organization_id,
+        event_limit=100,
     )
     return {"run": public_platform_run(current_run) if current_run else None}
 

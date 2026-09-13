@@ -1011,7 +1011,10 @@ def _dependencies(workflow: dict[str, Any]) -> dict[str, set[str]]:
 
 
 async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
-    run = store.get_run(run_id)
+    # Mature Runs can contain tens of thousands of events and hundreds of
+    # materialized Artifacts. Hydrating that projection is blocking I/O/CPU and
+    # must never monopolize the FastAPI event-loop thread.
+    run = await asyncio.to_thread(store.get_run, run_id)
     if not run:
         return
     workflow = store.get_workflow(run["workflow_id"])
@@ -1160,7 +1163,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 for tier in ("high", "medium", "low")
                 if (config := store.get_model_config_for_tier(tier, include_secret=True))
             ]
-            runtime_sync = run_runtime.sync(
+            runtime_sync = await asyncio.to_thread(
+                run_runtime.sync,
                 list(runtime_agents.values()),
                 memories,
                 model_config,
@@ -1168,7 +1172,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 model_configs=runtime_model_configs,
             )
         except TypeError:
-            runtime_sync = run_runtime.sync(list(runtime_agents.values()), memories, model_config)
+            runtime_sync = await asyncio.to_thread(
+                run_runtime.sync,
+                list(runtime_agents.values()),
+                memories,
+                model_config,
+            )
 
         async def wait_for_control_boundary(*, settle_pause: bool = False) -> None:
             while True:
@@ -1185,7 +1194,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     async with event_lock:
                         # Full checkpoint materialization is only needed after a
                         # real pause request. Normal control checks stay light.
-                        latest = store.get_run(run_id)
+                        latest = await asyncio.to_thread(store.get_run, run_id)
                         if latest and latest["status"] == "pause_requested":
                             latest_sequence = max(
                                 (int(item.get("sequence") or 0) for item in latest.get("events", [])),
@@ -1265,20 +1274,28 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
 
         async def materialize_public_evidence_bundle() -> Path:
             async with evidence_bundle_lock:
-                latest_run = store.get_run(run_id) or run
+                latest_run = await asyncio.to_thread(store.get_run, run_id) or run
                 workspace = latest_run.get("workspace") or run.get("workspace") or {}
                 run_root = Path(str(workspace.get("root") or "")).resolve()
                 code_root = Path(str(workspace.get("code") or "")).resolve()
                 bundle_root = code_root / ".jianghu-platform-evidence"
                 bundle_root.mkdir(parents=True, exist_ok=True)
 
-                projections = [
-                    projection
-                    for item in latest_run.get("events", [])
-                    if (projection := _public_event_projection(item)) is not None
-                ]
-                (bundle_root / "events.ndjson").write_text(
-                    "\n".join(json.dumps(item, ensure_ascii=False, sort_keys=True) for item in projections) + "\n",
+                projections = await asyncio.to_thread(
+                    lambda: [
+                        projection
+                        for item in latest_run.get("events", [])
+                        if (projection := _public_event_projection(item)) is not None
+                    ]
+                )
+                events_payload = await asyncio.to_thread(
+                    lambda: "\n".join(
+                        json.dumps(item, ensure_ascii=False, sort_keys=True) for item in projections
+                    ) + "\n"
+                )
+                await asyncio.to_thread(
+                    (bundle_root / "events.ndjson").write_text,
+                    events_payload,
                     encoding="utf-8",
                     newline="\n",
                 )
@@ -1288,11 +1305,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "agent.side_effect.", "agent.memory.",
                     "agent.message.", "engineering.submission.", "team.",
                 )
-                critical = [
-                    item for item in projections
-                    if str(item.get("type") or "").startswith(critical_prefixes)
-                ]
-                (bundle_root / "critical-events.json").write_text(
+                critical = await asyncio.to_thread(
+                    lambda: [
+                        item for item in projections
+                        if str(item.get("type") or "").startswith(critical_prefixes)
+                    ]
+                )
+                await asyncio.to_thread(
+                    (bundle_root / "critical-events.json").write_text,
                     json.dumps(critical, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
@@ -1303,14 +1323,16 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     dict(runtime_sync or {}),
                 )
                 runtime_attestation["generated_at"] = datetime.now(timezone.utc).isoformat()
-                (bundle_root / "runtime-attestation.json").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "runtime-attestation.json").write_text,
                     json.dumps(runtime_attestation, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
                 )
                 runtime_source_attestation = _runtime_source_attestation(_runtime_health(run_runtime))
                 runtime_source_attestation["generated_at"] = datetime.now(timezone.utc).isoformat()
-                (bundle_root / "runtime-source-attestation.json").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "runtime-source-attestation.json").write_text,
                     json.dumps(runtime_source_attestation, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
@@ -1323,7 +1345,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 ancestor_id = str(latest_run.get("parent_run_id") or "")
                 while ancestor_id and ancestor_id not in lineage_ids:
                     lineage_ids.add(ancestor_id)
-                    ancestor = store.get_run(ancestor_id)
+                    ancestor = await asyncio.to_thread(store.get_run, ancestor_id)
                     if not ancestor:
                         break
                     lineage_runs.append(ancestor)
@@ -1352,10 +1374,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             }
                         )
                         continue
-                    data = source.read_bytes()
+                    data = await asyncio.to_thread(source.read_bytes)
                     suffix = source.suffix or ".bin"
                     target = artifacts_root / f"{_safe_segment(artifact.get('id'), 'artifact')}{suffix}"
-                    target.write_bytes(data)
+                    await asyncio.to_thread(target.write_bytes, data)
                     artifact_registry.append(
                         {
                             "id": artifact.get("id"),
@@ -1374,7 +1396,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "inherited": inherited,
                         }
                     )
-                (bundle_root / "artifact-registry.json").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "artifact-registry.json").write_text,
                     json.dumps(artifact_registry, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
@@ -1391,7 +1414,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     }
                     for item in lineage_runs
                 ]
-                (bundle_root / "run-lineage.json").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "run-lineage.json").write_text,
                     json.dumps(run_lineage, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
@@ -1421,12 +1445,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "runtime": runtime_name,
                     "execution_epoch": execution_epoch,
                 }
-                (bundle_root / "run-metadata.json").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "run-metadata.json").write_text,
                     json.dumps(run_metadata, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8",
                     newline="\n",
                 )
-                (bundle_root / "README.md").write_text(
+                await asyncio.to_thread(
+                    (bundle_root / "README.md").write_text,
                     "# 江湖 Online 平台证据包\n\n"
                     "该目录由平台在人物回合启动前生成，并作为隔离只读基线复制到人物 delivery。\n\n"
                     "- `events.ndjson`：过滤发起人私享审计内容后的逐事件投影；每条含原事件规范 JSON 的 SHA-256。\n"
@@ -1858,7 +1884,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台确认未以同一 operation/idempotency 身份静默重放；未知结果保持可见，等待后续节点全量重跑覆盖。",
                         {**terminal_payload, "status": "interrupted_unknown_preserved"},
                     )
-                recovery_snapshot = store.get_run(run_id) or run
+                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
                 for reconciliation in _tool_terminal_reconciliations(list(recovery_snapshot.get("events", []))):
                     store.append_run_event(
                         run_id, "agent.tool.terminal.reconciled", "validation",
@@ -1866,7 +1892,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台保留全部原事件，并以显式 supersedes 关系选定唯一 canonical terminal；未删除失败证据。",
                         {**reconciliation, "status": "resolved"},
                     )
-                recovery_snapshot = store.get_run(run_id) or recovery_snapshot
+                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or recovery_snapshot
                 completed_by_identity: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
                 for event in recovery_snapshot.get("events", []):
                     if event.get("type") != "agent.tool.completed":
@@ -1904,7 +1930,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "status": "reviewed",
                         },
                     )
-                recovery_snapshot = store.get_run(run_id) or recovery_snapshot
+                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or recovery_snapshot
                 unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
                     list(recovery_snapshot.get("events", []))
                 )
@@ -2029,7 +2055,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 )
                 role_instance_id = f"role:{run_id}:{node_key}:{agent['id']}"
                 approval_credential_id = f"approval:{run_id}:{node_key}:{agent['id']}"
-                latest_snapshot = store.get_run(run_id) or run
+                latest_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
                 latest_rejection = next(
                     (item for item in reversed(latest_snapshot.get("events", [])) if item.get("type") == "gate.rejected"),
                     None,
@@ -2621,7 +2647,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 if is_judge:
                     judge_knowledge, judge_matches = _team_knowledge(store, team, knowledge_query, agent["id"]) if team else ("", [])
                     allowed_targets = sorted(dependencies.get(node_key, set()))
-                    judge_run_snapshot = store.get_run(run_id) or run
+                    judge_run_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
                     validation_evidence = [
                         {
                             "type": event.get("type"),
@@ -4064,7 +4090,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             progress = int((len(completed) / max(len(tasks), 1)) * 100)
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
-        convergence_snapshot = store.get_run(run_id) or {}
+        convergence_snapshot = await asyncio.to_thread(store.get_run, run_id) or {}
         unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
             list(convergence_snapshot.get("events", []))
         )
@@ -4091,7 +4117,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             },
         )
         store.update_run(run_id, status="completed", stage="completed", progress=100, token_count=total_tokens)
-        completed_run = store.get_run(run_id) or {}
+        completed_run = await asyncio.to_thread(store.get_run, run_id) or {}
         existing_conclusion = next(
             (item for item in completed_run.get("artifacts", []) if str(item.get("title") or "") == "一页纸结论"),
             None,

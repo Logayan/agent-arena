@@ -1323,6 +1323,15 @@ class PlatformStore:
             row = db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
         return self._artifact(row) if row else None
 
+    def get_latest_run_artifact(self, run_id: str, kind: str) -> dict[str, Any] | None:
+        """Fetch one Artifact receipt without hydrating the full Run projection."""
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM artifacts WHERE run_id=? AND kind=? ORDER BY created_at DESC, version DESC LIMIT 1",
+                (run_id, kind),
+            ).fetchone()
+        return self._artifact(row) if row else None
+
     def artifact_file_path(self, artifact_id: str) -> Path:
         artifact = self.get_artifact(artifact_id)
         if not artifact:
