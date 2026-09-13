@@ -37,4 +37,10 @@ python -m compileall -q server/app server/tests/runtime_contract
 exit_code=0
 ```
 
-新增合同覆盖默认不设置、0/非法值不设置，以及部署显式配置正整数时精确传递。当前运行中的 Bridge 继承进程启动时的旧 100-turn 配置，不能热更新；必须等当前回合到达成功或失败安全边界后重启加载，再从同一 Run/Version 原地继续。
+新增合同覆盖默认不设置、0/非法值不设置，以及部署显式配置正整数时精确传递。
+
+## 真实 Run 加载结果
+
+旧进程中的安全角色第二次回合最终再次出现 `max_turns_reached`，平台于 sequence 62590 写入人物失败、62591 写入节点整体重试。此时旧 Bridge 已全部退出。平台暂停请求已于 sequence 62608 持久化 Checkpoint；受控重启后启动器明确返回 `ClaudeMaxTurns=null`，Runtime 健康仍为 `claude_code / agent-sdk-bridge / 0.3.268`。
+
+同一 `run_bda13e93b2ea` Version 9 在 paused 边界 resume，sequence 62763 创建 epoch31 不可变 Attempt。五个不带默认 `maxTurns` 的新 Bridge 于 23:07～23:08 启动，事件随后增长到至少 62986。该结果证明修复已经进入真实运行进程，不是只停留在单元测试；最终是否完成仍由后续角色、Judge、Gate 和 Run 终态裁决。
