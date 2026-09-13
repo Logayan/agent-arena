@@ -394,10 +394,26 @@ def _attempt_rework_run_id(
     parent Run. Cross-Run retry ancestry is retained only when there is no
     same-Run prior Attempt.
     """
-    if loop_round > 1 and prior_attempt_event:
+    # A recovered execution epoch resets ``loop_round`` to 1, but that does
+    # not turn the new Attempt into a child of the parent Run.  Prefer the
+    # actual owner of the most recent same-node Attempt whenever one exists.
+    if prior_attempt_event:
         return str(prior_attempt_event.get("run_id") or run_id)
     parent_run_id = run.get("parent_run_id")
     return str(parent_run_id) if parent_run_id else None
+
+
+def _attempt_rework_attempt_id(
+    prior_attempt_event: dict[str, Any] | None,
+) -> str | None:
+    """Return the concrete prior Attempt referenced by a resumed execution."""
+    if not prior_attempt_event:
+        return None
+    payload = prior_attempt_event.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    platform_attempt_id = payload.get("platform_attempt_id")
+    return str(platform_attempt_id) if platform_attempt_id else None
 
 
 def _apply_run_execution_policy_amendments(
@@ -2183,14 +2199,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "task_id": task["id"], "node_key": node_key, "node_attempt": node_attempt,
                             "loop_round": loop_round, "agent_id": agent["id"],
                             "platform_attempt_id": platform_attempt_id,
-                            "rework_of": (
-                                (prior_attempt_event or {}).get("payload", {}).get("platform_attempt_id")
-                                if loop_round > 1 else None
-                            ),
+                            "rework_of": _attempt_rework_attempt_id(prior_attempt_event),
                             "rework_of_run_id": _attempt_rework_run_id(
                                 run_id, run, prior_attempt_event, loop_round
                             ),
-                            "supersedes": (prior_task_artifact or {}).get("id") if loop_round > 1 else None,
+                            "supersedes": (
+                                (prior_task_artifact or {}).get("id")
+                                if prior_attempt_event else None
+                            ),
                             "causation_event_id": (latest_rejection or {}).get("id"),
                             "role_instance_id": role_instance_id,
                             "approval_credential_id": approval_credential_id,

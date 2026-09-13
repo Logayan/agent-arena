@@ -13,6 +13,7 @@ from server.app.platform_executor import (
     _AttemptEvidenceBundleCache,
     _agent_timeout_seconds,
     _apply_run_execution_policy_amendments,
+    _attempt_rework_attempt_id,
     _attempt_rework_run_id,
     _next_timeout_retry_level,
     _remember_next_timeout_retry_level,
@@ -436,14 +437,28 @@ def test_public_event_projection_keeps_runtime_recovery_and_memory_machine_evide
 
 
 def test_same_run_attempt_rework_lineage_does_not_point_to_parent_run() -> None:
-    prior_attempt = {"id": "evt_attempt", "run_id": "run_current"}
+    prior_attempt = {
+        "id": "evt_attempt",
+        "run_id": "run_current",
+        "payload": {"platform_attempt_id": "attempt:run_current:work:epoch30:loop1:node1"},
+    }
 
     assert _attempt_rework_run_id(
         "run_current", {"parent_run_id": "run_parent"}, prior_attempt, 2
     ) == "run_current"
+    # A same-Run recovery starts a new execution epoch and therefore resets
+    # loop_round to 1.  Its lineage must still follow the prior current-Run
+    # Attempt instead of incorrectly jumping back to the parent Run.
+    assert _attempt_rework_run_id(
+        "run_current", {"parent_run_id": "run_parent"}, prior_attempt, 1
+    ) == "run_current"
     assert _attempt_rework_run_id(
         "run_current", {"parent_run_id": "run_parent"}, None, 1
     ) == "run_parent"
+    assert _attempt_rework_attempt_id(prior_attempt) == (
+        "attempt:run_current:work:epoch30:loop1:node1"
+    )
+    assert _attempt_rework_attempt_id(None) is None
 
 
 def test_run_local_policy_amendment_changes_participants_without_new_workflow_version() -> None:
