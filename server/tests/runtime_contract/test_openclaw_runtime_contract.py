@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from server.app.openclaw_runtime import OpenClawRuntime
+from experiments.openclaw_baseline import OpenClawRuntime, openclaw_runtime_module
 
 
 @pytest.fixture
@@ -213,7 +213,7 @@ async def test_openclaw_message_emits_tools_before_return_and_captures_files(mon
         return subprocess.CompletedProcess(args[0], 0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
 
     monkeypatch.setattr(runtime, "_base_command", lambda: ["openclaw-test"])
-    monkeypatch.setattr("server.app.openclaw_runtime.subprocess.run", fake_run)
+    monkeypatch.setattr(openclaw_runtime_module.subprocess, "run", fake_run)
     streamed = []
 
     async def on_action(action):

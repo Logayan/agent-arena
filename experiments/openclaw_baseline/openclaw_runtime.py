@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from .agent_runtime import AgentRuntimeError
+from server.app.agent_runtime import AgentRuntimeError
 
 
 class OpenClawRuntimeError(AgentRuntimeError):
@@ -25,12 +25,12 @@ def _safe_name(value: object, fallback: str) -> str:
 
 
 class OpenClawRuntime:
-    """Real OpenClaw embedded runtime used by Jianghu Agent tasks.
+    """Frozen pre-cutover OpenClaw runtime used only by migration baselines.
 
-    Jianghu Online remains the source of truth for workflow, permissions and
-    artifacts. OpenClaw owns every Agent's isolated workspace, session, memory
-    files and skill loading. Secrets are passed only through the child-process
-    environment and are never persisted into the generated configuration.
+    This module intentionally lives outside ``server.app`` and must never be
+    imported by a product entrypoint.  It remains executable solely so the
+    frozen capability corpus and direct parity tests can reproduce the legacy
+    behavior after the production runtime has switched to Claude Code SDK.
     """
 
     runtime_name = "openclaw"

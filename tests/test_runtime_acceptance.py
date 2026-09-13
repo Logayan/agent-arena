@@ -18,6 +18,12 @@ class RuntimeAcceptanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.root = Path(__file__).resolve().parents[1]
+        required_fixture = cls.root / "evidence/platform_snapshot/events.ndjson"
+        if not required_fixture.is_file():
+            raise unittest.SkipTest(
+                "external frozen acceptance fixture is not materialized: "
+                "evidence/platform_snapshot/events.ndjson"
+            )
         cls.result = verify_all(cls.root)
 
     def test_frozen_projection_identity(self) -> None:

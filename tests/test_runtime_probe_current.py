@@ -14,6 +14,16 @@ class CurrentRuntimeProbeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.root = Path(__file__).resolve().parents[1]
+        required_fixtures = (
+            cls.root / "evidence/runtime_probe/platform_snapshot/README.md",
+            cls.root / "evidence/local-probes/local-probe-proof.json",
+        )
+        missing = [path.relative_to(cls.root).as_posix() for path in required_fixtures if not path.is_file()]
+        if missing:
+            raise unittest.SkipTest(
+                "external frozen runtime-probe fixtures are not materialized: "
+                + ", ".join(missing)
+            )
         cls.index = json.loads((cls.root / "evidence/runtime_probe/evidence-index.json").read_text(encoding="utf-8"))
         cls.recalculated = analyze(cls.root / "evidence/runtime_probe/platform_snapshot")
         cls.supplemental = json.loads((cls.root / "evidence/local-probes/local-probe-proof.json").read_text(encoding="utf-8"))

@@ -15,7 +15,7 @@ from server.app.agent_runtime import (
     public_runtime_error,
 )
 from server.app.agent_runtime_registry import AgentRuntimeRegistry, agent_runtime
-from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
+from experiments.openclaw_baseline import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
 
 
 def test_openclaw_adapter_satisfies_runtime_port(tmp_path) -> None:
@@ -143,6 +143,8 @@ def test_registry_preserves_legacy_one_argument_for_run_contract() -> None:
 
 def test_platform_modules_do_not_import_openclaw_adapter_directly() -> None:
     project_root = Path(__file__).resolve().parents[3]
+    assert not (project_root / "server/app/openclaw_runtime.py").exists()
+    assert (project_root / "experiments/openclaw_baseline/openclaw_runtime.py").is_file()
     for relative in ("server/app/main.py", "server/app/platform_executor.py", "server/app/agent_runtime_registry.py"):
         source = (project_root / relative).read_text(encoding="utf-8")
         assert "from .openclaw_runtime import" not in source

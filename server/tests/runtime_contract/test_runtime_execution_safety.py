@@ -702,7 +702,7 @@ def test_runtime_source_attestation_proves_claude_only_product_route() -> None:
         item["path"] == "server/app/agent_runtime_registry.py" and item["present"]
         for item in attestation["files"]
     )
-    assert attestation["historical_exclusions"][0]["path"] == "server/app/openclaw_runtime.py"
+    assert attestation["historical_exclusions"][0]["path"] == "experiments/openclaw_baseline/openclaw_runtime.py"
 
 
 def test_claude_workspace_promotion_retries_transient_windows_file_error(monkeypatch, tmp_path) -> None:

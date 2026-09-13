@@ -34,7 +34,7 @@ openclaw_retirement=NOT_APPROVED
 本报告明确保留两条不能合并的事实：
 
 1. 平台事件和 Runtime attestation 支持“**当前活动路由为 `claude_code / agent-sdk-bridge`，非 Claude Runtime 回退被拒绝**”；
-2. 当前证据不支持“**完整 Claude Agent SDK Runtime 迁移已经完成**”，也不支持 OpenClaw 已满足退役门禁。
+2. 本文冻结时的证据不支持“**完整 Claude Agent SDK Runtime 迁移已经完成**”；后续实时验收结论必须以同一 Run 的最终独立 Judge 与 Gate 为准。
 
 `agent.turn.completed` 绑定中的 `model=gpt-5.6-sol` 是平台 attestation 字段值；它与 `runtime.route.attested` 是两个独立事实。本文**不把二者拼接成端到端 Claude 模型执行证明**。
 
@@ -79,7 +79,7 @@ sequence 不连续不是擅自补齐的缺陷：快照声明为 `public_agent_sa
 - 九项检查均为 `true`；
 - 记录 13 个生产源文件指纹；
 - 声明 Runtime Registry 只构造 Claude 默认 Runtime、拒绝非 Claude 配置、部署无 OpenClaw Runtime 依赖；
-- 将 `server/app/openclaw_runtime.py` 和 OpenClaw contract test 标为历史迁移基线 exclusion。
+- 将旧 Adapter 移出生产包至 `experiments/openclaw_baseline/openclaw_runtime.py`，并将 OpenClaw contract test 标为历史迁移基线 exclusion。
 
 但上述 13 个生产源文件的原始字节不在本平台快照中。本交付只认定为**平台源 attestation**，不表述为独立源码审计通过。
 
@@ -91,7 +91,7 @@ sequence 不连续不是擅自补齐的缺陷：快照声明为 `public_agent_sa
 
 平台 attestation 明确提到：
 
-- `server/app/openclaw_runtime.py` 是 frozen migration baseline / direct adapter parity 用途；
+- `experiments/openclaw_baseline/openclaw_runtime.py` 是 frozen migration baseline / direct adapter parity 用途；
 - 对应 OpenClaw contract test 是 migration baseline regression；
 - 产品 Runtime Registry 当前不导入或注册该 OpenClaw adapter。
 

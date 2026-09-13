@@ -1,5 +1,5 @@
 [project]
-name = "openclaw-claude-sdk-acceptance"
+name = "jianghu-claude-code-sdk-acceptance"
 version = "2.0.0"
 description = "Dependency-free evidence verifier for Jianghu Runtime migration"
 requires-python = ">=3.10"

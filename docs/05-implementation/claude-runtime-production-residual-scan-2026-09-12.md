@@ -33,21 +33,22 @@
 
 这些内容用于证明迁移前能力和回归差异，不能作为生产启动依赖。删除它们会破坏可追溯基线，因此本轮保留。
 
-### C. 基线专用 Legacy Adapter 源码
+### C. 基线专用 Legacy Adapter 源码（2026-09-13 已移出生产包）
 
-- `server/app/openclaw_runtime.py` 仍保留历史 Adapter 源码；
+- `server/app/openclaw_runtime.py` 已从生产包移除；
+- 冻结实现迁移到 `experiments/openclaw_baseline/openclaw_runtime.py`，仅供迁移基线和 parity 测试显式导入；
 - 生产 Registry 不再导入或注册 OpenClaw，也不再支持 `JIANGHU_ENABLE_LEGACY_OPENCLAW`；
 - `JIANGHU_AGENT_RUNTIME` 只能是 `claude_code`，误配为 `openclaw` 或其他值时以 `agent_runtime_fixed_to_claude_code` 明确拒绝启动；
 - 基线脚本和合同测试仍可直接构造 `OpenClawRuntime`，但该对象无法成为产品新 Run 的执行底座。
 
-在最终 UI E2E、RTC-001～RTC-032 矩阵和发布回滚方案完成前保留源码，便于基线复跑。生产切换后的回滚只能使用上一版本镜像，不允许在当前版本内通过环境变量切回 OpenClaw；是否在后续版本彻底删除基线源码单独决策。
+生产切换后的回滚只能使用上一版本发布物，不允许在当前版本内通过环境变量切回 OpenClaw。冻结源码继续保留在实验目录，避免丢失迁移前能力分母；生产残留扫描必须同时验证生产文件缺失、冻结文件位于实验目录。
 
 ### D. 命名清理项
 
-- `client/src/style.css` 中 `.openclaw-runtime-card` 是历史 CSS 选择器，当前 Runtime 卡片使用通用命名；
+- `client/src/style.css` 中 `.openclaw-runtime-card` 历史选择器已移除，当前 Runtime 卡片统一使用 `.runtime-status-card`；
 - 部分旧设计/需求文档仍描述 OpenClaw 为当前默认 Runtime。
 
-CSS 历史选择器应在最终收尾移除或重命名。历史阶段文档不改写事实，但 `current-repository-architecture.md`、当前系统需求、ADR-0006、路线图和文档索引必须补充 2026-09-12 现状，防止读者把 G1-G5 的阶段描述误认为当前实现。
+历史阶段文档不改写事实，但 `current-repository-architecture.md`、当前系统需求、ADR-0006、路线图和文档索引必须注明当前边界，防止读者把 G1-G5 的阶段描述误认为当前生产实现。
 
 ## 当前结论
 

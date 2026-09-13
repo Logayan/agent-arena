@@ -34,7 +34,12 @@ from server.app.platform_executor import (
 )
 from server.app.agent_runtime_registry import agent_runtime
 from server.app.git_delivery import commit_run_changes, ensure_run_repository
-from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
+from experiments.openclaw_baseline import (
+    OpenClawRuntime,
+    OpenClawRuntimeError,
+    openclaw_runtime,
+    openclaw_runtime_module,
+)
 from server.app.showcase import CASE_ID, CASE_MANIFEST, CASE_TASK, comparison_report, ensure_showcase_assets
 
 
@@ -3242,7 +3247,7 @@ async def test_openclaw_message_streams_public_tool_actions_before_turn_finishes
         return subprocess.CompletedProcess(args[0], 0, stdout=json.dumps(payload, ensure_ascii=False), stderr="")
 
     monkeypatch.setattr(runtime, "_base_command", lambda: ["openclaw-test"])
-    monkeypatch.setattr("server.app.openclaw_runtime.subprocess.run", fake_run)
+    monkeypatch.setattr(openclaw_runtime_module.subprocess, "run", fake_run)
     streamed: list[dict[str, object]] = []
 
     async def on_action(action):

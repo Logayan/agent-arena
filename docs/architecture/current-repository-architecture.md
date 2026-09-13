@@ -105,7 +105,7 @@ sequenceDiagram
 - **已实现持久化**：默认 SQLite；`PlatformStore` 提供 PostgreSQL 兼容适配，正式切换由 `JIANGHU_DATABASE_URL` 控制。
 - **已实现知识处理**：文件上传、格式解析、chunk、简单相关度检索，知识元数据与内容落在 `.data`。
 - **已实现 Agent 运行隔离**：每次 Run 有独立 Claude Runtime 状态；Agent 版本拥有独立 workspace，保存技能、身份、规范和记忆文件；平台证据包向获准人物提供安全事件投影、Artifact 原始字节和 Runtime Attestation。
-- **OpenClaw 当前边界**：生产 Registry 不导入、不注册 OpenClaw，新 Run 无法选择旧底座；旧状态路由和旧事件名只用于历史读取兼容，基线脚本可直接构造旧 Adapter 做迁移对照。
+- **OpenClaw 当前边界**：生产包 `server/app` 已不包含 OpenClaw Adapter，Registry 不导入、不注册 OpenClaw，新 Run 无法选择旧底座；冻结实现仅位于 `experiments/openclaw_baseline`（迁移基线与 parity 回归），旧状态路由和旧事件名只用于历史读取兼容。
 - **已实现模型适配**：无 Mock/fallback；缺配置、网络异常、模型错误和非 JSON 输出会显式失败。
 - **Compose 增强项**：当前 `compose.yaml` 定义了 Synapse 与其 PostgreSQL，但源码目录中未发现对应 `matrix_bridge.py` / `collaboration.py`，因此图中将 Synapse 标注为部署层协作平面，而非已确认的应用领域调用链。
 - **设计文档中的未来组件**：Graph Compiler、Loop Engine、Harness Compiler、Evaluation Service、Queue、对象存储等在 `docs/04-design/system-architecture.md` 中有规划，但不应视为当前源码已独立实现的服务。

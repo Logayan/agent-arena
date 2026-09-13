@@ -520,11 +520,10 @@ def _artifact_creation_provenance(runs: list[dict[str, Any]]) -> dict[str, dict[
 def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any]:
     """Build a byte-verifiable statement about the production Runtime route.
 
-    The historical OpenClaw adapter remains in the repository so the frozen
-    baseline and adapter parity tests can still instantiate it directly.  It
-    is deliberately excluded from this production-route scan; importing,
-    registering, packaging, or configuring it from a product entrypoint is a
-    blocking finding.
+    The historical OpenClaw adapter is retained under ``experiments`` so the
+    frozen baseline and adapter parity tests can still instantiate it.  Any
+    executable OpenClaw adapter left in ``server.app`` or imported, registered,
+    packaged, or configured by a product entrypoint is a blocking finding.
     """
     project_root = Path(__file__).resolve().parents[2]
     source_paths = (
@@ -592,6 +591,8 @@ def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any
         for name, pattern in deployment_forbidden_patterns.items()
         if re.search(pattern, deployment_text, flags=re.IGNORECASE)
     ]
+    if (project_root / "server/app/openclaw_runtime.py").is_file():
+        findings.append("production_openclaw_adapter_file_present")
     checks = {
         "runtime_health_is_claude_code": str(runtime_health.get("runtime") or "") == "claude_code",
         "runtime_mode_is_sdk_bridge": str(runtime_health.get("mode") or "") == "agent-sdk-bridge",
@@ -600,6 +601,12 @@ def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any
         "registry_does_not_import_openclaw": re.search(
             r"from\s+\.openclaw_runtime\s+import", registry_text
         ) is None,
+        "production_openclaw_adapter_file_absent": not (
+            project_root / "server/app/openclaw_runtime.py"
+        ).exists(),
+        "frozen_openclaw_baseline_is_outside_product_package": (
+            project_root / "experiments/openclaw_baseline/openclaw_runtime.py"
+        ).is_file(),
         "sdk_dependency_is_pinned": "@anthropic-ai/claude-agent-sdk" in package_text
         and "@anthropic-ai/claude-agent-sdk" in package_lock_text,
         "deployment_uses_claude_runtime": "JIANGHU_AGENT_RUNTIME=claude_code" in deployment_text,
@@ -620,8 +627,8 @@ def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any
         "files": records,
         "historical_exclusions": [
             {
-                "path": "server/app/openclaw_runtime.py",
-                "reason": "frozen migration baseline and direct adapter parity only; not imported or registered by the product Registry",
+                "path": "experiments/openclaw_baseline/openclaw_runtime.py",
+                "reason": "frozen migration baseline and direct adapter parity only; physically outside the product package",
             },
             {
                 "path": "server/tests/runtime_contract/test_openclaw_runtime_contract.py",

@@ -8,7 +8,7 @@ import pytest
 
 from server.app.agent_runtime import AgentRuntimeError, AgentRuntimePort
 from server.app.claude_code_runtime import ClaudeCodeRuntime
-from server.app.openclaw_runtime import OpenClawRuntime
+from experiments.openclaw_baseline import OpenClawRuntime
 from server.app.platform_executor import _is_command_tool
 
 
