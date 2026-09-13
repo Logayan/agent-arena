@@ -157,3 +157,17 @@
 因旧时限终止的 Run 可以在原 Run、原 WorkflowVersion 和原 Artifact Registry 上恢复，`run.recovery_requested` 记录来源失败 sequence、恢复节点和保留节点。历史 epoch 的累计活动时间只用于审计，新恢复 epoch 不会被旧耗时立即耗尽。
 
 长任务页面轮询改用轻量 live snapshot：状态查询直接读取 Run 行、任务摘要、最近 10～300 条事件和 Artifact 元数据计数，不生成全量 node dossier 或加载 Artifact 内容。测试证据摘要在服务端按 Artifact Registry 计算 `test-cases`、`test-results`、图片截图和 Playwright/浏览器报告索引四类数量，运行中即可显示缺口；Run 进入终态后再加载一次完整卷宗供最终复核。
+
+## 2026-09-13 19:40 人物回合取消总时长上限
+
+真实 Version 9 Run 在 `final_report_and_gap_list` 的 epoch29 loop1 中持续产生 Read、Write、Edit、Bash 和测试事件，但成员回合仍在 sequence 49157 命中 1800 秒墙钟边界。平台随后按既有策略创建 `epoch29:loop2:node2`，将下一窗口提升至 3600 秒，并正确写入 `rework_of`、`supersedes` 和 causation；这证明递增重试有效，但也证明“长任务没有总执行时长上限”尚未落实到单人物 Claude SDK 回合。
+
+最终决策是把 `timeout_seconds` 从“回合总墙钟上限”改为“连续无心跳/无输出的停滞窗口”：
+
+- Claude Code SDK Bridge 在执行期间发送内部 heartbeat；该 heartbeat 不进入公开业务事件，不制造测试或进度假象；
+- Python Runtime 每收到 heartbeat、模型消息或 Tool 事件都会重置停滞窗口；健康回合可以持续数小时或数天；
+- 只有 Bridge 在整个窗口内没有任何输出时，Runtime 才终止进程树并产生 `claude_stalled` timeout；
+- 人工取消、进程退出、Provider 错误、Token/成本门禁和 Tool 命令级超时继续生效；
+- 现有 `1800 → 3600 → 7200 → 14400` 仅表示异常停滞时的容忍窗口递增，不再限制健康任务累计执行时间。
+
+提交前定向验证：Claude Runtime 合同 `14 passed`，其中新增“总时长超过单个窗口但持续 heartbeat 仍成功”和“无 heartbeat 才终止”两项；Node Bridge `7/7 passed`；Python compile 通过。当前正在运行的 Worker 不热加载该修改，必须等 Run 到达安全终态或明确暂停边界后重启验证。

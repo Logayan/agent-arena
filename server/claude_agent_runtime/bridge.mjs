@@ -16,6 +16,12 @@ function emit(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
+export function heartbeatIntervalMs(value) {
+  const seconds = Number(value || 15);
+  if (!Number.isFinite(seconds)) return 15_000;
+  return Math.max(1_000, Math.min(60_000, Math.round(seconds * 1_000)));
+}
+
 function redact(value) {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === 'object') {
@@ -436,6 +442,10 @@ async function main() {
   let finalResult = null;
   const seenActions = new Set();
   const toolNamesById = new Map();
+  const heartbeat = setInterval(() => {
+    emit({ type: 'heartbeat', timestamp: new Date().toISOString() });
+  }, heartbeatIntervalMs(input.heartbeat_interval_seconds));
+  heartbeat.unref();
   activeQuery = query({ prompt, options });
   try {
     for await (const message of activeQuery) {
@@ -489,6 +499,7 @@ async function main() {
       }
     }
   } finally {
+    clearInterval(heartbeat);
     activeQuery?.close();
     activeQuery = null;
     for (const child of activeChildren) killProcessTree(child);

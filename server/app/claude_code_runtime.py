@@ -506,6 +506,10 @@ class ClaudeCodeRuntime:
             "skill_ids": list(policy.get("skill_ids") or []),
             "resume_session_id": self._session_id(agent_id, session_key),
             "command_timeout_seconds": max(1, min(int(timeout_seconds), 600)),
+            # This is an internal liveness signal, not a wall-clock execution
+            # limit. Long-running Agent turns may continue for days as long as
+            # the bridge remains responsive.
+            "heartbeat_interval_seconds": min(15, max(1, int(timeout_seconds) // 4)),
             "max_turns": _configured_max_turns(bool(policy.get("engineering"))),
         }
         creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
@@ -533,41 +537,53 @@ class ClaudeCodeRuntime:
 
         stderr_task = asyncio.create_task(read_stderr())
         try:
-            async with asyncio.timeout(timeout_seconds + 15):
-                while True:
-                    raw_line = await process.stdout.readline()
-                    if not raw_line:
-                        break
-                    line = raw_line.decode("utf-8", errors="replace").strip()
-                    if not line:
-                        continue
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError as exc:
-                        raise ClaudeCodeRuntimeError("claude_bridge_non_json_output", category="invalid_output") from exc
-                    if event.get("type") == "action" and isinstance(event.get("action"), dict):
-                        action = self._redact_value(event["action"], [token])
-                        if (
-                            action.get("kind") == "tool_result"
-                            and action.get("tool_name") == "Bash"
-                            and str(action.get("cwd") or "") in {"", "."}
-                        ):
-                            action["cwd"] = str(delivery)
-                        actions.append(action)
-                        if on_action:
-                            try:
-                                await on_action(action)
-                                action["live_emitted"] = True
-                            except Exception:
-                                action["live_emitted"] = False
-                    elif event.get("type") == "result" and isinstance(event.get("result"), dict):
-                        final = self._redact_value(event["result"], [token])
-                    elif event.get("type") == "error" and isinstance(event.get("error"), dict):
-                        bridge_error = self._redact_value(event["error"], [token])
-                return_code = await process.wait()
-        except TimeoutError as exc:
-            await self._terminate_process_tree(process)
-            raise ClaudeCodeRuntimeError(f"claude_timeout:{timeout_seconds}s", category="timeout", retryable=True) from exc
+            while True:
+                try:
+                    # timeout_seconds is an inactivity watchdog. Every bridge
+                    # heartbeat, model message, and Tool event renews it, so a
+                    # healthy turn has no total wall-clock deadline.
+                    raw_line = await asyncio.wait_for(
+                        process.stdout.readline(),
+                        timeout=max(1, int(timeout_seconds)),
+                    )
+                except TimeoutError as exc:
+                    await self._terminate_process_tree(process)
+                    raise ClaudeCodeRuntimeError(
+                        f"claude_stalled:{timeout_seconds}s",
+                        category="timeout",
+                        retryable=True,
+                    ) from exc
+                if not raw_line:
+                    break
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ClaudeCodeRuntimeError("claude_bridge_non_json_output", category="invalid_output") from exc
+                if event.get("type") == "heartbeat":
+                    continue
+                if event.get("type") == "action" and isinstance(event.get("action"), dict):
+                    action = self._redact_value(event["action"], [token])
+                    if (
+                        action.get("kind") == "tool_result"
+                        and action.get("tool_name") == "Bash"
+                        and str(action.get("cwd") or "") in {"", "."}
+                    ):
+                        action["cwd"] = str(delivery)
+                    actions.append(action)
+                    if on_action:
+                        try:
+                            await on_action(action)
+                            action["live_emitted"] = True
+                        except Exception:
+                            action["live_emitted"] = False
+                elif event.get("type") == "result" and isinstance(event.get("result"), dict):
+                    final = self._redact_value(event["result"], [token])
+                elif event.get("type") == "error" and isinstance(event.get("error"), dict):
+                    bridge_error = self._redact_value(event["error"], [token])
+            return_code = await process.wait()
         except asyncio.CancelledError:
             await self._terminate_process_tree(process)
             raise

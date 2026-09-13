@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commandHasPathEscape, commandShell, normalizedToolResult, workspaceToolEnvironment } from './bridge.mjs';
+import {
+  commandHasPathEscape,
+  commandShell,
+  heartbeatIntervalMs,
+  normalizedToolResult,
+  workspaceToolEnvironment,
+} from './bridge.mjs';
+
+
+test('bounds the internal bridge heartbeat without imposing a turn deadline', () => {
+  assert.equal(heartbeatIntervalMs(undefined), 15_000);
+  assert.equal(heartbeatIntervalMs(0.1), 1_000);
+  assert.equal(heartbeatIntervalMs(12.5), 12_500);
+  assert.equal(heartbeatIntervalMs(120), 60_000);
+  assert.equal(heartbeatIntervalMs('invalid'), 15_000);
+});
 
 
 test('normalizes MCP structured command results with tool name and exit code', () => {

@@ -87,6 +87,37 @@ def _blocking_bridge(tmp_path: Path) -> Path:
     return path
 
 
+def _heartbeat_bridge(tmp_path: Path) -> Path:
+    path = tmp_path / "heartbeat_bridge.py"
+    path.write_text(
+        textwrap.dedent(
+            """
+            import json
+            import sys
+            import time
+
+            payload = json.load(sys.stdin)
+            for _ in range(7):
+                print(json.dumps({"type": "heartbeat"}), flush=True)
+                time.sleep(0.2)
+            print(json.dumps({
+                "type": "result",
+                "result": {
+                    "session_id": "sdk-session-long",
+                    "model": payload["model"],
+                    "is_error": False,
+                    "text": "LONG_RUNNING_OK",
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                },
+            }), flush=True)
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_claude_adapter_is_registered_and_is_product_default(tmp_path) -> None:
     runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
 
@@ -213,6 +244,52 @@ async def test_claude_message_keeps_event_loop_responsive_during_large_seed_copy
 
     assert heartbeat_elapsed < 0.15
     assert result["content"][0]["text"] == "G4_ADAPTER_OK"
+
+
+@pytest.mark.anyio
+async def test_claude_message_has_no_total_deadline_while_bridge_is_alive(
+    monkeypatch, tmp_path
+) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG)
+    bridge = _heartbeat_bridge(tmp_path)
+    monkeypatch.setattr(runtime, "_base_command", lambda: [sys.executable, str(bridge)])
+
+    started = time.monotonic()
+    result = await runtime.message(
+        agent=agent,
+        prompt="执行超过单个健康窗口的长任务",
+        session_key="long-running-heartbeat",
+        model_config=MODEL_CONFIG,
+        timeout_seconds=1,
+    )
+
+    assert time.monotonic() - started >= 1.2
+    assert result["content"][0]["text"] == "LONG_RUNNING_OK"
+
+
+@pytest.mark.anyio
+async def test_claude_message_terminates_only_after_bridge_inactivity(
+    monkeypatch, tmp_path
+) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG)
+    bridge = _blocking_bridge(tmp_path)
+    monkeypatch.setattr(runtime, "_base_command", lambda: [sys.executable, str(bridge)])
+
+    started = time.monotonic()
+    with pytest.raises(ClaudeCodeRuntimeError, match="claude_stalled:1s"):
+        await runtime.message(
+            agent=agent,
+            prompt="模拟底座停止心跳",
+            session_key="stalled-heartbeat",
+            model_config=MODEL_CONFIG,
+            timeout_seconds=1,
+        )
+
+    assert time.monotonic() - started < 5
 
 
 def test_workspace_snapshot_tolerates_disappearing_browser_trace_directory(
