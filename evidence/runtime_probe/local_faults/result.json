@@ -1,0 +1,31 @@
+{
+  "schema_version": "jianghu.local-fault-result.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "status": "PASS_LOCAL_SCOPE",
+  "evidence_class": "observed_local_process",
+  "acceptance_eligible": false,
+  "platform_or_sdk_resume_proven": false,
+  "pause": {
+    "pause_exit_code": 75,
+    "resume_exit_code": 0,
+    "pause_pid": 29144,
+    "resume_pid": 30372,
+    "different_processes": true,
+    "checkpoint_sha256": "11ad7a9dd38b42d8d59eaf504257dcccea56b7ae69f172eb595c2bd161cbd5a1",
+    "quiet_window_seconds": 0.35,
+    "quiet_window_unchanged": true,
+    "old_worker_fenced": true
+  },
+  "failure_recovery": {
+    "failure_exit_code": 73,
+    "recovery_exit_code": 0,
+    "operation_id": "RP-OP-FAILURE-001",
+    "idempotency_key": "RP-IDEMPOTENCY-001",
+    "side_effect_sha256_before": "968de5892cd9c22e42b977e0c54bbe1bc5b6d822be7b25cf6c986df302a7fded",
+    "side_effect_sha256_after": "968de5892cd9c22e42b977e0c54bbe1bc5b6d822be7b25cf6c986df302a7fded",
+    "side_effect_duplicate_suppressed": true,
+    "occurrences": 1
+  },
+  "receipt_ledger_sha256": "3c567e800e9fc541762e56bbe5f80beb22f92a06c584dbe71b395e8c4a6d9145"
+}

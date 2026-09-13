@@ -1,0 +1,59 @@
+{
+  "schema_version": "jianghu.tool-lifecycle-summary.v2",
+  "run_id": "run_9226059d74a1",
+  "node_key": "openclaw_baseline_mapping",
+  "status": "PASS_PLATFORM_TOOL_LIFECYCLE_WITH_LIMITATIONS",
+  "run_wide": {
+    "scope": "run_wide",
+    "tool_call_group_count": 785,
+    "authorization_decisions": {
+      "allow": 785
+    },
+    "completion_statuses": {
+      "completed": 720,
+      "failed": 65
+    },
+    "side_effect_statuses": {
+      "completed": 720,
+      "failed_preserved": 65
+    },
+    "tool_names": {
+      "Bash": 271,
+      "Edit": 115,
+      "Read": 333,
+      "Write": 66
+    },
+    "platform_session_count": 16
+  },
+  "node_scoped": {
+    "scope": "node_scoped",
+    "tool_call_group_count": 371,
+    "authorization_decisions": {
+      "allow": 371
+    },
+    "completion_statuses": {
+      "completed": 324,
+      "failed": 47
+    },
+    "side_effect_statuses": {
+      "completed": 324,
+      "failed_preserved": 47
+    },
+    "tool_names": {
+      "Bash": 102,
+      "Edit": 28,
+      "Read": 196,
+      "Write": 45
+    },
+    "platform_session_count": 6
+  },
+  "bound_to_frozen_sdk_session_count": 240,
+  "unbound_at_snapshot_count": 131,
+  "native_sdk_linkage_field_coverage": {
+    "sdk_session_id": 0,
+    "invocation_id": 0,
+    "result_digest": 0,
+    "output_sha256": 0
+  },
+  "authorization_deny_path_observed": false
+}

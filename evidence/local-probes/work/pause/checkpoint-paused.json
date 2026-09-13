@@ -1,0 +1,13 @@
+{
+  "checkpoint_version": 1,
+  "completed_steps": [
+    "prepare"
+  ],
+  "operation_id": "pause-op-run-9226059d74a1",
+  "pending_steps": [
+    "continue",
+    "finalize"
+  ],
+  "status": "PAUSED",
+  "writer_pid": 16536
+}

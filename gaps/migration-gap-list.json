@@ -1,0 +1,183 @@
+{
+  "schema_version": "jianghu.runtime-migration-gaps.v3",
+  "run_id": "run_9226059d74a1",
+  "node_key": "openclaw_baseline_mapping",
+  "snapshot_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+  "observed_counts": {
+    "event_projection_count": 4395,
+    "metadata_event_count": 4403,
+    "sdk_session_bindings": 16,
+    "node_sdk_session_bindings": 12,
+    "run_wide_tool_groups": 785,
+    "node_tool_groups": 371,
+    "node_tool_groups_bound_to_frozen_sdk_sessions": 240,
+    "node_tool_groups_unbound_at_snapshot": 131,
+    "run_wide_memory_retrievals": 168,
+    "run_wide_memory_uses": 128,
+    "node_memory_retrievals": 104,
+    "node_memory_uses": 96,
+    "formal_artifacts": 0,
+    "judge_events": 0,
+    "intentional_pause_resume_events": 0,
+    "run_convergence_or_completion_events": 0
+  },
+  "policy": {
+    "all_rows_open": true,
+    "no_silent_capability_inference": true,
+    "openclaw_retirement_requires_all_p0_retirement_gates": true,
+    "workspace_files_are_not_formal_artifacts": true,
+    "current_route_attestation_is_not_complete_migration_proof": true
+  },
+  "gaps": [
+    {
+      "id": "GAP-P0-001",
+      "priority": "P0",
+      "status": "open",
+      "area": "OpenClaw historical baseline",
+      "observed": "Source attestation names historical OpenClaw exclusions, but authorized raw OpenClaw source/config/interface/runtime bytes and a parity corpus are absent.",
+      "required_evidence": "Read-only OpenClaw source/config/interface bundle, representative event samples, capability owner, immutable digest and accepted parity matrix.",
+      "acceptance_gate": "Every retirement-critical historical responsibility has a raw-byte-audited baseline and a signed migration disposition.",
+      "owner_boundary": "Runtime architecture plus product control plane"
+    },
+    {
+      "id": "GAP-P0-002",
+      "priority": "P0",
+      "status": "open",
+      "area": "Runtime production source audit",
+      "observed": "The platform attests 13 source fingerprints and nine passed checks; source raw bytes are unavailable in the public snapshot.",
+      "required_evidence": "Authorized immutable source archive matching all attested SHA-256 values and independent Registry/entrypoint/deployment audit.",
+      "acceptance_gate": "Attestation and independently hashed source bytes agree; non-Claude route configuration fails closed.",
+      "owner_boundary": "Runtime Registry and deployment"
+    },
+    {
+      "id": "GAP-P0-003",
+      "priority": "P0",
+      "status": "open",
+      "area": "SDK Session and Invocation lifecycle",
+      "observed": "16 turn-completion bindings exist, including 12 for this node; no explicit sdk.session.* or sdk.invocation.* lifecycle events exist.",
+      "required_evidence": "SDK version/init, Session opened/continued/closed, Invocation started/completed/failed and stable causal binding to Run/Node/Attempt/Role/platform Session.",
+      "acceptance_gate": "A full successful and failed Invocation can be reconstructed without relying only on terminal turn attestation.",
+      "owner_boundary": "Claude Agent SDK bridge plus Jianghu binding layer"
+    },
+    {
+      "id": "GAP-P0-004",
+      "priority": "P0",
+      "status": "open",
+      "area": "Tool native linkage and authorization negative path",
+      "observed": "785 Run-wide and 371 node-scoped four-event groups are internally complete; all authorization decisions are allow, and native SDK/Invocation/result digest fields are absent.",
+      "required_evidence": "SDK Tool Use ID, SDK Session ID, Invocation ID, input digest, result digest/output SHA-256, schema denial and authorization denial examples.",
+      "acceptance_gate": "Allow, schema-deny, policy-deny, success and failure-preserved paths are causally bound and replay-auditable.",
+      "owner_boundary": "Controlled Tool gateway"
+    },
+    {
+      "id": "GAP-P0-005",
+      "priority": "P0",
+      "status": "open",
+      "area": "Formal Artifact lifecycle",
+      "observed": "Artifact Registry is exactly [] and run metadata artifact_count is zero despite workspace file publication.",
+      "required_evidence": "artifact_id, registry path/digest, materialized raw bytes, independent digest and byte count, publication event, download and reread receipt.",
+      "acceptance_gate": "At least one immutable Artifact completes create-register-publish-download-reread with matching bytes.",
+      "owner_boundary": "Jianghu Artifact control plane and durable object store"
+    },
+    {
+      "id": "GAP-P0-006",
+      "priority": "P0",
+      "status": "open",
+      "area": "Five-role production collaboration",
+      "observed": "The node has two actors and two complete challenge/reply rounds in both historical and current cycles; no five-role independent execution chain exists, and current synthesis has only started.",
+      "required_evidence": "Independent product owner, system architect, engineering implementer, quality auditor and Judge identities with distinct platform/SDK Sessions, submissions, public communication and completed synthesis.",
+      "acceptance_gate": "All five required roles participate under independently auditable identities and final synthesis is completed.",
+      "owner_boundary": "Jianghu team orchestration"
+    },
+    {
+      "id": "GAP-P0-007",
+      "priority": "P0",
+      "status": "open",
+      "area": "Judge rejection, rework and rejudge",
+      "observed": "No judge.verdict, gate.rejected, revision request, replacement Artifact or rejudge event is present.",
+      "required_evidence": "Independent Judge Session, V1 immutable Artifact, rejection reasons, new Attempt, V2 immutable Artifact and accepted rejudge linked by causation IDs.",
+      "acceptance_gate": "A real negative-path gate transition changes platform state and converges after rejudge.",
+      "owner_boundary": "Jianghu Judge and Attempt control plane"
+    },
+    {
+      "id": "GAP-P0-008",
+      "priority": "P0",
+      "status": "open",
+      "area": "Memory write/read roundtrip",
+      "observed": "Read/use is evidenced (168/128 Run-wide, 104/96 node), but no candidate/review/commit/persist lifecycle exists.",
+      "required_evidence": "Candidate, review, commit/persist, later retrieval from a distinct Session, namespace-denial test, supersede and tombstone.",
+      "acceptance_gate": "A newly approved Memory value is retrieved and used in a later distinct Session with cross-namespace denial and lifecycle governance.",
+      "owner_boundary": "Jianghu Memory control plane and durable Memory store"
+    },
+    {
+      "id": "GAP-P0-009",
+      "priority": "P0",
+      "status": "open",
+      "area": "Intentional pause and resume",
+      "observed": "No intentional pause-request, paused or resumed event exists.",
+      "required_evidence": "Pause request, quiescence, checkpoint, lease release/fencing, no-side-effect window, resume and SDK Session continue-or-recreate semantics.",
+      "acceptance_gate": "A product-level pause/resume preserves identity and state while proving no unauthorized side effects during the pause window.",
+      "owner_boundary": "Jianghu scheduler, checkpoint and lease layers"
+    },
+    {
+      "id": "GAP-P0-010",
+      "priority": "P0",
+      "status": "open",
+      "area": "Backend interruption convergence",
+      "observed": "Sequences 2519-2527 show interruption, epoch 2 recovery, route/fallback checks, lease, fencing, checkpoint and duplicate scan=monitoring; no terminal convergence exists.",
+      "required_evidence": "sdk.session.continued or explicit recreation linkage, terminal duplicate-effect reconciliation and run.converged/run.completed.",
+      "acceptance_gate": "Recovery reaches a terminal, externally verified state with no duplicate non-idempotent effect.",
+      "owner_boundary": "Runtime recovery, worker lease/fencing and Operation journal"
+    },
+    {
+      "id": "GAP-P0-011",
+      "priority": "P0",
+      "status": "open",
+      "area": "Exactly-once side-effect reconciliation",
+      "observed": "Operation/idempotency IDs exist on Tool authorization and side-effect verification, but the recovery duplicate scan remains monitoring.",
+      "required_evidence": "Durable operation journal, retry/fencing collision, terminal deduplication or compensation record, external target reread and reconciliation receipt.",
+      "acceptance_gate": "An injected post-side-effect failure recovers with exactly one externally observed effect and terminal reconciliation.",
+      "owner_boundary": "Controlled Tool gateway and durable Operation store"
+    },
+    {
+      "id": "GAP-P0-012",
+      "priority": "P0",
+      "status": "open",
+      "area": "OpenClaw retirement controls",
+      "observed": "Current Claude-only route and fallback denial are attested, but zero OpenClaw traffic, no bypass, single writer, rollback and historical parity are not proven.",
+      "required_evidence": "Traffic telemetry, route inventory across all entrypoints, bypass scan, single-writer proof, fail-closed drill, governed rollback drill and signed parity report.",
+      "acceptance_gate": "All entrypoints show zero OpenClaw execution for the agreed observation window and rollback/retirement gates are independently accepted.",
+      "owner_boundary": "Runtime architecture, SRE and release governance"
+    },
+    {
+      "id": "GAP-P1-001",
+      "priority": "P1",
+      "status": "open",
+      "area": "Public projection versus source ledger",
+      "observed": "The frozen public projection has eight documented sequence gaps caused by filtering; source database was not verified.",
+      "required_evidence": "Authorized source-ledger audit or a signed projection completeness statement explaining every filtered sequence class.",
+      "acceptance_gate": "Critical-event completeness is independently established without disclosing unauthorized private content.",
+      "owner_boundary": "Event ledger and projection service"
+    },
+    {
+      "id": "GAP-P1-002",
+      "priority": "P1",
+      "status": "open",
+      "area": "Tool-to-binding cutoff coverage",
+      "observed": "240 node Tool groups map to Sessions in the frozen binding set and 131 do not at the cutoff.",
+      "required_evidence": "Terminal binding or explicit no-turn-completion disposition for every platform Session that emitted Tool lifecycle events.",
+      "acceptance_gate": "Every Tool-emitting platform Session has a terminal SDK binding or a typed, audited failure disposition.",
+      "owner_boundary": "Bridge telemetry and Jianghu Session binding"
+    },
+    {
+      "id": "GAP-P1-003",
+      "priority": "P1",
+      "status": "open",
+      "area": "Model execution attribution",
+      "observed": "All binding model fields equal gpt-5.6-sol while route attestation says claude_code/agent-sdk-bridge.",
+      "required_evidence": "Provider-neutral, SDK-native model invocation receipt that establishes actual model/provider execution independently of control-plane route and metadata fields.",
+      "acceptance_gate": "Runtime route, SDK Session, Invocation and provider execution attribution are separately verified and causally linked.",
+      "owner_boundary": "SDK bridge and provider-neutral audit layer"
+    }
+  ]
+}

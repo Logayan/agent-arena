@@ -1,0 +1,14 @@
+{
+  "schema_version": "jianghu.required-acceptance-team.v1",
+  "run_id": "run_9226059d74a1",
+  "node_key": "runtime_probe_harness",
+  "separation_of_duties": true,
+  "roles": [
+    {"role": "product_owner", "responsibility": "freeze migration scope, business acceptance and OpenClaw retirement criteria", "platform_identity": null, "status": "PENDING_PLATFORM_BINDING"},
+    {"role": "system_architect", "responsibility": "map OpenClaw capabilities and Runtime/control-plane boundaries", "platform_identity": null, "status": "PENDING_PLATFORM_BINDING"},
+    {"role": "implementation_engineer", "responsibility": "execute tools, delivery and recoverable implementation", "platform_identity": null, "status": "PENDING_PLATFORM_BINDING"},
+    {"role": "quality_auditor", "responsibility": "independently reproduce event, artifact, test and negative-gate evidence", "platform_identity": null, "status": "PENDING_PLATFORM_BINDING"},
+    {"role": "independent_judge", "responsibility": "reject the predeclared blocker, require a new linked Attempt and rejudge", "platform_identity": null, "status": "PENDING_PLATFORM_BINDING"}
+  ],
+  "fact_boundary": "The public projection shows Agent identities and phases, but does not prove these five named responsibilities are assigned to five independent platform identities. Null values prevent invented staffing."
+}

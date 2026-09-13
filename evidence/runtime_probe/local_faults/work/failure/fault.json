@@ -1,0 +1,6 @@
+{
+  "state": "FAILED_AFTER_SIDE_EFFECT",
+  "operation_id": "RP-OP-FAILURE-001",
+  "idempotency_key": "RP-IDEMPOTENCY-001",
+  "pid": 14256
+}

@@ -84,10 +84,10 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/teams/${teamId}`, { method: 'DELETE' }),
   commissions: (organizationId = 'org_jianghu') =>
     request<Record<string, unknown>[]>(`/api/platform/commissions?organization_id=${encodeURIComponent(organizationId)}`),
-  assessCommission: (title: string, description: string, organizationId = 'org_jianghu', commissionId?: string) =>
+  assessCommission: (title: string, description: string, organizationId = 'org_jianghu', commissionId?: string, gitDelivery?: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/commissions/assess', {
       method: 'POST',
-      body: JSON.stringify({ title, description, organization_id: organizationId, commission_id: commissionId }),
+      body: JSON.stringify({ title, description, organization_id: organizationId, commission_id: commissionId, git_delivery: gitDelivery }),
     }),
   resolveCommissionTeam: (commissionId: string, forceCreate = false) =>
     request<Record<string, unknown>>(`/api/platform/commissions/${encodeURIComponent(commissionId)}/resolve-team`, {
@@ -124,7 +124,8 @@ export const api = {
     `${API_BASE}/api/platform/knowledge-sources/${encodeURIComponent(sourceId)}/download`,
   marketplace: () => request<Record<string, unknown>>('/api/platform/marketplace'),
   modelConfigs: () => request<Record<string, unknown>[]>('/api/platform/model-configs'),
-  openClawStatus: () => request<Record<string, unknown>>('/api/platform/openclaw/status'),
+  projects: () => request<Record<string, unknown>[]>('/api/platform/projects'),
+  runtimeStatus: () => request<Record<string, unknown>>('/api/platform/runtime/status'),
   saveModelConfig: (config: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/model-configs', {
       method: 'POST',
@@ -134,6 +135,32 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/model-configs/${encodeURIComponent(configId)}`, { method: 'DELETE' }),
   testModelConfig: (config: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/model-configs/test', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  gitCredentials: () => request<Record<string, unknown>[]>('/api/platform/git-credentials'),
+  saveGitCredential: (credential: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/api/platform/git-credentials', {
+      method: 'POST', body: JSON.stringify(credential),
+    }),
+  projectGitRepositories: (projectId?: string) =>
+    request<Record<string, unknown>[]>(`/api/platform/project-git-repositories${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''}`),
+  saveProjectGitRepository: (repository: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/api/platform/project-git-repositories', {
+      method: 'POST', body: JSON.stringify(repository),
+    }),
+  testProjectGitRepository: (repositoryId: string) =>
+    request<Record<string, unknown>>('/api/platform/project-git-repositories/test', {
+      method: 'POST', body: JSON.stringify({ repository_id: repositoryId }),
+    }),
+  gitDeliveryConfigs: () => request<Record<string, unknown>[]>('/api/platform/git-delivery-configs'),
+  saveGitDeliveryConfig: (config: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/api/platform/git-delivery-configs', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  testGitDeliveryConfig: (config: Record<string, unknown>) =>
+    request<Record<string, unknown>>('/api/platform/git-delivery-configs/test', {
       method: 'POST',
       body: JSON.stringify(config),
     }),
@@ -152,13 +179,23 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ answers }),
     }),
-  createPlatformRun: (workflowId: string, task: string, clarificationId?: string, projectId = 'project_jianghu', commissionId?: string) =>
+  createPlatformRun: (workflowId: string, task: string, clarificationId?: string, projectId = 'project_jianghu', commissionId?: string, gitDelivery?: Record<string, unknown>) =>
     request<Record<string, unknown>>('/api/platform/runs', {
       method: 'POST',
-      body: JSON.stringify({ workflow_id: workflowId, task, project_id: projectId, clarification_id: clarificationId, commission_id: commissionId }),
+      body: JSON.stringify({
+        workflow_id: workflowId, task, project_id: projectId, clarification_id: clarificationId, commission_id: commissionId,
+        git_repository_id: gitDelivery?.repository_id, git_target_branch: gitDelivery?.target_branch,
+        git_delivery_mode: gitDelivery?.delivery_mode,
+      }),
     }),
+  bindRunGitDelivery: (runId: string, delivery: Record<string, unknown>, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${encodeURIComponent(runId)}/git-delivery${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
+      method: 'POST', body: JSON.stringify(delivery),
+    }),
+  retryRunGitDelivery: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${encodeURIComponent(runId)}/git-delivery/retry${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
   getPlatformRun: (runId: string, organizationId?: string) =>
-    request<Record<string, unknown>>(`/api/platform/runs/${runId}${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}?event_limit=300${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   artifactDownloadUrl: (artifactId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
   startPlatformRun: (runId: string, organizationId?: string) =>
@@ -183,4 +220,6 @@ export const api = {
     }),
   runCodeDownloadUrl: (runId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/runs/${encodeURIComponent(runId)}/code/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  gitCommitPatchUrl: (runId: string, commitSha: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/runs/${encodeURIComponent(runId)}/git/commits/${encodeURIComponent(commitSha)}/patch${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
 }

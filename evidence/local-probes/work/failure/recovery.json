@@ -1,0 +1,10 @@
+{
+  "checkpoint_sha256": "09a53cfd5a06281dbfff05ec6952cb88ad4f5cddcfafd98d760fa2e08c2f86cb",
+  "duplicate_suppressed": true,
+  "effect_count_after": 1,
+  "effect_count_before": 1,
+  "idempotency_key": "idempotency-run-9226059d74a1",
+  "operation_id": "effect-op-run-9226059d74a1",
+  "recovery_pid": 27684,
+  "status": "COMPLETED"
+}

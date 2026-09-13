@@ -1,0 +1,14 @@
+{
+  "acceptance_eligible": false,
+  "candidate_version": 2,
+  "node_key": "runtime_probe_harness",
+  "platform_evidence_binding": {
+    "events_sha256": "41171e25f262f44f71aad2273dbac20c556bd807ca95c8ac1ff036aef38ebc40",
+    "rejected_candidate_sha256": "99c53c5d2937eb57912a34ffa782facd707d3aa52758a439fa52aef1d40a2be6",
+    "rejected_verdict_sha256": "997b02cc362c1c5bcb18fb3e3ffeb5d7e45f29e2f130fbe065ecb99a1503e38e",
+    "sequence_last": 6015
+  },
+  "run_id": "run_9226059d74a1",
+  "schema_version": "jianghu.local-candidate.v1",
+  "supersedes_local_candidate_sha256": "99c53c5d2937eb57912a34ffa782facd707d3aa52758a439fa52aef1d40a2be6"
+}

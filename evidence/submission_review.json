@@ -1,0 +1,1513 @@
+{
+  "schema_version": "jianghu.submission-review.v3",
+  "run_id": "run_9226059d74a1",
+  "node_key": "openclaw_baseline_mapping",
+  "review_basis": {
+    "snapshot_event_count": 4395,
+    "snapshot_sequence_last": 4403,
+    "snapshot_sha256": "3f9453f269a962240931d57f9bd91820bd3f578353e7300648e9f1d4a937f782",
+    "manifest_change_row_count": 58,
+    "non_deleted_row_count": 53,
+    "deletion_marker_count": 5,
+    "accounting_rule": "Every manifest change row is reviewed. Non-deleted rows and deletion markers are reported separately; duplicate paths across agents remain separate review rows."
+  },
+  "submissions": [
+    {
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "manifest_sha256": "478e89e2f908e8573d301c0d895fb88432329ff528dfb21dcb4405760111aee1",
+      "manifest_schema_version": "jianghu.engineering-submission.v1",
+      "change_row_count": 31,
+      "non_deleted_count": 26,
+      "deletion_marker_count": 5,
+      "publication_event": {
+        "sequence": 4255,
+        "event_id": "evt_197d3d1e16ed",
+        "type": "engineering.submission.published"
+      }
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "manifest_sha256": "3c98a67dec4388a49d9afd171c2e57145281d47c7b43d5161558a50c87e048c5",
+      "manifest_schema_version": "jianghu.engineering-submission.v1",
+      "change_row_count": 27,
+      "non_deleted_count": 27,
+      "deletion_marker_count": 0,
+      "publication_event": {
+        "sequence": 4256,
+        "event_id": "evt_288ddad872da",
+        "type": "engineering.submission.published"
+      }
+    }
+  ],
+  "reviews": [
+    {
+      "review_id": "agent_cb495a9bea1e:01",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "README.md",
+      "action": "modified",
+      "manifest_sha256": "6e68b4a9245eb18bdae88b38a1f35cd84d91f5dfb99f793a66c825be402add2d",
+      "manifest_size_bytes": 6507,
+      "platform_file_event": {
+        "sequence": 4212,
+        "event_id": "evt_1b7646428146",
+        "type": "agent.file.modified",
+        "source_event_sha256": "ac1920d5cfcd8d1086b91779df93bbe05d03097a7f932ad1666864d147d7dbb3"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "6e68b4a9245eb18bdae88b38a1f35cd84d91f5dfb99f793a66c825be402add2d",
+        "observed_size_bytes": 6507,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Useful operating guidance is merged, but counts and verdicts are refreshed against the immutable 4,395-event snapshot.",
+      "destination_or_replacement": "README.md"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:02",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "artifacts/sha256_manifest.json",
+      "action": "modified",
+      "manifest_sha256": "2b133bb3bde0ea5bd5dfb191d6fe3d4db8aab38abd3fcb1d9f06607b1e6c2d93",
+      "manifest_size_bytes": 6706,
+      "platform_file_event": {
+        "sequence": 4213,
+        "event_id": "evt_26c9653c040d",
+        "type": "agent.file.modified",
+        "source_event_sha256": "28b7938986d99e1973b82e9f96e463a8a66d3de3b52dc6a4912a23ee489c627e"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "2b133bb3bde0ea5bd5dfb191d6fe3d4db8aab38abd3fcb1d9f06607b1e6c2d93",
+        "observed_size_bytes": 6706,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission manifest is superseded by the final whole-package manifest generated after merge.",
+      "destination_or_replacement": "artifacts/sha256_manifest.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:03",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "docs/01_架构视角隔离盘点.md",
+      "action": "modified",
+      "manifest_sha256": "ce8cc16cb07adb345359471df48f3381f3e990956a04f1bf732d16f15c41805c",
+      "manifest_size_bytes": 4857,
+      "platform_file_event": {
+        "sequence": 4214,
+        "event_id": "evt_3699ca921665",
+        "type": "agent.file.modified",
+        "source_event_sha256": "ce9e2b0a1abb1f576b67d83d0ff2f43342b5b88b1466a2fa1b58789980b78393"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "ce8cc16cb07adb345359471df48f3381f3e990956a04f1bf732d16f15c41805c",
+        "observed_size_bytes": 4857,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Historical cutoff is preserved; later-current references are refreshed without rewriting the isolated observation.",
+      "destination_or_replacement": "docs/01_架构视角隔离盘点.md"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:04",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "docs/02_运行保障视角待合并契约.md",
+      "action": "deleted",
+      "manifest_sha256": "",
+      "manifest_size_bytes": 0,
+      "platform_file_event": {
+        "sequence": 4215,
+        "event_id": "evt_d9b99611b5b9",
+        "type": "agent.file.deleted",
+        "source_event_sha256": "f27613fa665cc86e8043712291e03e87c20f301ec36e38ef04ab2da94315bc70"
+      },
+      "public_export": {
+        "status": "prior_bytes_still_materialized_not_current_state",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": null
+      },
+      "decision": "preserve_deletion",
+      "decision_reason": "Deletion is retained as an explicit merge decision; prior exported bytes are not current state.",
+      "destination_or_replacement": null
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:05",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "docs/02_运行保障视角隔离盘点.md",
+      "action": "created",
+      "manifest_sha256": "d7a74b0a6ca90ae6c5d0976ed74bc9241eaabf10318e69b53257329db1ed9ecb",
+      "manifest_size_bytes": 6905,
+      "platform_file_event": {
+        "sequence": 4216,
+        "event_id": "evt_6aa2f4e4486a",
+        "type": "agent.file.created",
+        "source_event_sha256": "e8083ce28b5cfe1438046772fe0d2f869793a61b7f44d9e9cf6dc10ef7c2814c"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "d7a74b0a6ca90ae6c5d0976ed74bc9241eaabf10318e69b53257329db1ed9ecb",
+        "observed_size_bytes": 6905,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "SRE inventory and dissent are retained; counts and current publication facts are refreshed.",
+      "destination_or_replacement": "docs/02_运行保障视角隔离盘点.md"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:06",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md",
+      "action": "modified",
+      "manifest_sha256": "b61b7feebe1049c1a69027bc85a58b3e1e9ebf9b9f43933bd8df571cbaa8aa29",
+      "manifest_size_bytes": 16648,
+      "platform_file_event": {
+        "sequence": 4217,
+        "event_id": "evt_a249e1b7a319",
+        "type": "agent.file.modified",
+        "source_event_sha256": "0222171597e653d26e78ca424993bf024eec7a898a21fa132e5e741a17e5f960"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "b61b7feebe1049c1a69027bc85a58b3e1e9ebf9b9f43933bd8df571cbaa8aa29",
+        "observed_size_bytes": 16648,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Architecture and SRE conclusions are merged while stale counts and overbroad recovery wording are corrected.",
+      "destination_or_replacement": "docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:07",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/build_test_run.log",
+      "action": "modified",
+      "manifest_sha256": "7c8a1f80f83983aa2fc57389f176a67cfdb9793ecd0cf6df70b3b87c8a55640a",
+      "manifest_size_bytes": 4572,
+      "platform_file_event": {
+        "sequence": 4218,
+        "event_id": "evt_8ff6cc50988c",
+        "type": "agent.file.modified",
+        "source_event_sha256": "8e8172a975247bb8de1c90df92a25df5f03cc6a91734bdc8f54a7a397e094eac"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "7c8a1f80f83983aa2fc57389f176a67cfdb9793ecd0cf6df70b3b87c8a55640a",
+        "observed_size_bytes": 4572,
+        "matches_manifest": true
+      },
+      "decision": "reject_stale_generated",
+      "decision_reason": "Historical generated log is not current acceptance evidence; a new build/test log is produced.",
+      "destination_or_replacement": "evidence/build_test_run.log"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:08",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/final_verification.json",
+      "action": "created",
+      "manifest_sha256": "108a327d548936904680dd009d510315650f871a219fb577d0803b2a0142ee48",
+      "manifest_size_bytes": 55237,
+      "platform_file_event": {
+        "sequence": 4219,
+        "event_id": "evt_b0c1d1a51b32",
+        "type": "agent.file.created",
+        "source_event_sha256": "f7fb3ad6182a38f2e1d7c148f63ae5431f27e9e67d48c31633cc11b117986935"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "108a327d548936904680dd009d510315650f871a219fb577d0803b2a0142ee48",
+        "observed_size_bytes": 55237,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated evidence is refreshed from the immutable 4,395-event snapshot by the merged verifier.",
+      "destination_or_replacement": "evidence/final_verification.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:09",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_evidence_index.json",
+      "action": "deleted",
+      "manifest_sha256": "",
+      "manifest_size_bytes": 0,
+      "platform_file_event": {
+        "sequence": 4220,
+        "event_id": "evt_9a26cd7ab568",
+        "type": "agent.file.deleted",
+        "source_event_sha256": "2623883802d181b7471e70378f77c61547c9b81c297d538d729f9d010db0a9c6"
+      },
+      "public_export": {
+        "status": "prior_bytes_still_materialized_not_current_state",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": null
+      },
+      "decision": "preserve_deletion",
+      "decision_reason": "Deletion is retained as an explicit merge decision; prior exported bytes are not current state.",
+      "destination_or_replacement": null
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:10",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/critical-events.json",
+      "action": "modified",
+      "manifest_sha256": "edcf741255aef8fdc618651565060aa5e25c125c466bb686ab633c28b67e9ca2",
+      "manifest_size_bytes": 250506,
+      "platform_file_event": {
+        "sequence": 4221,
+        "event_id": "evt_f4a0d4cc7307",
+        "type": "agent.file.modified",
+        "source_event_sha256": "dd151b40ff4c12be4431d7b3fbd5a53622e4d196045752361ddacf2f41846f0c"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/critical-events.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:11",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/events.ndjson",
+      "action": "modified",
+      "manifest_sha256": "170ab7f2eb83947cc6359d3682c55d1f665fa8732decbf8e7e1bdc488e594eaa",
+      "manifest_size_bytes": 6101170,
+      "platform_file_event": {
+        "sequence": 4222,
+        "event_id": "evt_65274c3c6e20",
+        "type": "agent.file.modified",
+        "source_event_sha256": "8b4d90722a795c3cd3e461454f633e7e830589d964f594fa2aff56815eb79f94"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "170ab7f2eb83947cc6359d3682c55d1f665fa8732decbf8e7e1bdc488e594eaa",
+        "observed_size_bytes": 6101170,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/events.ndjson"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:12",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/run-lineage.json",
+      "action": "modified",
+      "manifest_sha256": "26f6b0caa9ca8fbffc4b1b872ceac9e04ebe5a9a296b058a42fb4626e7badf4c",
+      "manifest_size_bytes": 1650,
+      "platform_file_event": {
+        "sequence": 4223,
+        "event_id": "evt_33a77438d7e4",
+        "type": "agent.file.modified",
+        "source_event_sha256": "673bf73e5fb25c56c9afb5f15cd05cfd291fc2d93b9fcf58e74d3e46f4bdf2a7"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "26f6b0caa9ca8fbffc4b1b872ceac9e04ebe5a9a296b058a42fb4626e7badf4c",
+        "observed_size_bytes": 1650,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/run-lineage.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:13",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/run-metadata.json",
+      "action": "modified",
+      "manifest_sha256": "5426d13f1ead0fd9dd85f8cfb062673c2e75cb2735d15eeff5f3a2c1187549f3",
+      "manifest_size_bytes": 507,
+      "platform_file_event": {
+        "sequence": 4224,
+        "event_id": "evt_a7ad147e6e2d",
+        "type": "agent.file.modified",
+        "source_event_sha256": "a9adffe0756b63aa428467f5b00b4038309709de2a2f184d0f82ec9280bdb826"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "5426d13f1ead0fd9dd85f8cfb062673c2e75cb2735d15eeff5f3a2c1187549f3",
+        "observed_size_bytes": 507,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/run-metadata.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:14",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/runtime-attestation.json",
+      "action": "modified",
+      "manifest_sha256": "578d9911788b7cab1764b985907ca3b1de63fdbd5fe0b2fce9cfb7a6cd697396",
+      "manifest_size_bytes": 8330,
+      "platform_file_event": {
+        "sequence": 4225,
+        "event_id": "evt_6f1396aca74a",
+        "type": "agent.file.modified",
+        "source_event_sha256": "8a84558b01356f40ee67eae6e7839695da0759ae96ac29aecde62bc5b01f74a5"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/runtime-attestation.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:15",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot/runtime-source-attestation.json",
+      "action": "modified",
+      "manifest_sha256": "97ccbb0774786d97d14a3f16a8b00a00d706c7a055515b9b716f03b23117bb78",
+      "manifest_size_bytes": 3566,
+      "platform_file_event": {
+        "sequence": 4226,
+        "event_id": "evt_0a17b7d25117",
+        "type": "agent.file.modified",
+        "source_event_sha256": "9d62fede01754548892cdd2648af3d5dc9aa3dc43aea8874ce1e128cafb8476a"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/runtime-source-attestation.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:16",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/platform_snapshot_index.json",
+      "action": "modified",
+      "manifest_sha256": "d2ce2120aa754715c7d99c9f714b9a915f0d6842c7cef60c22457f497d2ad164",
+      "manifest_size_bytes": 20565,
+      "platform_file_event": {
+        "sequence": 4227,
+        "event_id": "evt_b7f9d71c614a",
+        "type": "agent.file.modified",
+        "source_event_sha256": "fd07fbbd64654cec8af5c4e9d8f27cfd101e092d5bfbc5b1ad72ad791730a2b0"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "d2ce2120aa754715c7d99c9f714b9a915f0d6842c7cef60c22457f497d2ad164",
+        "observed_size_bytes": 20565,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated receipt is superseded by verification against the later immutable snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot_index.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:17",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/public_collaboration.json",
+      "action": "created",
+      "manifest_sha256": "c25d66ab02ddb08639766ed6364e319c64c2bb289f51b9be3dfd23e7d17e215b",
+      "manifest_size_bytes": 7174,
+      "platform_file_event": {
+        "sequence": 4228,
+        "event_id": "evt_0d29c6e8965f",
+        "type": "agent.file.created",
+        "source_event_sha256": "0010b64a72ace389a19884a53cf2c88b1e3ab7c07e180ca9b0d8b9ba3f83e686"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "c25d66ab02ddb08639766ed6364e319c64c2bb289f51b9be3dfd23e7d17e215b",
+        "observed_size_bytes": 7174,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated evidence is refreshed from the immutable 4,395-event snapshot by the merged verifier.",
+      "destination_or_replacement": "evidence/public_collaboration.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:18",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/runtime_session_bindings.json",
+      "action": "created",
+      "manifest_sha256": "48f8dbc042350ce3ddfd8864c60ccd8ad86f43f700ec13ed2bf0963d4ec57950",
+      "manifest_size_bytes": 12835,
+      "platform_file_event": {
+        "sequence": 4229,
+        "event_id": "evt_826d5affab80",
+        "type": "agent.file.created",
+        "source_event_sha256": "44a429f42eb99ddfb0c6a590ff382529035daf14aa82dc9aa073eb7cce4e13f0"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "48f8dbc042350ce3ddfd8864c60ccd8ad86f43f700ec13ed2bf0963d4ec57950",
+        "observed_size_bytes": 12835,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated evidence is refreshed from the immutable 4,395-event snapshot by the merged verifier.",
+      "destination_or_replacement": "evidence/runtime_session_bindings.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:19",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/snapshot_history.json",
+      "action": "created",
+      "manifest_sha256": "59c9ad0160e77c522608e1103f759ae1f5734f07ee7d5d027802a00fe2f25ac9",
+      "manifest_size_bytes": 1449,
+      "platform_file_event": {
+        "sequence": 4230,
+        "event_id": "evt_1246a59b6833",
+        "type": "agent.file.created",
+        "source_event_sha256": "af1ec3c287156837e803cf67b69063a958f7005a7f92f11472cb575af9815c56"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "59c9ad0160e77c522608e1103f759ae1f5734f07ee7d5d027802a00fe2f25ac9",
+        "observed_size_bytes": 1449,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "History structure is retained and extended with the 4,395-event cutoff.",
+      "destination_or_replacement": "evidence/snapshot_history.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:20",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "evidence/tool_lifecycle_summary.json",
+      "action": "created",
+      "manifest_sha256": "dad26cec34051fae9752cf5076c148db79bb0a0b906e26cd93eb9fca395f3942",
+      "manifest_size_bytes": 24444,
+      "platform_file_event": {
+        "sequence": 4231,
+        "event_id": "evt_417c3fcfc2ab",
+        "type": "agent.file.created",
+        "source_event_sha256": "e9db4ce752414e60377d916d64f1f30d4ee1cbcc5327d54c66f42b785ae9784b"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "dad26cec34051fae9752cf5076c148db79bb0a0b906e26cd93eb9fca395f3942",
+        "observed_size_bytes": 24444,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated evidence is refreshed from the immutable 4,395-event snapshot by the merged verifier.",
+      "destination_or_replacement": "evidence/tool_lifecycle_summary.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:21",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "gaps/migration-gap-list.json",
+      "action": "created",
+      "manifest_sha256": "d189177f2f7b3ea58b788f0dc888165b9f43ace5add496f933afa300bd437ad4",
+      "manifest_size_bytes": 9583,
+      "platform_file_event": {
+        "sequence": 4232,
+        "event_id": "evt_30c44b405549",
+        "type": "agent.file.created",
+        "source_event_sha256": "b5ce24b3ba00f8c25de6a475cedbb242694e904b8611165db2fe4a292897ddb7"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "d189177f2f7b3ea58b788f0dc888165b9f43ace5add496f933afa300bd437ad4",
+        "observed_size_bytes": 9583,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Gap taxonomy is adopted; observed counts and current blocker wording are refreshed.",
+      "destination_or_replacement": "gaps/migration-gap-list.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:22",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "mapping/capability_mapping.json",
+      "action": "modified",
+      "manifest_sha256": "8a5e2e14ece7ab2d2c2df6f7b83e7f7b9d0279200e586cf9730157fa28ffda8a",
+      "manifest_size_bytes": 17005,
+      "platform_file_event": {
+        "sequence": 4233,
+        "event_id": "evt_0f82584f2fd3",
+        "type": "agent.file.modified",
+        "source_event_sha256": "d68363d697103884c956bea8dfbe8b614ff40ca1aa7d071a5bfc5331e57ed3a1"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "8a5e2e14ece7ab2d2c2df6f7b83e7f7b9d0279200e586cf9730157fa28ffda8a",
+        "observed_size_bytes": 17005,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Capability taxonomy is adopted; counts, evidence strength and recovery status are refreshed.",
+      "destination_or_replacement": "mapping/capability_mapping.json"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:23",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "pyproject.toml",
+      "action": "created",
+      "manifest_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+      "manifest_size_bytes": 258,
+      "platform_file_event": {
+        "sequence": 4234,
+        "event_id": "evt_5d57c85a1bcb",
+        "type": "agent.file.created",
+        "source_event_sha256": "9e32cf8145a8feab295cc9d8ace913a074081b5495fea3ac21c981717577392b"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "bb710bee388f67f1e87cd8392b0c6db4362cc53fa91ecae42bc43ba3ba6e0b75",
+        "observed_size_bytes": 258,
+        "matches_manifest": true
+      },
+      "decision": "adopt",
+      "decision_reason": "Standard-library package metadata remains the canonical project configuration.",
+      "destination_or_replacement": "pyproject.toml"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:24",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "run_acceptance.py",
+      "action": "created",
+      "manifest_sha256": "a28d69c594aa3f673355f741c565c9da1ee313d6106aa045c722d62409a24911",
+      "manifest_size_bytes": 2284,
+      "platform_file_event": {
+        "sequence": 4235,
+        "event_id": "evt_6688dad03435",
+        "type": "agent.file.created",
+        "source_event_sha256": "9be4f550bd92fa95ac0882dd3578e81cc1b00b850199bb4ecc41863269ab203a"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "a28d69c594aa3f673355f741c565c9da1ee313d6106aa045c722d62409a24911",
+        "observed_size_bytes": 2284,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "The single acceptance CLI is retained and aligned with the merged verifier.",
+      "destination_or_replacement": "run_acceptance.py"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:25",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "runtime_acceptance/__init__.py",
+      "action": "created",
+      "manifest_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+      "manifest_size_bytes": 287,
+      "platform_file_event": {
+        "sequence": 4236,
+        "event_id": "evt_697114588ca0",
+        "type": "agent.file.created",
+        "source_event_sha256": "61198c33d4412c07484fc85adf277bf705ffad1cb2499a0a1d2dc50f9692518c"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "0942048a62128a7695c9089d7a121f4163dfc98a930a301e89e116686577269a",
+        "observed_size_bytes": 287,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Content is considered and merged only where supported by current public evidence.",
+      "destination_or_replacement": "runtime_acceptance/__init__.py"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:26",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "runtime_acceptance/verifier.py",
+      "action": "modified",
+      "manifest_sha256": "145de9da1b004ba10dcd792f6e7775d45252c620a521565ad247267d8c8e99eb",
+      "manifest_size_bytes": 34143,
+      "platform_file_event": {
+        "sequence": 4237,
+        "event_id": "evt_fd5a983dcfcf",
+        "type": "agent.file.modified",
+        "source_event_sha256": "21c99ee677a928b13ba130532e1476bf24db0e7f83054b4ea8232af886d02736"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "145de9da1b004ba10dcd792f6e7775d45252c620a521565ad247267d8c8e99eb",
+        "observed_size_bytes": 34143,
+        "matches_manifest": true
+      },
+      "decision": "adopt_concepts_reimplemented",
+      "decision_reason": "Fail-closed checks and SRE invariants are merged into one standard-library verifier.",
+      "destination_or_replacement": "runtime_acceptance/verifier.py"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:27",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "src/build_evidence_index.py",
+      "action": "deleted",
+      "manifest_sha256": "",
+      "manifest_size_bytes": 0,
+      "platform_file_event": {
+        "sequence": 4238,
+        "event_id": "evt_55c978a930e7",
+        "type": "agent.file.deleted",
+        "source_event_sha256": "8fc5715c9e6205bb05914869d77051ba314893102ffc33925129b1203b886ca9"
+      },
+      "public_export": {
+        "status": "prior_bytes_still_materialized_not_current_state",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": null
+      },
+      "decision": "preserve_deletion",
+      "decision_reason": "Deletion is retained as an explicit merge decision; prior exported bytes are not current state.",
+      "destination_or_replacement": null
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:28",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "src/capture_platform_snapshot.py",
+      "action": "modified",
+      "manifest_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+      "manifest_size_bytes": 15721,
+      "platform_file_event": {
+        "sequence": 4239,
+        "event_id": "evt_99a318bb7ac1",
+        "type": "agent.file.modified",
+        "source_event_sha256": "069587a1aa7f9e84b856d3894159e1fd7950188abf57f746fdbfd8c26889ec36"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "462377b0bfb3b01a56c41d2c8d9047c9379702c548885b8168fc8ddfaf38d20c",
+        "observed_size_bytes": 15721,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Content is considered and merged only where supported by current public evidence.",
+      "destination_or_replacement": "src/capture_platform_snapshot.py"
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:29",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "src/validate_delivery.py",
+      "action": "deleted",
+      "manifest_sha256": "",
+      "manifest_size_bytes": 0,
+      "platform_file_event": {
+        "sequence": 4240,
+        "event_id": "evt_c9df529e4ec0",
+        "type": "agent.file.deleted",
+        "source_event_sha256": "5bf5d584643852d2b1205aa5ffdbf0f5445577d952fce40c4cbe0779144ad323"
+      },
+      "public_export": {
+        "status": "prior_bytes_still_materialized_not_current_state",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": null
+      },
+      "decision": "preserve_deletion",
+      "decision_reason": "Deletion is retained as an explicit merge decision; prior exported bytes are not current state.",
+      "destination_or_replacement": null
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:30",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "tests/test_delivery.py",
+      "action": "deleted",
+      "manifest_sha256": "",
+      "manifest_size_bytes": 0,
+      "platform_file_event": {
+        "sequence": 4241,
+        "event_id": "evt_e179f1e5068e",
+        "type": "agent.file.deleted",
+        "source_event_sha256": "a5842698b53e6c9b18f472eca6ba9a9723652a332fcc1222f38c4eee38384248"
+      },
+      "public_export": {
+        "status": "prior_bytes_still_materialized_not_current_state",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": null
+      },
+      "decision": "preserve_deletion",
+      "decision_reason": "Deletion is retained as an explicit merge decision; prior exported bytes are not current state.",
+      "destination_or_replacement": null
+    },
+    {
+      "review_id": "agent_cb495a9bea1e:31",
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "path": "tests/test_runtime_acceptance.py",
+      "action": "created",
+      "manifest_sha256": "430b80e37909e4ba23141d623b12d09118a098a546f2b7298f957619fe74ffb6",
+      "manifest_size_bytes": 8046,
+      "platform_file_event": {
+        "sequence": 4242,
+        "event_id": "evt_c1928299078c",
+        "type": "agent.file.created",
+        "source_event_sha256": "98c6b93e68e178801482ef0cf970800e02c5498020745b65722033f265aae4b2"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "430b80e37909e4ba23141d623b12d09118a098a546f2b7298f957619fe74ffb6",
+        "observed_size_bytes": 8046,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Useful assertions are merged, but stale snapshot constants are replaced by current-cutoff tests.",
+      "destination_or_replacement": "tests/test_runtime_acceptance.py"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:01",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "README.md",
+      "action": "modified",
+      "manifest_sha256": "6408e653fc50efad40409a3d6da002414acddf39ac78ee0403f1a105767a2af5",
+      "manifest_size_bytes": 2323,
+      "platform_file_event": {
+        "sequence": 3899,
+        "event_id": "evt_235dc983fb14",
+        "type": "agent.file.modified",
+        "source_event_sha256": "45b03f63700374d1079e69076981fae080c7df8a56c4b1582e151fad67c3b02e"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "6408e653fc50efad40409a3d6da002414acddf39ac78ee0403f1a105767a2af5",
+        "observed_size_bytes": 2323,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Useful operating guidance is merged, but counts and verdicts are refreshed against the immutable 4,395-event snapshot.",
+      "destination_or_replacement": "README.md"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:02",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "architecture/runtime-event-envelope.schema.json",
+      "action": "modified",
+      "manifest_sha256": "b4e3060b0bc27e88a7cdb215fa849129a2c8b94125c631c671ba1cd320c10f63",
+      "manifest_size_bytes": 3109,
+      "platform_file_event": {
+        "sequence": 3900,
+        "event_id": "evt_467950d8dbfe",
+        "type": "agent.file.modified",
+        "source_event_sha256": "15d0a7e3afeaa03994feccc9a9ae1970c6685d6e2984c95d9a0cc1d54d075761"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "adopt_concepts_revised",
+      "decision_reason": "Schema concepts are merged into the canonical schema; raw-byte audit status is recorded separately.",
+      "destination_or_replacement": "schemas/runtime-event-envelope.schema.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:03",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "artifacts/sha256_manifest.json",
+      "action": "modified",
+      "manifest_sha256": "0a5230191ac12bf0cc0439320a4ddf4ea56c1206248384c7ffc0135ca32cbc4e",
+      "manifest_size_bytes": 5298,
+      "platform_file_event": {
+        "sequence": 3901,
+        "event_id": "evt_6353ce82a6a9",
+        "type": "agent.file.modified",
+        "source_event_sha256": "8525b64458623aa50deeffb5ddb35738d83a066994d6a2e513b33b83078eb7ff"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "0a5230191ac12bf0cc0439320a4ddf4ea56c1206248384c7ffc0135ca32cbc4e",
+        "observed_size_bytes": 5298,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission manifest is superseded by the final whole-package manifest generated after merge.",
+      "destination_or_replacement": "artifacts/sha256_manifest.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:04",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md",
+      "action": "modified",
+      "manifest_sha256": "2e6c82bca1b53611f77aa78b8eb21b3bc7a19b782a2493b1717b9bff66df8961",
+      "manifest_size_bytes": 22848,
+      "platform_file_event": {
+        "sequence": 3902,
+        "event_id": "evt_9612dbc4ccd0",
+        "type": "agent.file.modified",
+        "source_event_sha256": "b26f9fd4d0c03db51227d8cdda61e95ca982c5b1d99f5d1a69b78e096e97b920"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "2e6c82bca1b53611f77aa78b8eb21b3bc7a19b782a2493b1717b9bff66df8961",
+        "observed_size_bytes": 22848,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Architecture and SRE conclusions are merged while stale counts and overbroad recovery wording are corrected.",
+      "destination_or_replacement": "docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:05",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/artifact-reread-receipts.json",
+      "action": "modified",
+      "manifest_sha256": "46727a1b59023a6658ad20aee07a9e7763151132d978231f4d02391436b1dce5",
+      "manifest_size_bytes": 406,
+      "platform_file_event": {
+        "sequence": 3903,
+        "event_id": "evt_546f974570f9",
+        "type": "agent.file.modified",
+        "source_event_sha256": "eadb95e466eba58fe783315f3735a0d1ee6f8db580ef1ace292e86c1cee4bc42"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "46727a1b59023a6658ad20aee07a9e7763151132d978231f4d02391436b1dce5",
+        "observed_size_bytes": 406,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Empty-registry reread evidence is retained; formal Artifact lifecycle remains blocked.",
+      "destination_or_replacement": "evidence/final_verification.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:06",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/event-index.json",
+      "action": "modified",
+      "manifest_sha256": "3218fba30c10e63ebd45ec538b934f86ef0f30b5c13056712c430f4dac44a5cd",
+      "manifest_size_bytes": 1550801,
+      "platform_file_event": {
+        "sequence": 3904,
+        "event_id": "evt_e783fd21aa45",
+        "type": "agent.file.modified",
+        "source_event_sha256": "6225a7f90a7b700c864aff44cd970641363b30181aca36be1e36b7945d4f61c8"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "3218fba30c10e63ebd45ec538b934f86ef0f30b5c13056712c430f4dac44a5cd",
+        "observed_size_bytes": 1550801,
+        "matches_manifest": true
+      },
+      "decision": "reject_duplicate",
+      "decision_reason": "The large derived event index is not copied; frozen NDJSON plus deterministic verification is canonical.",
+      "destination_or_replacement": "evidence/platform_snapshot/events.ndjson"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:07",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot-receipt.json",
+      "action": "created",
+      "manifest_sha256": "0261b8d8afa354b061b5440b5ea36e394a13b43c3d14ce9996e73ba2e9f0e69d",
+      "manifest_size_bytes": 1694,
+      "platform_file_event": {
+        "sequence": 3905,
+        "event_id": "evt_9a82830aad7d",
+        "type": "agent.file.created",
+        "source_event_sha256": "ec20611a7726678206fe62b37ea792c2d1ad57e3b3e92294231c5218416396af"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "0261b8d8afa354b061b5440b5ea36e394a13b43c3d14ce9996e73ba2e9f0e69d",
+        "observed_size_bytes": 1694,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated receipt is superseded by verification against the later immutable snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot_index.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:08",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/README.md",
+      "action": "created",
+      "manifest_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+      "manifest_size_bytes": 1153,
+      "platform_file_event": {
+        "sequence": 3906,
+        "event_id": "evt_088236dbfbda",
+        "type": "agent.file.created",
+        "source_event_sha256": "99953a91f3fa5087d5584b72ddc6140042e2f8700363ff050d8920053bf6422d"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc",
+        "observed_size_bytes": 1153,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/README.md"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:09",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/artifact-registry.json",
+      "action": "created",
+      "manifest_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "manifest_size_bytes": 3,
+      "platform_file_event": {
+        "sequence": 3907,
+        "event_id": "evt_8295497f65f5",
+        "type": "agent.file.created",
+        "source_event_sha256": "e13cf56e7455ca0595b051bf6989650176a66dc96cc45a37087cca4553c0e74f"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/artifact-registry.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:10",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/critical-events.json",
+      "action": "created",
+      "manifest_sha256": "39aaf913fee43f0977fab2db298f6bb3fb9f4f46506de8ce5a2964f67596324d",
+      "manifest_size_bytes": 261154,
+      "platform_file_event": {
+        "sequence": 3908,
+        "event_id": "evt_eef208155406",
+        "type": "agent.file.created",
+        "source_event_sha256": "b531169538906c40674c15acf2a5ac5dd746b93f0061aa5fc81b5fdea35ac5b3"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/critical-events.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:11",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/events.ndjson",
+      "action": "created",
+      "manifest_sha256": "2ef46c33739fd5aef3393d104ec0b7c26e7be3d7ea14646b69631ffa8d130e30",
+      "manifest_size_bytes": 6114556,
+      "platform_file_event": {
+        "sequence": 3909,
+        "event_id": "evt_3f885a1d1c6b",
+        "type": "agent.file.created",
+        "source_event_sha256": "dce433af30493b868648b3cdc0a7352b9462bdc4f4dcce5c85e721ad3900981e"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "2ef46c33739fd5aef3393d104ec0b7c26e7be3d7ea14646b69631ffa8d130e30",
+        "observed_size_bytes": 6114556,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/events.ndjson"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:12",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/run-lineage.json",
+      "action": "created",
+      "manifest_sha256": "3a63c5b4a87cafe1e6340d139f921a7994bd41aefac25497eb151aff124328d2",
+      "manifest_size_bytes": 1650,
+      "platform_file_event": {
+        "sequence": 3910,
+        "event_id": "evt_b66860d9a964",
+        "type": "agent.file.created",
+        "source_event_sha256": "87760c96add38bd566e725e6ea35a93a3d9cbb714e6946523aa86d9dbd063b6e"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "3a63c5b4a87cafe1e6340d139f921a7994bd41aefac25497eb151aff124328d2",
+        "observed_size_bytes": 1650,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/run-lineage.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:13",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/run-metadata.json",
+      "action": "created",
+      "manifest_sha256": "e29f634e1099d09dc526441d7a1e75f5216b1a2f1c369f372c8a0163e9acc3b3",
+      "manifest_size_bytes": 507,
+      "platform_file_event": {
+        "sequence": 3911,
+        "event_id": "evt_1a129ebef031",
+        "type": "agent.file.created",
+        "source_event_sha256": "9da8afee87af7276eb37c1bdc6ff956cfc730a26a3db611aeb0c2e4b0d0455db"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "e29f634e1099d09dc526441d7a1e75f5216b1a2f1c369f372c8a0163e9acc3b3",
+        "observed_size_bytes": 507,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/run-metadata.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:14",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/runtime-attestation.json",
+      "action": "created",
+      "manifest_sha256": "b5fe730782f3894603314fefc9d188c13a21e0c83b1995f4712ddf768bfbc4fa",
+      "manifest_size_bytes": 8330,
+      "platform_file_event": {
+        "sequence": 3912,
+        "event_id": "evt_c5ae5724ffa8",
+        "type": "agent.file.created",
+        "source_event_sha256": "822dbd0fdfc64dc89274a138469c9c262324dfcde0cad0b3d73a18ae55f2ab6e"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/runtime-attestation.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:15",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-snapshot/runtime-source-attestation.json",
+      "action": "created",
+      "manifest_sha256": "f8282f22ca9ba66390f7a9671a7e086874d3160c018148915bdb83c9ce8d2537",
+      "manifest_size_bytes": 3566,
+      "platform_file_event": {
+        "sequence": 3913,
+        "event_id": "evt_5e20e59127c8",
+        "type": "agent.file.created",
+        "source_event_sha256": "db1f4f938df3e35ec8656fdba66cb111e956d9724cfdc9c1e18cb52e283fc8a7"
+      },
+      "public_export": {
+        "status": "manifest_and_platform_event_match_raw_bytes_not_materialized_in_public_export",
+        "raw_bytes_available": false,
+        "observed_sha256": null,
+        "observed_size_bytes": null,
+        "matches_manifest": false
+      },
+      "decision": "replace",
+      "decision_reason": "Submission snapshot bytes are a valid historical cutoff but are superseded by the later immutable self-consistent snapshot.",
+      "destination_or_replacement": "evidence/platform_snapshot/runtime-source-attestation.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:16",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/platform-verification.json",
+      "action": "modified",
+      "manifest_sha256": "a7ef84ef4cb1f1f058daa5b44ffa6dfd2619bd608f7b97683ab8886ffd0c94a8",
+      "manifest_size_bytes": 9558,
+      "platform_file_event": {
+        "sequence": 3914,
+        "event_id": "evt_6a81a6e720a6",
+        "type": "agent.file.modified",
+        "source_event_sha256": "38a4eb8578db28294d27d19b7fe3a2c749773523676090a68aab9de034994467"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "a7ef84ef4cb1f1f058daa5b44ffa6dfd2619bd608f7b97683ab8886ffd0c94a8",
+        "observed_size_bytes": 9558,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Generated receipt is superseded by verification against the later immutable snapshot.",
+      "destination_or_replacement": "evidence/final_verification.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:17",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/public-collaboration-index.json",
+      "action": "created",
+      "manifest_sha256": "c9e812e5c2b9068cc2c165df90de99b3c9179278e57fc59ec966891114194b0b",
+      "manifest_size_bytes": 2130,
+      "platform_file_event": {
+        "sequence": 3915,
+        "event_id": "evt_f2c417b7c4c7",
+        "type": "agent.file.created",
+        "source_event_sha256": "60713f08355c73c34b57bec9d7a4d29276c16731b833f2bbf8e2be448f75b33e"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "c9e812e5c2b9068cc2c165df90de99b3c9179278e57fc59ec966891114194b0b",
+        "observed_size_bytes": 2130,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Collaboration indexing is adopted and expanded to preserve both historical and current two-round cycles.",
+      "destination_or_replacement": "evidence/public_collaboration.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:18",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/recovery-index.json",
+      "action": "created",
+      "manifest_sha256": "ce5bb761efef5945874e528a1c0f541836181b407ed9a826c4c8cc7f150c0985",
+      "manifest_size_bytes": 2346,
+      "platform_file_event": {
+        "sequence": 3916,
+        "event_id": "evt_736657e897e7",
+        "type": "agent.file.created",
+        "source_event_sha256": "074d824a44ac422b6e7e6e76fb082ebf8add4f58d5028cee9ee127d22e21166c"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "ce5bb761efef5945874e528a1c0f541836181b407ed9a826c4c8cc7f150c0985",
+        "observed_size_bytes": 2346,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Recovery indexing is adopted, but the verdict is downgraded to partial and non-converged.",
+      "destination_or_replacement": "evidence/final_verification.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:19",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/sre-isolated-inventory.json",
+      "action": "modified",
+      "manifest_sha256": "6a68651d628606b461a253421f0c176230d61eec238b2f7bdce8289b33ea0a28",
+      "manifest_size_bytes": 2789,
+      "platform_file_event": {
+        "sequence": 3917,
+        "event_id": "evt_560a0dec9db8",
+        "type": "agent.file.modified",
+        "source_event_sha256": "85d00a683c535c38bc9d8307c1f25622d91f5996a9c1d031d33a35cad170ff7c"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "6a68651d628606b461a253421f0c176230d61eec238b2f7bdce8289b33ea0a28",
+        "observed_size_bytes": 2789,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Content is considered and merged only where supported by current public evidence.",
+      "destination_or_replacement": "evidence/sre-isolated-inventory.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:20",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "evidence/tool-lifecycle-summary.json",
+      "action": "created",
+      "manifest_sha256": "0a28f9a3288d9098d37f575007f04446bae91546e06f132cecfced785a8f7415",
+      "manifest_size_bytes": 1261,
+      "platform_file_event": {
+        "sequence": 3918,
+        "event_id": "evt_4e93c78a07eb",
+        "type": "agent.file.created",
+        "source_event_sha256": "963ad19cecf183b7bf984648ace48fd6b4d85f324f104a297b136ba1c954eea5"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "0a28f9a3288d9098d37f575007f04446bae91546e06f132cecfced785a8f7415",
+        "observed_size_bytes": 1261,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Content is considered and merged only where supported by current public evidence.",
+      "destination_or_replacement": "evidence/tool-lifecycle-summary.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:21",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "gaps/migration-gap-list.json",
+      "action": "modified",
+      "manifest_sha256": "4a239acd5e91f5c4a52e44dd8d9ab1cb8d7624b10c1d2dd08b71f6318656ab98",
+      "manifest_size_bytes": 5897,
+      "platform_file_event": {
+        "sequence": 3919,
+        "event_id": "evt_320a95a58f3a",
+        "type": "agent.file.modified",
+        "source_event_sha256": "dbe2fade303ee1745cbd9db2eaeceb4ab8176ea9688de695e3f18a205964a82c"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "4a239acd5e91f5c4a52e44dd8d9ab1cb8d7624b10c1d2dd08b71f6318656ab98",
+        "observed_size_bytes": 5897,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Gap taxonomy is adopted; observed counts and current blocker wording are refreshed.",
+      "destination_or_replacement": "gaps/migration-gap-list.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:22",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "mapping/capability_mapping.json",
+      "action": "modified",
+      "manifest_sha256": "4808c1c956aef0c8666a3caae45edffd8fb099e67287d3563a8709a0aab7926d",
+      "manifest_size_bytes": 12969,
+      "platform_file_event": {
+        "sequence": 3920,
+        "event_id": "evt_1dd8a0931bed",
+        "type": "agent.file.modified",
+        "source_event_sha256": "464a974215a498308161527edbc54f9c1a49dd90225e89d41c51ca96a0d4cb29"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "4808c1c956aef0c8666a3caae45edffd8fb099e67287d3563a8709a0aab7926d",
+        "observed_size_bytes": 12969,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "Capability taxonomy is adopted; counts, evidence strength and recovery status are refreshed.",
+      "destination_or_replacement": "mapping/capability_mapping.json"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:23",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "pyproject.toml",
+      "action": "modified",
+      "manifest_sha256": "3b2cf973053d530d267a5406fb3eaef39a66020fbf8bfad50d6806158bc02ddd",
+      "manifest_size_bytes": 219,
+      "platform_file_event": {
+        "sequence": 3921,
+        "event_id": "evt_acf268475545",
+        "type": "agent.file.modified",
+        "source_event_sha256": "ebfdb2d687185f4ffc95cb8d29696d636be4dbe0b861a4c32e8fbcb582fe11b2"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "3b2cf973053d530d267a5406fb3eaef39a66020fbf8bfad50d6806158bc02ddd",
+        "observed_size_bytes": 219,
+        "matches_manifest": true
+      },
+      "decision": "adopt",
+      "decision_reason": "Standard-library package metadata remains the canonical project configuration.",
+      "destination_or_replacement": "pyproject.toml"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:24",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "run_acceptance.py",
+      "action": "modified",
+      "manifest_sha256": "695849d8a701f6f1d614760b42e67302fd2f008831a535e783eb73ad259c7888",
+      "manifest_size_bytes": 2546,
+      "platform_file_event": {
+        "sequence": 3922,
+        "event_id": "evt_e0bf34323135",
+        "type": "agent.file.modified",
+        "source_event_sha256": "a8fb458c574cdc90d90989d6f5b04ac1b400e00f6e2fe6d8a517f253260eb350"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "695849d8a701f6f1d614760b42e67302fd2f008831a535e783eb73ad259c7888",
+        "observed_size_bytes": 2546,
+        "matches_manifest": true
+      },
+      "decision": "revise",
+      "decision_reason": "The single acceptance CLI is retained and aligned with the merged verifier.",
+      "destination_or_replacement": "run_acceptance.py"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:25",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "runtime_acceptance/verifier.py",
+      "action": "modified",
+      "manifest_sha256": "d10d605d65b193117757f7659b767d96a3f31eeb4da87ca6efdfb8cb22e26dee",
+      "manifest_size_bytes": 27862,
+      "platform_file_event": {
+        "sequence": 3923,
+        "event_id": "evt_190f63951849",
+        "type": "agent.file.modified",
+        "source_event_sha256": "b74b25debc4edbf3370bd5def068640ca62c82283564e1cc044267ba40cacf63"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "d10d605d65b193117757f7659b767d96a3f31eeb4da87ca6efdfb8cb22e26dee",
+        "observed_size_bytes": 27862,
+        "matches_manifest": true
+      },
+      "decision": "adopt_concepts_reimplemented",
+      "decision_reason": "Fail-closed checks and SRE invariants are merged into one standard-library verifier.",
+      "destination_or_replacement": "runtime_acceptance/verifier.py"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:26",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "tests/test_runtime_acceptance.py",
+      "action": "modified",
+      "manifest_sha256": "05f31746fd7e41ca5fee7f26c84a3eda0f13e94e3e440ad37e4134059948a102",
+      "manifest_size_bytes": 8604,
+      "platform_file_event": {
+        "sequence": 3924,
+        "event_id": "evt_cc964057e6b0",
+        "type": "agent.file.modified",
+        "source_event_sha256": "139b93b487b3552fa8a6df2a04ca9a8c9424496b749ab1ce258e7edc64860155"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "05f31746fd7e41ca5fee7f26c84a3eda0f13e94e3e440ad37e4134059948a102",
+        "observed_size_bytes": 8604,
+        "matches_manifest": true
+      },
+      "decision": "replace",
+      "decision_reason": "Useful assertions are merged, but stale snapshot constants are replaced by current-cutoff tests.",
+      "destination_or_replacement": "tests/test_runtime_acceptance.py"
+    },
+    {
+      "review_id": "agent_bcde21fdede6:27",
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "path": "verification/build-test.log",
+      "action": "modified",
+      "manifest_sha256": "0321850f7f5c9d24383cb69c45f2e9cfd0887db8bf42879d4f1c4af4e5ace61c",
+      "manifest_size_bytes": 3047,
+      "platform_file_event": {
+        "sequence": 3925,
+        "event_id": "evt_a4d736dcfae9",
+        "type": "agent.file.modified",
+        "source_event_sha256": "a319209a63a369168fd522bc51b81c0ee96b3bc384fe87f045f3d7b2ece46298"
+      },
+      "public_export": {
+        "status": "raw_bytes_reread_and_matched",
+        "raw_bytes_available": true,
+        "observed_sha256": "0321850f7f5c9d24383cb69c45f2e9cfd0887db8bf42879d4f1c4af4e5ace61c",
+        "observed_size_bytes": 3047,
+        "matches_manifest": true
+      },
+      "decision": "reject_stale_generated",
+      "decision_reason": "Historical generated log is not current acceptance evidence; a new build/test log is produced.",
+      "destination_or_replacement": "evidence/build_test_run.log"
+    }
+  ],
+  "decision_counts": {
+    "adopt": 2,
+    "adopt_concepts_reimplemented": 2,
+    "adopt_concepts_revised": 1,
+    "preserve_deletion": 5,
+    "reject_duplicate": 1,
+    "reject_stale_generated": 2,
+    "replace": 25,
+    "revise": 20
+  },
+  "raw_byte_audit": {
+    "matched_non_deleted_rows": 45,
+    "non_materialized_non_deleted_rows": 8,
+    "deletion_rows_with_prior_export_bytes": 5,
+    "mismatch_rows": 0,
+    "note": "A matching manifest plus platform file event is not described as independent byte audit when collaboration export bytes are absent."
+  }
+}

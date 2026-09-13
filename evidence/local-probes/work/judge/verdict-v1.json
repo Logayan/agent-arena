@@ -1,0 +1,9 @@
+{
+  "acceptance_eligible": false,
+  "blocker_id": "NEG-001-MISSING-PLATFORM-EVIDENCE-BINDING",
+  "candidate_sha256": "99c53c5d2937eb57912a34ffa782facd707d3aa52758a439fa52aef1d40a2be6",
+  "evidence_class": "observed_local_process",
+  "exit_code": 42,
+  "reason": "required platform_evidence_binding is absent",
+  "verdict": "REJECT"
+}

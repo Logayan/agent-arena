@@ -1,0 +1,7 @@
+{
+  "lease_epoch": 1,
+  "worker_pid": 29144,
+  "fencing_token": "RP-FENCE-EPOCH-1",
+  "valid": false,
+  "revoked_by_epoch": 2
+}

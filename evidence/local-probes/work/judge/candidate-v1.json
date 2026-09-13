@@ -1,0 +1,8 @@
+{
+  "acceptance_eligible": false,
+  "candidate_version": 1,
+  "claim": "local harness candidate deliberately missing a mandatory evidence binding",
+  "node_key": "runtime_probe_harness",
+  "run_id": "run_9226059d74a1",
+  "schema_version": "jianghu.local-candidate.v1"
+}

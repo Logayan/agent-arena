@@ -1,0 +1,9 @@
+{
+  "acceptance_eligible": false,
+  "blocker_id": null,
+  "candidate_sha256": "97225ba8799f44f76b8f8872496830c59e40873bffff14c8c8e9369052b11df1",
+  "evidence_class": "observed_local_process",
+  "exit_code": 0,
+  "reason": "repaired candidate carries all frozen evidence and rejection bindings",
+  "verdict": "ACCEPT"
+}

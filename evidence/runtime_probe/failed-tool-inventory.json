@@ -1,0 +1,767 @@
+{
+  "run_id": "run_9226059d74a1",
+  "count": 76,
+  "limitations": "Summary and exit_code only; raw Tool Result and side-effect causality are not in the public projection.",
+  "items": [
+    {
+      "tool_call_id": "call_EMjRSSz7dfpTm6SSaCDiGX90",
+      "tool_name": "Bash",
+      "completion_sequence": 363,
+      "completion_event_id": "evt_1e56b72e0bd5",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"{\\r\\n  \\\"status\\\": \\\"FAIL\\\",\\r\\n  \\\"error\\\": \\\"[Errno 2] No such file or directory: 'D:\\\\\\\\\\\\\\\\Users\\\\\\\\\\\\\\\\User\\\\\\\\\\\\\\\\My Document\\\\\\\\\\\\\\\\多agent协作与对抗实践\\\\\\\\\\\\\\\\.data\\\\\\\\\\\\\\\\workspaces\\\\\\\\\\\\\\\\project_jianghu\\\\\\\\\\\\\\\\runs\\\\\\\\\\\\\\\\run_9226059d74a1\\\\\\\\\\\\\\\\tmp\\\\\\\\\\\\\\\\claude-agents\\\\\\\\\\\\\\\\agent_445e5f7e8189\\\\\\\\\\\\\\\\delivery\\\\\\\\\\\\\\\\claude-runtime-migration\\\\\\\\\\\\\\\\run_9226059d74a1\\\\\\\\\\\\\\\\acceptance-contract\\\\\\\\\\\\\\\\quality-independent-v1\\\\\\\\\\\\\\\\evidence-snapshot\\\\\\\\\\\\\\\\run-metadata.json'\\\"\\r\\n}\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_G3eeB7sufFKrIr5Ffb8nEGRF",
+      "tool_name": "Bash",
+      "completion_sequence": 497,
+      "completion_event_id": "evt_351335a992bf",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_QYp9L8AbP1YF5UMsDsphNVzp",
+      "tool_name": "Read",
+      "completion_sequence": 536,
+      "completion_event_id": "evt_35a109b30eaf",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\.jianghu-platform-evidence'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_FjZmRLWtMLWd9KFdOrRF5Ha7",
+      "tool_name": "Read",
+      "completion_sequence": 544,
+      "completion_event_id": "evt_6089f612babf",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\.jianghu-platform-evidence\\\\README.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_IWskeFBKPWewLIhW90zpsWPx",
+      "tool_name": "Read",
+      "completion_sequence": 546,
+      "completion_event_id": "evt_4b676fce239d",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\.jianghu-platform-evidence\\\\manifest.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_C0euTAtzt1qzQnqxej0oA1hG",
+      "tool_name": "Read",
+      "completion_sequence": 548,
+      "completion_event_id": "evt_3fc0551d05df",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\.jianghu-platform-evidence\\\\events.ndjson'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_9XezZqNYSi29WqdHOXgPfi5Y",
+      "tool_name": "Read",
+      "completion_sequence": 550,
+      "completion_event_id": "evt_0f8ab8120d43",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\.jianghu-platform-evidence\\\\artifacts.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_Ov8YY5tgEPS1D5OgIvu9gwQC",
+      "tool_name": "Bash",
+      "completion_sequence": 641,
+      "completion_event_id": "evt_d5fa810d74cc",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":75,\"stdout\":\"PAUSED\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_FwhQWVSkkmMEWKjY6tW4aIdW",
+      "tool_name": "Bash",
+      "completion_sequence": 671,
+      "completion_event_id": "evt_c01c19dddc9c",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":73,\"stdout\":\"FAILED_AFTER_SIDE_EFFECT\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_af3wjYqt3SleipaHeRuWTRzJ",
+      "tool_name": "Bash",
+      "completion_sequence": 1026,
+      "completion_event_id": "evt_6e41f4d97d21",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_vF5wMpnBUj9ns48SayB7CTt0",
+      "tool_name": "Read",
+      "completion_sequence": 1039,
+      "completion_event_id": "evt_fd4d153f132f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"workspace_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_ZCM7NKTlHFKRYotyCPb86UZa",
+      "tool_name": "Bash",
+      "completion_sequence": 1088,
+      "completion_event_id": "evt_4b2f6bb5a816",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\src\\\\build_evidence_index.py\\\", line 204, in <module>\\r\\n    raise SystemExit(main())\\r\\n                     ~~~~^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\src\\\\build_evidence_index.py\\\", line 194, in main\\r\\n    index = build_index()\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\src\\\\build_evidence_index.py\\\", line 64, in build_index\\r\\n    raise ValueError(\\\"run metadata event count does not match projection\\\")\\r\\nValueError: run metadata event count does not match projection\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_MBOqTzc2Ir2k6570ZieNYPTX",
+      "tool_name": "Bash",
+      "completion_sequence": 1722,
+      "completion_event_id": "evt_8d3be0ee249f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"    }\\n  ],\\n  \\\"global_release_gate\\\": {\\n    \\\"required_cam_pass_count\\\": 13,\\n    \\\"open_p0_allowed\\\": 0,\\n    \\\"final_judge_verdict\\\": \\\"accept\\\",\\n    \\\"gate_event\\\": \\\"gate.accepted\\\",\\n    \\\"failure_closed\\\": true\\n  },\\n  \\\"current_snapshot_diagnostics\\\": {\\n    \\\"CAM-00\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-01\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-02\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-03\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-04\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-05\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-06\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-07\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-08\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-09\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-10\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-11\\\": \\\"PARTIAL\\\",\\n    \\\"CAM-12\\\": \\\"NOT_PASS\\\"\\n  },\\n  \\\"release_acceptance_status\\\": {\\n    \\\"CAM-00\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-01\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-02\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-03\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-04\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-05\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-06\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-07\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-08\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-09\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-10\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-11\\\": \\\"NOT_PASS\\\",\\n    \\\"CAM-12\\\": \\\"NOT_PASS\\\"\\n  }\\n}\\n\",\"stderr\":\"[Errno 2] No such file or directory: 'claude-runtime-migration/run_9226059d74a1/acceptance-contract\\\\\\\\__pycache__\\\\\\\\verify_contract.cpython-313.pyc.1226961914096'\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_034Fqwwbh3GtMwzqcW16ccpT",
+      "tool_name": "Bash",
+      "completion_sequence": 1745,
+      "completion_event_id": "evt_5db9f294391d",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_O3YUpdKuNscrod2KaFAtKYit",
+      "tool_name": "Bash",
+      "completion_sequence": 1803,
+      "completion_event_id": "evt_bfc148b7b003",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_7rdBsqqM0O2gNwdUQHFb3urG",
+      "tool_name": "Read",
+      "completion_sequence": 1812,
+      "completion_event_id": "evt_d826edb960c4",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"workspace_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_xtvEuLm5ZwOu9cbagksW55br",
+      "tool_name": "Read",
+      "completion_sequence": 2360,
+      "completion_event_id": "evt_980e9ff2867f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\public_submission_agent_cb495a9bea1e.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_DFwvnPqxmSZqvauY4HmnqzCI",
+      "tool_name": "Read",
+      "completion_sequence": 2362,
+      "completion_event_id": "evt_3c88bfacabc3",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\public_submission_agent_bcde21fdede6.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_3WYs5dZf5q5aWBDiMC8DGnun",
+      "tool_name": "Bash",
+      "completion_sequence": 2391,
+      "completion_event_id": "evt_dd1946fd0119",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"[Errno 2] No such file or directory: 'claude-runtime-migration/run_9226059d74a1/acceptance-contract\\\\\\\\__pycache__\\\\\\\\verify_contract.cpython-313.pyc.2343881279728'\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_M9OwO84qO4s1dfH918nO8HnM",
+      "tool_name": "Bash",
+      "completion_sequence": 2406,
+      "completion_event_id": "evt_f070f02e5a0f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"[Errno 2] No such file or directory: 'claude-runtime-migration\\\\\\\\run_9226059d74a1\\\\\\\\acceptance-contract\\\\\\\\__pycache__\\\\\\\\verify_contract.cpython-313.pyc.1395146950896'\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_AfhalvLPrNqm6hukkRfn8vhP",
+      "tool_name": "Read",
+      "completion_sequence": 2414,
+      "completion_event_id": "evt_624eec72e2f7",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\public_submission_architecture.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_mBtrGkctS2QdY070idSjXmML",
+      "tool_name": "Read",
+      "completion_sequence": 2416,
+      "completion_event_id": "evt_e1c85b41d33f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\public_submission_sre.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_BGfvTmwqa68bEqrqoAHWUM03",
+      "tool_name": "Read",
+      "completion_sequence": 2422,
+      "completion_event_id": "evt_862362247399",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\event-index.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_GeWQ4qouRjZBSkXkrT9mWX2L",
+      "tool_name": "Read",
+      "completion_sequence": 2424,
+      "completion_event_id": "evt_649875091e74",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\evidence\\\\platform-verification.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_sdjVwTJEzWEIMLkfOL5rH2bb",
+      "tool_name": "Read",
+      "completion_sequence": 2474,
+      "completion_event_id": "evt_020d06070cc7",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\pyproject.toml'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_VzlkNPvAVBKtEH3SRvXBupTn",
+      "tool_name": "Read",
+      "completion_sequence": 2476,
+      "completion_event_id": "evt_09960ee55366",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\run_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_68PqZINpRgpibJWk7fP8pMk4",
+      "tool_name": "Read",
+      "completion_sequence": 2480,
+      "completion_event_id": "evt_77d0bae569d6",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\runtime_acceptance\\\\__init__.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_FEEqtB7ISzVbKSMH3f1pT492",
+      "tool_name": "Read",
+      "completion_sequence": 2484,
+      "completion_event_id": "evt_25735a925398",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\tests\\\\test_runtime_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_CRYC7uPRVNQvQOkTmPejWguJ",
+      "tool_name": "Bash",
+      "completion_sequence": 2515,
+      "completion_event_id": "evt_09b678a78579",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":128,\"stdout\":\"\",\"stderr\":\"fatal: not a git repository: 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\.git'\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_FOrjuxYKFMYVbDxx46UWeqJq",
+      "tool_name": "Read",
+      "completion_sequence": 2738,
+      "completion_event_id": "evt_d8994ad52631",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"workspace_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_ak1nFV88NkJst2DHDJh78VJJ",
+      "tool_name": "Bash",
+      "completion_sequence": 2749,
+      "completion_event_id": "evt_959e9955ec54",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_mAk8IPMard12j4Hreif7uWdc",
+      "tool_name": "Read",
+      "completion_sequence": 2754,
+      "completion_event_id": "evt_36a9f1068595",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\README.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_9Peo8T5VCbZwriUd0LCrUJUe",
+      "tool_name": "Read",
+      "completion_sequence": 2758,
+      "completion_event_id": "evt_159b01116702",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\run_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_eRU1b6LNguKvOXaxQiLgp0Xm",
+      "tool_name": "Read",
+      "completion_sequence": 2782,
+      "completion_event_id": "evt_3340f1ab0eec",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\runtime_acceptance\\\\verifier.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_6kntcq3I8nHsVcQA1cGIhsuw",
+      "tool_name": "Read",
+      "completion_sequence": 2784,
+      "completion_event_id": "evt_380eee4250a6",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\tests\\\\test_runtime_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_M3B6Ppy98eypHGKe2PJdZ1IT",
+      "tool_name": "Read",
+      "completion_sequence": 2786,
+      "completion_event_id": "evt_55e34a6a1982",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\pyproject.toml'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_C8OfkSinbUPBvyRglsVPpfSx",
+      "tool_name": "Read",
+      "completion_sequence": 2788,
+      "completion_event_id": "evt_36d310040aa8",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\docs\\\\OpenClaw-Claude-Agent-SDK能力映射与架构边界.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_XX4iismPV7B92rkVQKJhS8bD",
+      "tool_name": "Read",
+      "completion_sequence": 2790,
+      "completion_event_id": "evt_64fe053de583",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\mapping\\\\capability_mapping.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_llRWguJzUm1yQ39dsOJFmE0C",
+      "tool_name": "Read",
+      "completion_sequence": 2792,
+      "completion_event_id": "evt_defe0593396c",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\evidence\\\\platform-verification.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_4KIImV34ly2gIs9xXRqVEgl5",
+      "tool_name": "Read",
+      "completion_sequence": 2794,
+      "completion_event_id": "evt_96d92715490e",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\evidence\\\\event-index.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_sUQi0mTnxQQ14YMB7kOPx8S9",
+      "tool_name": "Read",
+      "completion_sequence": 2796,
+      "completion_event_id": "evt_d811c2293050",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\evidence\\\\artifact-reread-receipts.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_dyKwZryj7YoYY06RlGsdVqeI",
+      "tool_name": "Read",
+      "completion_sequence": 2798,
+      "completion_event_id": "evt_05200905c5aa",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\evidence\\\\sre-isolated-inventory.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_vzStn3h0NIMzZekg2Hcz12Ox",
+      "tool_name": "Read",
+      "completion_sequence": 2803,
+      "completion_event_id": "evt_ddb522905335",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\gaps\\\\migration-gap-list.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_uaiwA8eFrY2J0eCTV4UALsgc",
+      "tool_name": "Read",
+      "completion_sequence": 2805,
+      "completion_event_id": "evt_cca9fb76b827",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\architecture\\\\runtime-event-envelope.schema.json'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_7t6mHSfmXGXeF4bLEmGDTnAM",
+      "tool_name": "Bash",
+      "completion_sequence": 2807,
+      "completion_event_id": "evt_cb808d93ff06",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"rows 2529 seq 1 2533\\r\\nmissing [687, 812, 1258, 2248]\\r\\ntypes:\\r\\n462 agent.tool.authorization.decided\\r\\n462 agent.tool.started\\r\\n462 agent.tool.completed\\r\\n462 agent.side_effect.verified\\r\\n159 agent.command.started\\r\\n159 agent.command.completed\\r\\n88 agent.memory.retrieved\\r\\n64 agent.memory.used\\r\\n36 agent.file.created\\r\\n20 agent.test.started\\r\\n20 agent.test.completed\\r\\n15 agent.file.modified\\r\\n11 agent.context.prepared\\r\\n11 agent.action.started\\r\\n11 agent.turn.started\\r\\n9 agent.action.progress\\r\\n8 agent.turn.completed\\r\\n8 agent.action.submitted\\r\\n7 team.member.started\\r\\n7 knowledge.retrieved\\r\\n5 attempt.created\\r\\n5 task.started\\r\\n5 agent.action.retrying\\r\\n4 team.member.completed\\r\\n4 agent.message.sent\\r\\n2 runtime.route.attested\\r\\n2 runtime.fallback.denied\\r\\n2 engineering.submission.published\\r\\n2 team.communication.round.started\\r\\n2 team.communication.round.completed\\r\\n2 agent.action.failed\\r\\n1 run.retry_created\\r\\n1 run.started\\r\\n1 agent.runtime.ready\\r\\n1 team.dossier.published\\r\\n1 team.synthesis.started\\r\\n1 task.retrying\\r\\n1 run.interrupted\\r\\n1 run.recovered\\r\\n1 agent.runtime.recovered\\r\\n1 worker.lease.acquired\\r\\n1 worker.fencing.verified\\r\\n1 run.checkpoint.loaded\\r\\n1 worker.duplicate_side_effect.scan\\r\\n\\r\\nsequences >=1200 event list concise:\\r\\n\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 18, in <module>\\r\\nKeyError: 'id'\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_U3OJxHW7uavC9xzkUgGOHjPi",
+      "tool_name": "Bash",
+      "completion_sequence": 3183,
+      "completion_event_id": "evt_f3ba62da8c13",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"pairing 462 {'agent.tool.authorization.decided': 462, 'agent.tool.started': 462, 'agent.tool.completed': 462, 'agent.side_effect.verified': 462} fully_paired 462\\r\\nauth_decisions Counter({'allow': 462})\\r\\ntools Counter({'Read': 213, 'Bash': 159, 'Edit': 50, 'Write': 40})\\r\\nfailed_by_tool Counter({'Read': 17, 'Bash': 12})\\r\\nfailed_details\\r\\n363 evt_1e56b72e0bd5 call_EMjRSSz7dfpTm6SSaCDiGX90 Bash failed None side failed failed_preserved None agent agent_445e5f7e8189\\r\\n497 evt_351335a992bf call_G3eeB7sufFKrIr5Ffb8nEGRF Bash failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n536 evt_35a109b30eaf call_QYp9L8AbP1YF5UMsDsphNVzp Read failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n544 evt_6089f612babf call_FjZmRLWtMLWd9KFdOrRF5Ha7 Read failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n546 evt_4b676fce239d call_IWskeFBKPWewLIhW90zpsWPx Read failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n548 evt_3fc0551d05df call_C0euTAtzt1qzQnqxej0oA1hG Read failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n550 evt_0f8ab8120d43 call_9XezZqNYSi29WqdHOXgPfi5Y Read failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n641 evt_d5fa810d74cc call_Ov8YY5tgEPS1D5OgIvu9gwQC Bash failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n671 evt_c01c19dddc9c call_FwhQWVSkkmMEWKjY6tW4aIdW Bash failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n1026 evt_6e41f4d97d21 call_af3wjYqt3SleipaHeRuWTRzJ Bash failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n1039 evt_fd4d153f132f call_vF5wMpnBUj9ns48SayB7CTt0 Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n1088 evt_4b2f6bb5a816 call_ZCM7NKTlHFKRYotyCPb86UZa Bash failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n1722 evt_8d3be0ee249f call_MBOqTzc2Ir2k6570ZieNYPTX Bash failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n1745 evt_5db9f294391d call_034Fqwwbh3GtMwzqcW16ccpT Bash failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n1803 evt_bfc148b7b003 call_O3YUpdKuNscrod2KaFAtKYit Bash failed None side failed failed_preserved None agent agent_445e5f7e8189\\r\\n1812 evt_d826edb960c4 call_7rdBsqqM0O2gNwdUQHFb3urG Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2360 evt_980e9ff2867f call_xtvEuLm5ZwOu9cbagksW55br Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2362 evt_3c88bfacabc3 call_DFwvnPqxmSZqvauY4HmnqzCI Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2391 evt_dd1946fd0119 call_3WYs5dZf5q5aWBDiMC8DGnun Bash failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n2406 evt_f070f02e5a0f call_M9OwO84qO4s1dfH918nO8HnM Bash failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n2414 evt_624eec72e2f7 call_AfhalvLPrNqm6hukkRfn8vhP Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2416 evt_e1c85b41d33f call_mBtrGkctS2QdY070idSjXmML Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2422 evt_862362247399 call_BGfvTmwqa68bEqrqoAHWUM03 Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2424 evt_649875091e74 call_GeWQ4qouRjZBSkXkrT9mWX2L Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2474 evt_020d06070cc7 call_sdjVwTJEzWEIMLkfOL5rH2bb Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2476 evt_09960ee55366 call_VzlkNPvAVBKtEH3SRvXBupTn Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2480 evt_77d0bae569d6 call_68PqZINpRgpibJWk7fP8pMk4 Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2484 evt_25735a925398 call_FEEqtB7ISzVbKSMH3f1pT492 Read failed None side failed failed_preserved None agent agent_cb495a9bea1e\\r\\n2515 evt_09b678a78579 call_CRYC7uPRVNQvQOkTmPejWguJ Bash failed None side failed failed_preserved None agent agent_708110b6a225\\r\\n\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 18, in <module>\\r\\nTypeError: unsupported operand type(s) for +: 'int' and 'str'\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_VeIx05v2ML8jhNaFXAi4mOOi",
+      "tool_name": "Bash",
+      "completion_sequence": 3217,
+      "completion_event_id": "evt_9b2740116825",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"/usr/bin/bash: line 97: warning: here-document at line 1 delimited by end-of-file (wanted `PY')\\n  File \\\"<stdin>\\\", line 96\\r\\n    'non_claims':['The timeout retry is not Judge rework.','The interruption/recovery chain is not pause/resume.','\\r\\n                                                                                                                  ^\\r\\nSyntaxError: unterminated string literal (detected at line 96)\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_v6DbyIDaNKcUqaVrCcj0rspO",
+      "tool_name": "Read",
+      "completion_sequence": 3424,
+      "completion_event_id": "evt_0e20836e29f1",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\docs\\\\01_架构视角隔离盘点.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_LoEjgH025H2oBy7MQ8akWMOm",
+      "tool_name": "Read",
+      "completion_sequence": 3436,
+      "completion_event_id": "evt_3bdff8397060",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\docs\\\\02_运行保障视角待合并契约.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_31j3buu8iX7VopeFbgq2YtTF",
+      "tool_name": "Read",
+      "completion_sequence": 3438,
+      "completion_event_id": "evt_8182cb02a3a7",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\docs\\\\OpenClaw-Claude-Agent-SDK能力映射与架构边界.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_EqcsbaemT8LZFPm8ZJdVBa8N",
+      "tool_name": "Read",
+      "completion_sequence": 3440,
+      "completion_event_id": "evt_0c098adc6cad",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\README.md'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_NVs8LGXdYQLVB5yCRBEp9QQK",
+      "tool_name": "Read",
+      "completion_sequence": 3442,
+      "completion_event_id": "evt_7f2849fa4252",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\pyproject.toml'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_qBDm1WOngYWlzaz5jaXdNaML",
+      "tool_name": "Read",
+      "completion_sequence": 3444,
+      "completion_event_id": "evt_9af4a838610c",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\run_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_xljhQFTKojnzWopAK90L4Dtq",
+      "tool_name": "Read",
+      "completion_sequence": 3446,
+      "completion_event_id": "evt_981a76353329",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\tests\\\\test_runtime_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_0nOsetCcqdyytUub0jy5sCO7",
+      "tool_name": "Read",
+      "completion_sequence": 3476,
+      "completion_event_id": "evt_2a360eb24fd0",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\pyproject.toml'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_3Pn7OalEIqeJQa95QQXNSEa3",
+      "tool_name": "Read",
+      "completion_sequence": 3478,
+      "completion_event_id": "evt_50152de802c8",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\run_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_aRonXPpYqSDsNEBgp5LMlC7s",
+      "tool_name": "Read",
+      "completion_sequence": 3480,
+      "completion_event_id": "evt_418a67cda919",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"ENOENT: no such file or directory, open 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\tests\\\\test_runtime_acceptance.py'\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_ElQHgPwQoVVRzuvBnaMJoB0b",
+      "tool_name": "Bash",
+      "completion_sequence": 3542,
+      "completion_event_id": "evt_e5c6e7afc53b",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"test_01_run_identity_and_lineage (test_acceptance_contract.AcceptanceContractTests.test_01_run_identity_and_lineage) ... ok\\r\\ntest_02_projection_count_range_and_gaps (test_acceptance_contract.AcceptanceContractTests.test_02_projection_count_range_and_gaps) ... ok\\r\\ntest_03_projection_identifiers_are_unique (test_acceptance_contract.AcceptanceContractTests.test_03_projection_identifiers_are_unique) ... ok\\r\\ntest_04_projection_is_current_run_only (test_acceptance_contract.AcceptanceContractTests.test_04_projection_is_current_run_only) ... ok\\r\\ntest_05_projection_timestamps_are_nondecreasing (test_acceptance_contract.AcceptanceContractTests.test_05_projection_timestamps_are_nondecreasing) ... ok\\r\\ntest_06_frozen_projection_hash (test_acceptance_contract.AcceptanceContractTests.test_06_frozen_projection_hash) ... ok\\r\\ntest_07_critical_events_are_exact_projection_subset (test_acceptance_contract.AcceptanceContractTests.test_07_critical_events_are_exact_projection_subset) ... ok\\r\\ntest_08_artifact_registry_and_materialized_bytes_are_empty (test_acceptance_contract.AcceptanceContractTests.test_08_artifact_registry_and_materialized_bytes_are_empty) ... ok\\r\\ntest_09_runtime_bindings_match_completed_turns (test_acceptance_contract.AcceptanceContractTests.test_09_runtime_bindings_match_completed_turns) ... ok\\r\\ntest_10_tool_four_event_pairing_and_statuses (test_acceptance_contract.AcceptanceContractTests.test_10_tool_four_event_pairing_and_statuses) ... ok\\r\\ntest_11_tool_operations_and_idempotency_are_unique (test_acceptance_contract.AcceptanceContractTests.test_11_tool_operations_and_idempotency_are_unique) ... ok\\r\\ntest_12_all_current_authorization_decisions_are_allow (test_acceptance_contract.AcceptanceContractTests.test_12_all_current_authorization_decisions_are_allow) ... ok\\r\\ntest_13_file_telemetry_counts (test_acceptance_contract.AcceptanceContractTests.test_13_file_telemetry_counts) ... ok\\r\\ntest_14_public_communication_shape (test_acceptance_contract.AcceptanceContractTests.test_14_public_communication_shape) ... ok\\r\\ntest_15_memory_is_retrieve_use_not_writeback_lifecycle (test_acceptance_contract.AcceptanceContractTests.test_15_memory_is_retrieve_use_not_writeback_lifecycle) ... ok\\r\\ntest_16_judge_artifact_pause_and_memory_write_lifecycle_absent (test_acceptance_contract.AcceptanceContractTests.test_16_judge_artifact_pause_and_memory_write_lifecycle_absent) ... ok\\r\\ntest_17_timeout_reasons_and_epoch1_task_retry_are_preserved (test_acceptance_contract.AcceptanceContractTests.test_17_timeout_reasons_and_epoch1_task_retry_are_preserved) ... ok\\r\\ntest_18_runtime_recovery_rebuilds_current_attempt_but_is_not_judge_rework (test_acceptance_contract.AcceptanceContractTests.test_18_runtime_recovery_rebuilds_current_attempt_but_is_not_judge_rework) ... ok\\r\\ntest_19_matrix_contains_all_controls_and_slot_ranges (test_acceptance_contract.AcceptanceContractTests.test_19_matrix_contains_all_controls_and_slot_ranges) ... FAIL\\r\\ntest_20_snapshot_matches_platform_copy (test_acceptance_contract.AcceptanceContractTests.test_20_snapshot_matches_platform_copy) ... ok\\r\\ntest_21_full_verifier_passes (test_acceptance_contract.AcceptanceContractTests.test_21_full_verifier_passes) ... FAIL\\r\\ntest_22_cli_core_verifier_passes (test_acceptance_contract.AcceptanceContractTests.test_22_cli_core_verifier_passes) ... FAIL\\r\\ntest_23_manifest_build_and_verify_on_temporary_copy (test_acceptance_contract.AcceptanceContractTests.test_23_manifest_build_and_verify_on_temporary_copy) ... ok\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_19_matrix_contains_all_controls_and_slot_ranges (test_acceptance_contract.AcceptanceContractTests.test_19_matrix_contains_all_controls_and_slot_ranges)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\tests\\\\test_acceptance_contract.py\\\", line 135, in test_19_matrix_contains_all_controls_and_slot_ranges\\r\\n    result = V.verify_matrix(DELIVERY / \\\"Claude_Runtime_迁移验收矩阵.md\\\")\\r\\n             ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\verify_acceptance_contract.py\\\", line 363, in verify_matrix\\r\\n    require(phrase in text, f\\\"matrix missing required phrase: {phrase}\\\")\\r\\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\verify_acceptance_contract.py\\\", line 86, in require\\r\\n    raise VerificationError(message)\\r\\ncontract_verifier.VerificationError: matrix missing required phrase: worker.duplicate_side_effect.scan\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_21_full_verifier_passes (test_acceptance_contract.AcceptanceContractTests.test_21_full_verifier_passes)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\tests\\\\test_acceptance_contract.py\\\", line 145, in test_21_full_verifier_passes\\r\\n    result = V.verify_all()\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\verify_acceptance_contract.py\\\", line 399, in verify_all\\r\\n    \\\"matrix\\\": verify_matrix(delivery_root() / \\\"Claude_Runtime_迁移验收矩阵.md\\\"),\\r\\n              ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\verify_acceptance_contract.py\\\", line 363, in verify_matrix\\r\\n    require(phrase in text, f\\\"matrix missing required phrase: {phrase}\\\")\\r\\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\verify_acceptance_contract.py\\\", line 86, in require\\r\\n    raise VerificationError(message)\\r\\ncontract_verifier.VerificationError: matrix missing required phrase: worker.duplicate_side_effect.scan\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_22_cli_core_verifier_passes (test_acceptance_contract.AcceptanceContractTests.test_22_cli_core_verifier_passes)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\qa-contract-run_9226059d74a1\\\\tests\\\\test_acceptance_contract.py\\\", line 151, in test_22_cli_core_verifier_passes\\r\\n    self.assertEqual(completed.returncode, 0, completed.stderr)\\r\\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\nAssertionError: 1 != 0 : {\\r\\n  \\\"status\\\": \\\"FAIL\\\",\\r\\n  \\\"error\\\": \\\"matrix missing required phrase: worker.duplicate_side_effect.scan\\\"\\r\\n}\\r\\n\\r\\n\\r\\n----------------------------------------------------------…<truncated>",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_NAPmxQOF74JWJ2tPf8oeMP9I",
+      "tool_name": "Bash",
+      "completion_sequence": 3585,
+      "completion_event_id": "evt_803951ac5a05",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"compileall=PASS\\r\\nsetUpClass (test_runtime_acceptance.FrozenPlatformEvidenceTests) ... ERROR\\r\\ntest_invalid_ndjson_is_rejected (test_runtime_acceptance.NegativeAndManifestTests.test_invalid_ndjson_is_rejected) ... ok\\r\\ntest_manifest_detects_modified_bytes (test_runtime_acceptance.NegativeAndManifestTests.test_manifest_detects_modified_bytes) ... ok\\r\\ntest_manifest_excludes_live_projection_and_python_cache (test_runtime_acceptance.NegativeAndManifestTests.test_manifest_excludes_live_projection_and_python_cache) ... ok\\r\\n\\r\\n======================================================================\\r\\nERROR: setUpClass (test_runtime_acceptance.FrozenPlatformEvidenceTests)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\delivery\\\\tests\\\\test_runtime_acceptance.py\\\", line 28, in setUpClass\\r\\n    cls.result = verify_platform_evidence(ROOT)\\r\\n                 ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\delivery\\\\runtime_acceptance\\\\verifier.py\\\", line 364, in verify_platform_evidence\\r\\n    mapping = verify_mapping(root, events)\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\delivery\\\\runtime_acceptance\\\\verifier.py\\\", line 137, in verify_mapping\\r\\n    _assert((root / rel_path).is_file(), f\\\"file reference not found for {cid}: {rel_path}\\\")\\r\\n    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_bcde21fdede6\\\\delivery\\\\runtime_acceptance\\\\verifier.py\\\", line 61, in _assert\\r\\n    raise EvidenceError(message)\\r\\nruntime_acceptance.verifier.EvidenceError: file reference not found for CAP-03-TOOL-CALLING: evidence/tool-lifecycle-summary.json\\r\\n\\r\\n----------------------------------------------------------------------\\r\\nRan 3 tests in 0.230s\\r\\n\\r\\nFAILED (errors=1)\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_pnCqQYP09ImDRtB6QpCOJtip",
+      "tool_name": "Bash",
+      "completion_sequence": 3629,
+      "completion_event_id": "evt_ac08d29093bd",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"verify_exit=0\\n\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 3, in <module>\\r\\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/contract-verify.out'\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_DUgfRMSpWk0n0m4j2lF14uAu",
+      "tool_name": "Bash",
+      "completion_sequence": 3723,
+      "completion_event_id": "evt_0fb08b36b230",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":128,\"stdout\":\"\",\"stderr\":\"fatal: not a git repository: 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_445e5f7e8189\\\\delivery\\\\.git'\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_XtJdH0TkhY2jTmfYd3u0N9On",
+      "tool_name": "Bash",
+      "completion_sequence": 3789,
+      "completion_event_id": "evt_528a268ef5a2",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":2,\"stdout\":\"VERIFICATION FAIL: tool platform Session lacks SDK binding\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_sVsYMs69HqmGlSi8JNAF9rzl",
+      "tool_name": "Bash",
+      "completion_sequence": 3872,
+      "completion_event_id": "evt_9fb7357acd1f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"setUpClass (test_delivery.DeliveryTests) ... ERROR\\r\\ntest_all_public_submission_files_have_explicit_review_decisions (test_runtime_acceptance.RuntimeAcceptanceTests.test_all_public_submission_files_have_explicit_review_decisions) ... ok\\r\\ntest_backend_recovery_is_real_but_pause_and_exactly_once_remain_open (test_runtime_acceptance.RuntimeAcceptanceTests.test_backend_recovery_is_real_but_pause_and_exactly_once_remain_open) ... ok\\r\\ntest_empty_registry_is_a_blocker_not_artifact_success (test_runtime_acceptance.RuntimeAcceptanceTests.test_empty_registry_is_a_blocker_not_artifact_success) ... ok\\r\\ntest_manifest_excludes_live_projection_self_and_bytecode (test_runtime_acceptance.RuntimeAcceptanceTests.test_manifest_excludes_live_projection_self_and_bytecode) ... ok\\r\\ntest_manifest_roundtrip_in_isolated_minimal_tree (test_runtime_acceptance.RuntimeAcceptanceTests.test_manifest_roundtrip_in_isolated_minimal_tree) ... ok\\r\\ntest_mapping_and_gap_list_fail_closed (test_runtime_acceptance.RuntimeAcceptanceTests.test_mapping_and_gap_list_fail_closed) ... ok\\r\\ntest_memory_read_use_does_not_claim_write_roundtrip (test_runtime_acceptance.RuntimeAcceptanceTests.test_memory_read_use_does_not_claim_write_roundtrip) ... ok\\r\\ntest_platform_snapshot_rejects_tampered_event_bytes (test_runtime_acceptance.RuntimeAcceptanceTests.test_platform_snapshot_rejects_tampered_event_bytes) ... ok\\r\\ntest_projection_is_immutable_public_safe_and_discloses_filtered_gaps (test_runtime_acceptance.RuntimeAcceptanceTests.test_projection_is_immutable_public_safe_and_discloses_filtered_gaps) ... ok\\r\\ntest_runtime_route_is_claude_and_source_is_attested_not_byte_audited (test_runtime_acceptance.RuntimeAcceptanceTests.test_runtime_route_is_claude_and_source_is_attested_not_byte_audited) ... ok\\r\\ntest_sdk_bindings_are_real_but_do_not_claim_five_roles (test_runtime_acceptance.RuntimeAcceptanceTests.test_sdk_bindings_are_real_but_do_not_claim_five_roles) ... ok\\r\\ntest_tool_lifecycle_has_complete_groups_and_preserves_missing_linkage_gap (test_runtime_acceptance.RuntimeAcceptanceTests.test_tool_lifecycle_has_complete_groups_and_preserves_missing_linkage_gap) ... ok\\r\\ntest_two_actor_two_round_public_collaboration_is_proven (test_runtime_acceptance.RuntimeAcceptanceTests.test_two_actor_two_round_public_collaboration_is_proven) ... ok\\r\\n\\r\\n======================================================================\\r\\nERROR: setUpClass (test_delivery.DeliveryTests)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\tests\\\\test_delivery.py\\\", line 31, in setUpClass\\r\\n    cls.index = indexer.build_index()\\r\\n                ~~~~~~~~~~~~~~~~~~~^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\\\src\\\\build_evidence_index.py\\\", line 64, in build_index\\r\\n    raise ValueError(\\\"run metadata event count does not match projection\\\")\\r\\nValueError: run metadata event count does not match projection\\r\\n\\r\\n----------------------------------------------------------------------\\r\\nRan 13 tests in 0.810s\\r\\n\\r\\nFAILED (errors=1)\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_3fOEtDlmyLTPNJNbR7XyHiLP",
+      "tool_name": "Bash",
+      "completion_sequence": 4111,
+      "completion_event_id": "evt_535fea2dca2a",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":128,\"stdout\":\"claude-runtime-migration/run_9226059d74a1/acceptance-contract/verification.log:547:$ python -B -c \\\"from pathlib import Path; p=Path('claude-runtime-migration/run_9226059d74a1/acceptance-contract'); names=['README.md','Claude_Runtime_迁移验收矩阵.md','acceptance-contract.json','evidence-index.json','execution-recovery-evidence.json','verification-result.json','sha256-manifest.json']; needles=['1320','1,320','224/224','timeout-remediation.json']; hits=[]; [(hits.append((n,s)) if s in (p/n).read_text(encoding='utf-8') else None) for n in names for s in needles]; assert not hits,hits; print('stale_snapshot_references_absent=PASS')\\\"\\n\\n-- intended package files --\\nClaude_Runtime_迁移验收矩阵.md\\nREADME.md\\nacceptance-contract.json\\nevidence-index.json\\nexecution-recovery-evidence.json\\nsha256-manifest.json\\ntests/test_verify_contract.py\\nupdate_snapshot.py\\nverification-result.json\\nverification.log\\nverify_contract.py\\n\\n-- git status --\\n\",\"stderr\":\"fatal: not a git repository: 'D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\.git'\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_Ap315ycVXjbEE7b9oCmIDolX",
+      "tool_name": "Bash",
+      "completion_sequence": 4143,
+      "completion_event_id": "evt_a20bf11e2ed2",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":127,\"stdout\":\"\",\"stderr\":\"/usr/bin/bash: line 1: This: command not found\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_WSJzeoUWmKMHBUdMwVM4rZvy",
+      "tool_name": "Bash",
+      "completion_sequence": 4663,
+      "completion_event_id": "evt_c874db3a3129",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\".jianghu-platform-evidence/README.md\\t1153 bytes\\n.jianghu-platform-evidence/artifact-registry.json\\t3 bytes\\n.jianghu-platform-evidence/critical-events.json\\t527716 bytes\\n.jianghu-platform-evidence/events.ndjson\\t11081957 bytes\\n.jianghu-platform-evidence/run-lineage.json\\t1650 bytes\\n.jianghu-platform-evidence/run-metadata.json\\t507 bytes\\n.jianghu-platform-evidence/runtime-attestation.json\\t18836 bytes\\n.jianghu-platform-evidence/runtime-source-attestation.json\\t3566 bytes\\n\\nSHA256\\n26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc *.jianghu-platform-evidence/README.md\\n37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570 *.jianghu-platform-evidence/artifact-registry.json\\n5e4dc702937d1cab149c026cec73895776dfe89efb857217bf4cdce7d401b62d *.jianghu-platform-evidence/critical-events.json\\nf1d317ce19af2a39fd8e9d3c27724bb056d3f27b2acefb922b1dce80dd6decb3 *.jianghu-platform-evidence/events.ndjson\\na467f4094cc73072a8d8b718cc695aced0a766fd28ccec7e0142caac229548fe *.jianghu-platform-evidence/run-lineage.json\\n38855bf1bbaff4c9e9183604ecc0faaa4bec3c6151696fd22fd4b7bbf1a6e560 *.jianghu-platform-evidence/run-metadata.json\\nf85d4a333f2ec51ea511af29b83092a86bbe514c309e57b92901c96c5be6ca62 *.jianghu-platform-evidence/runtime-attestation.json\\nf97a5d93f770459908968ba083e26fa13f83a485352d0d079b48dd0aa59faa2e *.jianghu-platform-evidence/runtime-source-attestation.json\\n\",\"stderr\":\"sha256sum: .jianghu-platform-evidence/artifacts: Is a directory\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_r0BaLfOsVuQhUY0ymeUHqJYj",
+      "tool_name": "Bash",
+      "completion_sequence": 4702,
+      "completion_event_id": "evt_9ad68a00559e",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 11, in <module>\\r\\n  File \\\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\Lib\\\\shutil.py\\\", line 262, in copyfile\\r\\n    with open(dst, 'wb') as fdst:\\r\\n         ~~~~^^^^^^^^^^^\\r\\nFileNotFoundError: [Errno 2] No such file or directory: 'claude-runtime-migration\\\\\\\\run_9226059d74a1\\\\\\\\acceptance-contract\\\\\\\\final-consensus-v1\\\\\\\\evidence-snapshot\\\\\\\\critical-events.json'\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_sMDH3v7HF0d7ge8hAADiIshk",
+      "tool_name": "Bash",
+      "completion_sequence": 4744,
+      "completion_event_id": "evt_4cc7690cb1bc",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"rows 4625 seq 1 4633 lasttime 2026-09-12T07:21:16.782535+00:00\\r\\ngaps [687, 812, 1258, 2248, 3898, 3937, 4211, 4329] count 8\\r\\nevent_id unique 4625 of 4625\\r\\nsequence unique 4625 of 4625\\r\\nsource_event_sha256 unique 4625 of 4625\\r\\nrunids Counter({'run_9226059d74a1': 4625})\\r\\nagent.action.failed\\t2\\r\\nagent.action.progress\\t21\\r\\nagent.action.retrying\\t5\\r\\nagent.action.started\\t24\\r\\nagent.action.submitted\\t20\\r\\nagent.command.completed\\t282\\r\\nagent.command.started\\t282\\r\\nagent.context.prepared\\t24\\r\\nagent.file.created\\t63\\r\\nagent.file.deleted\\t6\\r\\nagent.file.modified\\t69\\r\\nagent.memory.retrieved\\t192\\r\\nagent.memory.used\\t160\\r\\nagent.message.sent\\t12\\r\\nagent.runtime.ready\\t1\\r\\nagent.runtime.recovered\\t1\\r\\nagent.side_effect.verified\\t815\\r\\nagent.test.completed\\t42\\r\\nagent.test.started\\t42\\r\\nagent.tool.authorization.decided\\t815\\r\\nagent.tool.completed\\t815\\r\\nagent.tool.started\\t815\\r\\nagent.turn.completed\\t20\\r\\nagent.turn.started\\t24\\r\\nattempt.created\\t5\\r\\nengineering.submission.published\\t4\\r\\nknowledge.retrieved\\t10\\r\\nrun.checkpoint.loaded\\t1\\r\\nrun.interrupted\\t1\\r\\nrun.recovered\\t1\\r\\nrun.retry_created\\t1\\r\\nrun.started\\t1\\r\\nruntime.fallback.denied\\t2\\r\\nruntime.route.attested\\t2\\r\\ntask.retrying\\t1\\r\\ntask.started\\t5\\r\\nteam.communication.round.completed\\t6\\r\\nteam.communication.round.started\\t6\\r\\nteam.dossier.published\\t3\\r\\nteam.member.completed\\t8\\r\\nteam.member.started\\t10\\r\\nteam.synthesis.started\\t3\\r\\nworker.duplicate_side_effect.scan\\t1\\r\\nworker.fencing.verified\\t1\\r\\nworker.lease.acquired\\t1\\r\\n\\r\\nKEY LATE\\r\\n3900 agent.file.modified evt_467950d8dbfe 2026-09-12T07:13:12.562271+00:00 {\\\"action\\\": \\\"modified\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"architecture/runtime-event-envelope.schema.json\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"2e3075cac945a7a46a3d7cdd0a85cb5140a6a927f80f2d1d0b08f32841c71a76\\\", \\\"sha256\\\": \\\"b4e3060b0bc27e88a7cdb215fa849129a2c8b94125c631c671ba1cd320c10f63\\\", \\\"size_bytes\\\": 3109, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= architecture/runtime-event-envelope.schema.json\\r\\n3901 agent.file.modified evt_6353ce82a6a9 2026-09-12T07:13:12.583449+00:00 {\\\"action\\\": \\\"modified\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"artifacts/sha256_manifest.json\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"eaa623c5a66b260a39dff6c0eb1a969f9df0a68985871d6584c592fec0fe78cf\\\", \\\"sha256\\\": \\\"0a5230191ac12bf0cc0439320a4ddf4ea56c1206248384c7ffc0135ca32cbc4e\\\", \\\"size_bytes\\\": 5298, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= artifacts/sha256_manifest.json\\r\\n3902 agent.file.modified evt_9612dbc4ccd0 2026-09-12T07:13:12.612163+00:00 {\\\"action\\\": \\\"modified\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"a2ac468c8bee0173cca16c3975773700797d4303e2f6add046eb57eb1ace648a\\\", \\\"sha256\\\": \\\"2e6c82bca1b53611f77aa78b8eb21b3bc7a19b782a2493b1717b9bff66df8961\\\", \\\"size_bytes\\\": 22848, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md\\r\\n3903 agent.file.modified evt_546f974570f9 2026-09-12T07:13:12.626950+00:00 {\\\"action\\\": \\\"modified\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"evidence/artifact-reread-receipts.json\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"658ccb89cafb306b1aac731056b1caf6f215695db08c945951848b82b75385b6\\\", \\\"sha256\\\": \\\"46727a1b59023a6658ad20aee07a9e7763151132d978231f4d02391436b1dce5\\\", \\\"size_bytes\\\": 406, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= evidence/artifact-reread-receipts.json\\r\\n3904 agent.file.modified evt_e783fd21aa45 2026-09-12T07:13:12.644935+00:00 {\\\"action\\\": \\\"modified\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"evidence/event-index.json\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"44bc754c81ff8d7b8438343eca0cd51240c8c0624caa983799337f1ea23a47e6\\\", \\\"sha256\\\": \\\"3218fba30c10e63ebd45ec538b934f86ef0f30b5c13056712c430f4dac44a5cd\\\", \\\"size_bytes\\\": 1550801, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= evidence/event-index.json\\r\\n3905 agent.file.created evt_9a82830aad7d 2026-09-12T07:13:12.673940+00:00 {\\\"action\\\": \\\"created\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \\\"evidence/platform-snapshot-receipt.json\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"previous_sha256\\\": \\\"\\\", \\\"sha256\\\": \\\"0261b8d8afa354b061b5440b5ea36e394a13b43c3d14ce9996e73ba2e9f0e69d\\\", \\\"size_bytes\\\": 1694, \\\"task_id\\\": \\\"task_3fcece33c2d0\\\"} summary= evidence/platform-snapshot-receipt.json\\r\\n3906 agent.file.created evt_088236dbfbda 2026-09-12T07:13:12.699298+00:00 {\\\"action\\\": \\\"created\\\", \\\"agent_id\\\": \\\"agent_bcde21fdede6\\\", \\\"node_key\\\": \\\"openclaw_baseline_mapping\\\", \\\"path\\\": \n\n... [97562 characters truncated] ...\n\nt_exact_filtered_sequences_are_frozen (test_verify_contract.AcceptanceContractTests.test_exact_filtered_sequences_are_frozen) ... ok\\\\r\\\\ntest_live_snapshot_passes_integrity_checks (test_verify_contract.AcceptanceContractTests.test_live_snapshot_passes_integrity_checks) ... ok\\\\r\\\\ntest_manifest_excludes_itself_logs_and_bytecode (test_verify_contract.AcceptanceContractTests.test_manifest_excludes_itself_logs_and_bytecode) ... ok\\\\r\\\\ntest_memory_file_and_artifact_boundaries_are_frozen (test_verify_contract.AcceptanceContractTests.test_memory_file_and_artifact_boundaries_are_frozen) ... ok\\\\r\\\\ntest_non_empty_registry_fails_closed (test_verify_contract.AcceptanceContractTests.test_non_empty_registry_fails_closed) ... ok\\\\r\\\\ntest_runtime_binding_and_tool_counts_are_frozen (test_verify_contract.AcceptanceContractTests.test_runtime_binding_and_tool_counts_are_frozen) ... ok\\\\r\\\\ntest_tampered_event_bytes_fail_closed (test_verify_contract.AcceptanceContractTests.test_tampered_event_bytes_fail_closed) ... ok\\\\r\\\\ntest_timeout_retry_is_not_promoted_to_judge_rework (test_verify_contract.AcceptanceContractTests.test_timeout_retry_is_not_promoted_to_judge_rework) ... ok\\\\r\\\\n\\\\r\\\\n----------------------------------------------------------------------\\\\r\\\\nRan 10 tests in 0.967s\\\\r\\\\n\\\\r\\\\nOK\\\\r\\\\nexit_code=0\\\\n\\\\n$ python -B verify_contract.py verify --output evidence-index.json\\\\n{\\\\r\\\\n  \\\\\\\"cam_release_pass\\\\\\\": \\\\\\\"0/13\\\\\\\",\\\\r\\\\n  \\\\\\\"checks\\\\\\\": [\\\\r\\\\n    \\\\\\\"evidence_file_size_and_sha256=8/8\\\\\\\",\\\\r\\\\n    \\\\\\\"event_projection_structure=PASS\\\\\\\",\\\\r\\\\n    \\\\\\\"timeout_retry_and_current_turn_key_events=PASS\\\\\\\",\\\\r\\\\n    \\\\\\\"critical_events_exact_subset=153/153\\\\\\\",\\\\r\\\\n    \\\\\\\"run_metadata_and_lineage=PASS\\\\\\\",\\\\r\\\\n    \\\\\\\"artifact_registry_snapshot=0_and_materialized=0\\\\\\\",\\\\r\\\\n    \\\\\\\"runtime_session_bindings=7/7\\\\\\\",\\\\r\\\\n    \\\\\\\"runtime_source_attestation=9/9\\\\\\\",\\\\r\\\\n    \\\\\\\"tool_phase_pairing=224/224;completed=212;failed=12\\\\\\\",\\\\r\\\\n    \\\\\\\"memory_retrieved=80;memory_used=56;current_run_memory_commit=0\\\\\\\",\\\\r\\\\n    \\\\\\\"file_events=47;artifact_registry=0\\\\\\\",\\\\r\\\\n    \\\\\\\"machine_readable_contract=13_controls_fail_closed\\\\\\\",\\\\r\\\\n    \\\\\\\"fixed_entry_matches_package_matrix=PASS\\\\\\\",\\\\r\\\\n    \\\\\\\"timeout_remediation_classification=PASS\\\\\\\"\\\\r\\\\n  ],\\\\r\\\\n  \\\\\\\"evidence\\\\\\\": {\\\\r\\\\n    \\\\\\\"artifact_registry_count\\\\\\\": 0,\\\\r\\\\n    \\\\\\\"critical_rows\\\\\\\": 153,\\\\r\\\\n    \\\\\\\"current_run_memory_commit_events\\\\\\\": 0,\\\\r\\\\n    \\\\\\\"distinct_binding_agents\\\\\\\": 3,\\\\r\\\\n    \\\\\\\"distinct_sdk_sessions\\\\\\\": 7,\\\\r\\\\n    \\\\\\\"event_rows\\\\\\\": 1320,\\\\r\\\\n    \\\\\\\"event_type_counts\\\\\\\": {\\\\r\\\\n      \\\\\\\"agent.action.failed\\\\\\\": 1,\\\\r\\\\n      \\\\\\\"agent.action.progress\\\\\\\": 7,\\\\r\\\\n      \\\\\\\"agent.action.retrying\\\\\\\": 2,\\\\r\\\\n      \\\\\\\"agent.action.started\\\\\\\": 10,\\\\r\\\\n      \\\\\\\"agent.action.submitted\\\\\\\": 7,\\\\r\\\\n      \\\\\\\"agent.command.completed\\\\\\\": 68,\\\\r\\\\n      \\\\\\\"agent.command.started\\\\\\\": 68,\\\\r\\\\n      \\\\\\…<truncated>",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_PG64f3Q4q39oKtyiStVWjMRO",
+      "tool_name": "Bash",
+      "completion_sequence": 4754,
+      "completion_event_id": "evt_8e14f779200b",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\claude-runtime-migration\\\\run_9226059d74a1\\\\acceptance-contract\\\\final-consensus-v1\\\\analyze_snapshot.py\\\", line 428, in <module>\\r\\n    raise SystemExit(main())\\r\\n                     ~~~~^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\claude-runtime-migration\\\\run_9226059d74a1\\\\acceptance-contract\\\\final-consensus-v1\\\\analyze_snapshot.py\\\", line 410, in main\\r\\n    report = analyze(Path(args.snapshot))\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\claude-runtime-migration\\\\run_9226059d74a1\\\\acceptance-contract\\\\final-consensus-v1\\\\analyze_snapshot.py\\\", line 128, in analyze\\r\\n    raise AssertionError(f\\\"missing evidence files: {missing}\\\")\\r\\nAssertionError: missing evidence files: ['critical-events.json', 'artifact-registry.json', 'runtime-attestation.json', 'runtime-source-attestation.json']\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_DKlLqzDOMYNNvFGEX0DgdH1M",
+      "tool_name": "Bash",
+      "completion_sequence": 4766,
+      "completion_event_id": "evt_ee6d8b214782",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"/d/Users/User/My Document/多agent协作与对抗实践/.data/workspaces/project_jianghu/runs/run_9226059d74a1/tmp/claude-agents/agent_708110b6a225/delivery/claude-runtime-migration/run_9226059d74a1/acceptance-contract/final-consensus-v1\\nbase D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\claude-runtime-migration\\\\run_9226059d74a1\\\\acceptance-contract\\\\final-consensus-v1\\\\evidence-snapshot True\\r\\n\",\"stderr\":\"Traceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 4, in <module>\\r\\n  File \\\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\Lib\\\\pathlib\\\\_local.py\\\", line 515, in stat\\r\\n    return os.stat(self, follow_symlinks=follow_symlinks)\\r\\n           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\nFileNotFoundError: [WinError 3] 系统找不到指定的路径。: 'evidence-snapshot\\\\\\\\artifact-registry.json'\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_gC3dln0TIWUVIdkma04BmFEW",
+      "tool_name": "Bash",
+      "completion_sequence": 4807,
+      "completion_event_id": "evt_be1f7395c0ed",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"/usr/bin/bash: line 75: warning: here-document at line 1 delimited by end-of-file (wanted `PY')\\n  File \\\"<stdin>\\\", line 74\\r\\n    material='prior_bytes_still_materialized_not_current_state' if exists else 'no_bytes_expe\\r\\n                                                                               ^\\r\\nSyntaxError: unterminated string literal (detected at line 74)\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_YwCIpjpxpvutuBYgTwEWUOvl",
+      "tool_name": "Bash",
+      "completion_sequence": 4909,
+      "completion_event_id": "evt_3484a1437e8f",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"$ python -B -m py_compile analyze_snapshot.py build_contract.py verify_final_contract.py tests/test_final_contract.py\\nexit_code=0\\n\\n$ python -B analyze_snapshot.py --snapshot evidence-snapshot --output evidence-analysis.recheck.json\\n{\\r\\n  \\\"status\\\": \\\"PASS_SNAPSHOT_INTERNAL_INTEGRITY\\\",\\r\\n  \\\"event_rows\\\": 4625,\\r\\n  \\\"sequence_max\\\": 4633,\\r\\n  \\\"critical\\\": \\\"393/393\\\",\\r\\n  \\\"artifact_registry\\\": 0,\\r\\n  \\\"bindings\\\": 20,\\r\\n  \\\"binding_agents\\\": 4,\\r\\n  \\\"sdk_sessions\\\": 20,\\r\\n  \\\"tool_calls\\\": 815,\\r\\n  \\\"cam_pass\\\": \\\"0/13\\\"\\r\\n}\\r\\nexit_code=0\\nanalysis_byte_compare_exit_code=0\\n\\n$ python -B verify_final_contract.py build-manifest\\n{\\r\\n  \\\"schema_version\\\": \\\"jianghu.sha256-manifest.v1\\\",\\r\\n  \\\"run_id\\\": \\\"run_9226059d74a1\\\",\\r\\n  \\\"self_excluded\\\": true,\\r\\n  \\\"excluded\\\": [\\r\\n    \\\"sha256-manifest.json\\\",\\r\\n    \\\"verification.log\\\"\\r\\n  ],\\r\\n  \\\"member_count\\\": 18,\\r\\n  \\\"payload_bytes\\\": 12102589,\\r\\n  \\\"members\\\": [\\r\\n    {\\r\\n      \\\"path\\\": \\\"Claude_Runtime_迁移验收矩阵.md\\\",\\r\\n      \\\"size_bytes\\\": 41054,\\r\\n      \\\"sha256\\\": \\\"985d3e06cb9549b1d54e9861a175e1ba24e0fbf5acfadf7920c9e5b50ebd498e\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"Claude_Runtime_迁移验收矩阵.v3.0.predecessor.md\\\",\\r\\n      \\\"size_bytes\\\": 37630,\\r\\n      \\\"sha256\\\": \\\"9b96723369f0b76621d5d8c7279ca7964cb6974c05ee97e7f87d3e5e0c83c67a\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"acceptance-contract.json\\\",\\r\\n      \\\"size_bytes\\\": 233360,\\r\\n      \\\"sha256\\\": \\\"4002ef515dddbded378b9d87376f2ff2d1822ebbf8d38e7f6b4a35169778ddcc\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"analyze_snapshot.py\\\",\\r\\n      \\\"size_bytes\\\": 16131,\\r\\n      \\\"sha256\\\": \\\"6d02a463d2d993ffbde689a63eeb488f84c0f8e8749129ff85bbd2e1a6299fc8\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"build_contract.py\\\",\\r\\n      \\\"size_bytes\\\": 30379,\\r\\n      \\\"sha256\\\": \\\"28dba8171f81e8332233c646ce0f54fbb979b7921e38df1ad16cdb7693ed62ce\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-analysis.json\\\",\\r\\n      \\\"size_bytes\\\": 85090,\\r\\n      \\\"sha256\\\": \\\"d1fd6bb19dc49b56a5b8d42ca5591932fd4526eca8e38f568c3fef7428e5ba48\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-freeze.json\\\",\\r\\n      \\\"size_bytes\\\": 1536,\\r\\n      \\\"sha256\\\": \\\"a1311c2ddbe7632a4f5c00fc0306a0ba3459e101f2eb595fea7b10148f8dc558\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/README.md\\\",\\r\\n      \\\"size_bytes\\\": 1153,\\r\\n      \\\"sha256\\\": \\\"26da50b71d53864f7d105ffc96a90bea6738aa9e81399c2b774b83f095cc28bc\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/artifact-registry.json\\\",\\r\\n      \\\"size_bytes\\\": 3,\\r\\n      \\\"sha256\\\": \\\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/critical-events.json\\\",\\r\\n      \\\"size_bytes\\\": 527716,\\r\\n      \\\"sha256\\\": \\\"5e4dc702937d1cab149c026cec73895776dfe89efb857217bf4cdce7d401b62d\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/events.ndjson\\\",\\r\\n      \\\"size_bytes\\\": 11081957,\\r\\n      \\\"sha256\\\": \\\"f1d317ce19af2a39fd8e9d3c27724bb056d3f27b2acefb922b1dce80dd6decb3\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/run-lineage.json\\\",\\r\\n      \\\"size_bytes\\\": 1650,\\r\\n      \\\"sha256\\\": \\\"a467f4094cc73072a8d8b718cc695aced0a766fd28ccec7e0142caac229548fe\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/run-metadata.json\\\",\\r\\n      \\\"size_bytes\\\": 507,\\r\\n      \\\"sha256\\\": \\\"38855bf1bbaff4c9e9183604ecc0faaa4bec3c6151696fd22fd4b7bbf1a6e560\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/runtime-attestation.json\\\",\\r\\n      \\\"size_bytes\\\": 18836,\\r\\n      \\\"sha256\\\": \\\"f85d4a333f2ec51ea511af29b83092a86bbe514c309e57b92901c96c5be6ca62\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"evidence-snapshot/runtime-source-attestation.json\\\",\\r\\n      \\\"size_bytes\\\": 3566,\\r\\n      \\\"sha256\\\": \\\"f97a5d93f770459908968ba083e26fa13f83a485352d0d079b48dd0aa59faa2e\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"revision-metadata.json\\\",\\r\\n      \\\"size_bytes\\\": 2603,\\r\\n      \\\"sha256\\\": \\\"8adf0de141004c8eff1e9c5d456fe30bf540bb12cfb8c9670ac7c4a5368ff11d\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"tests/test_final_contract.py\\\",\\r\\n      \\\"size_bytes\\\": 6214,\\r\\n      \\\"sha256\\\": \\\"ed61b07c8a936a305418a570eb6ec004a1c5d27e5af0911f111f1cc845e3374b\\\"\\r\\n    },\\r\\n    {\\r\\n      \\\"path\\\": \\\"verify_final_contract.py\\\",\\r\\n      \\\"size_bytes\\\": 13204,\\r\\n      \\\"sha256\\\": \\\"a6842d3f4db26079b281f33dddf62cb29451b11504f0b4cd2f073f1c8da0f38e\\\"\\r\\n    }\\r\\n  ]\\r\\n}\\r\\nexit_code=0\\n\\n$ python -B -m unittest discover -s tests -v\\ntest_all_release_controls_fail_closed (test_final_contract.FinalContractTests.test_all_release_controls_fail_closed) ... ok\\r\\ntest_artifact_registry_is_empty_and_not_promoted (test_final_contract.FinalContractTests.test_artifact_registry_is_empty_and_not_promoted) ... ok\\r\\ntest_contract_has_13_controls_and_129_slots (test_final_contract.FinalContractTests.test_contract_has_13_controls_and_129_slots) ... ok\\r\\ntest_contract_rejects_cam_pass_promotion (test_final_contract.FinalContractTests.test_contract_rejects_cam_pass_promotion) ... ok\\r\\ntest_contract_rejects_missing_evidence_slot (test_final_contract.FinalContractTests.test_contract_rejects_missing_evidence_slot) ... ok\\r\\ntest_contract_rejects_nonempty_registry (test_final_contract.FinalContractTests.test_contract_rejects_nonempty_registry) ... ok\\r\\ntest_contract_rejects_promoted_migration (test_final_contract.FinalContractTests.test_contract_rejects_promoted_migration) ... ok\\r\\ntest_critical_events_are_exact_subset (test_final_contract.FinalContractTests.test_critical_events_are_exact_subset) ... ok\\r\\ntest_fixed_entry_matches_versioned_candidate (test_final_contract.FinalContractTests.test_fixed_entry_matches_versioned_candidate) ... ok\\r\\ntest_frozen_snapshot_reanalyzes_exactly (test_final_contract.FinalContractTests.test_frozen_snapshot_reanalyzes_exactly) ... ok\\r\\ntest_judge_memory_write_and_pause_remain_absent (test_final_contract.FinalContractTests.test_judge_memory_write_and_pause_remain_absent) ... ok\\r\\ntest_matrix_contains_reject_and_recovery_contracts (test_final_contract.FinalContractTests.test_matrix_contains_reject_and_recovery_contracts) ... FAIL\\r\\ntest_projection_identity_and_gaps (test_final_contract.FinalContractTests.test_projection_identity_and_gaps) ... ok\\r\\ntest_recovery_scan_is_monitoring_not_reconciled (test_final_contract.FinalContractTests.test_recovery_scan_is_monitoring_not_reconciled) ... ok\\r\\ntest_revision_preserves_readback_boundary (test_final_contract.FinalContractTests.test_revision_preserves_readback_boundary) ... ok\\r\\ntest_revision_rejects_quality_claim_as_independent_readback (test_final_contract.FinalContractTests.test_revision_rejects_quality_claim_as_independent_readback) ... ok\\r\\ntest_runtime_binding_counts (test_final_contract.FinalContractTests.test_runtime_binding_counts) ... ok\\r\\ntest_tool_pairing_and_missing_negative_boundary (test_final_contract.FinalContractTests.test_tool_pairing_and_missing_negative_boundary) ... ok\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_matrix_contains_reject_and_recovery_contracts (test_final_contract.FinalContractTests.test_matrix_contains_reject_and_recovery_contracts)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_708110b6a225\\\\delivery\\\\final-contract-run_9226059d74a1\\\\tests\\\\test_final_contract.py\\\", line 75, in test_matrix_contains_reject_and_recovery_contracts\\r\\n    vf.assert_matrix_content((BASE / \\\"Claude_Runtime_迁移验收矩阵.md\\\").read_text(encoding=\\\"utf-8\\\"))\\r\\n    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_ji…<truncated>",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_hjOp4RDUif8cWtT8dNPNN0a6",
+      "tool_name": "Bash",
+      "completion_sequence": 4921,
+      "completion_event_id": "evt_4de87aa7ee31",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_iOSeKOHhgeEgZWVdRLZ50EcH",
+      "tool_name": "Bash",
+      "completion_sequence": 5077,
+      "completion_event_id": "evt_08cf9ccc176c",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":2,\"stdout\":\"VERIFICATION FAIL: Memory use lacks matching retrieval: evt_10caf6bb9ee4\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_ZhGbO8OKyQLG3CMfOkmSwk4R",
+      "tool_name": "Bash",
+      "completion_sequence": 5370,
+      "completion_event_id": "evt_b87150bbe1c8",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"error\":\"command_path_not_allowed\"}",
+      "side_effect_status": "failed_preserved"
+    },
+    {
+      "tool_call_id": "call_buIqQmiCNQ4l1F1gOW9dhcsb",
+      "tool_name": "Bash",
+      "completion_sequence": 5611,
+      "completion_event_id": "evt_1166c1cff2bc",
+      "status": "failed",
+      "exit_code": null,
+      "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"\",\"stderr\":\"test_01_projection_identity_and_boundary (test_runtime_acceptance.RuntimeProbeTests.test_01_projection_identity_and_boundary) ... ok\\r\\ntest_02_projection_sequences_ids_and_source_hashes (test_runtime_acceptance.RuntimeProbeTests.test_02_projection_sequences_ids_and_source_hashes) ... ok\\r\\ntest_03_snapshot_reanalysis_matches (test_runtime_acceptance.RuntimeProbeTests.test_03_snapshot_reanalysis_matches) ... ok\\r\\ntest_04_runtime_route_attested (test_runtime_acceptance.RuntimeProbeTests.test_04_runtime_route_attested) ... ok\\r\\ntest_05_sdk_bindings_resolve_to_completed_turns (test_runtime_acceptance.RuntimeProbeTests.test_05_sdk_bindings_resolve_to_completed_turns) ... ok\\r\\ntest_06_sdk_lifecycle_limit_is_explicit (test_runtime_acceptance.RuntimeProbeTests.test_06_sdk_lifecycle_limit_is_explicit) ... ok\\r\\ntest_07_tool_four_phase_pairing (test_runtime_acceptance.RuntimeProbeTests.test_07_tool_four_phase_pairing) ... ok\\r\\ntest_08_tool_raw_result_limit_is_fail_closed (test_runtime_acceptance.RuntimeProbeTests.test_08_tool_raw_result_limit_is_fail_closed) ... ok\\r\\ntest_09_registered_artifact_bytes_and_source_events (test_runtime_acceptance.RuntimeProbeTests.test_09_registered_artifact_bytes_and_source_events) ... ok\\r\\ntest_10_artifact_lifecycle_limit (test_runtime_acceptance.RuntimeProbeTests.test_10_artifact_lifecycle_limit) ... ok\\r\\ntest_11_public_collaboration_not_five_roles (test_runtime_acceptance.RuntimeProbeTests.test_11_public_collaboration_not_five_roles) ... FAIL\\r\\ntest_12_judge_absent_and_rework_partial (test_runtime_acceptance.RuntimeProbeTests.test_12_judge_absent_and_rework_partial) ... ok\\r\\ntest_13_memory_write_exists_but_roundtrip_not_proven (test_runtime_acceptance.RuntimeProbeTests.test_13_memory_write_exists_but_roundtrip_not_proven) ... ok\\r\\ntest_14_platform_pause_absent_recovery_partial (test_runtime_acceptance.RuntimeProbeTests.test_14_platform_pause_absent_recovery_partial) ... ok\\r\\ntest_15_local_faults_are_real_but_not_acceptance_eligible (test_runtime_acceptance.RuntimeProbeTests.test_15_local_faults_are_real_but_not_acceptance_eligible) ... ok\\r\\ntest_16_local_receipt_hash_chain (test_runtime_acceptance.RuntimeProbeTests.test_16_local_receipt_hash_chain) ... ok\\r\\ntest_17_predeclared_candidate_rejects_with_42 (test_runtime_acceptance.RuntimeProbeTests.test_17_predeclared_candidate_rejects_with_42) ... ok\\r\\ntest_18_remediation_creates_v2_without_mutating_v1 (test_runtime_acceptance.RuntimeProbeTests.test_18_remediation_creates_v2_without_mutating_v1) ... ok\\r\\ntest_19_cam_and_final_verdict_fail_closed (test_runtime_acceptance.RuntimeProbeTests.test_19_cam_and_final_verdict_fail_closed) ... ok\\r\\ntest_20_schema_and_manifest (test_runtime_acceptance.RuntimeProbeTests.test_20_schema_and_manifest) ... ok\\r\\ntest_21_full_verifier (test_runtime_acceptance.RuntimeProbeTests.test_21_full_verifier) ... ok\\r\\ntest_22_gate_cli_exit_code (test_runtime_acceptance.RuntimeProbeTests.test_22_gate_cli_exit_code) ... ok\\r\\n\\r\\n======================================================================\\r\\nFAIL: test_11_public_collaboration_not_five_roles (test_runtime_acceptance.RuntimeProbeTests.test_11_public_collaboration_not_five_roles)\\r\\n----------------------------------------------------------------------\\r\\nTraceback (most recent call last):\\r\\n  File \\\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_9226059d74a1\\\\tmp\\\\claude-agents\\\\agent_eac0b56ad320\\\\delivery\\\\tests\\\\test_runtime_acceptance.py\\\", line 103, in test_11_public_collaboration_not_five_roles\\r\\n    self.assertEqual(4, len(collaboration[\\\"rounds\\\"]))\\r\\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\r\\nAssertionError: 4 != 2\\r\\n\\r\\n----------------------------------------------------------------------\\r\\nRan 22 tests in 1.688s\\r\\n\\r\\nFAILED (failures=1)\\r\\n\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}",
+      "side_effect_status": "failed_preserved"
+    }
+  ]
+}

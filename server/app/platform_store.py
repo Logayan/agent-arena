@@ -12,6 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from .knowledge_index import SUPPORTED_SUFFIXES, chunk_sections, extract_document, score_chunks
+from .run_budget import active_run_seconds, configured_maximum_run_minutes
 from .secret_store import protect_secret, unprotect_secret
 
 
@@ -79,6 +80,51 @@ def _row_value(row: Any, key: str, index: int = 0) -> Any:
         return row[key]
     except (IndexError, KeyError, TypeError):
         return row[index]
+
+
+def workspace_file_category(relative_path: str) -> str:
+    """Classify a delivered workspace path for the formal-delivery UI."""
+    normalized = relative_path.replace("\\", "/").strip("/")
+    path = Path(normalized.lower())
+    name = path.name
+    parts = set(path.parts)
+    suffix = path.suffix
+
+    if (
+        name.startswith("dockerfile")
+        or name.startswith("compose.")
+        or name.startswith("docker-compose.")
+        or parts.intersection({"docker", "k8s", "kubernetes", "helm", "deploy", "deployment"})
+    ):
+        return "deployment"
+    if (
+        parts.intersection({"test", "tests", "testing", "spec", "specs", "__tests__"})
+        or name.startswith("test_")
+        or name.endswith(("_test.py", ".test.js", ".test.ts", ".test.tsx", ".spec.js", ".spec.ts", ".spec.tsx"))
+    ):
+        return "test"
+    if parts.intersection({"reports", "report", "audit", "audits", "evidence"}):
+        return "report"
+    if parts.intersection({"docs", "doc", "documentation"}) or suffix in {".md", ".markdown", ".rst", ".adoc"}:
+        return "documentation"
+    if (
+        name.startswith(".env")
+        or name in {"makefile", "pyproject.toml", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"}
+        or suffix in {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".properties"}
+    ):
+        return "configuration"
+    if suffix in {
+        ".py", ".pyi", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".vue", ".java", ".kt",
+        ".kts", ".go", ".rs", ".rb", ".php", ".cs", ".fs", ".fsx", ".c", ".cc", ".cpp", ".h",
+        ".hpp", ".swift", ".scala", ".sh", ".ps1", ".bat", ".cmd", ".sql", ".html", ".css", ".scss", ".sass",
+    }:
+        return "code"
+    if suffix in {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp", ".avif", ".mp3", ".wav",
+        ".mp4", ".webm", ".woff", ".woff2", ".ttf", ".otf",
+    }:
+        return "asset"
+    return "other"
 
 
 STARTER_STRATEGIST = {
@@ -237,7 +283,7 @@ class PlatformStore:
                     cognitive_level INTEGER NOT NULL DEFAULT 2,
                     authority_level INTEGER NOT NULL DEFAULT 1,
                     skills_json TEXT NOT NULL DEFAULT '[]',
-                    runtime TEXT NOT NULL DEFAULT 'openclaw',
+                    runtime TEXT NOT NULL DEFAULT 'claude_code',
                     memory_policy_json TEXT NOT NULL DEFAULT '{}',
                     version TEXT NOT NULL DEFAULT '1.0.0',
                     visibility TEXT NOT NULL DEFAULT 'private',
@@ -279,6 +325,7 @@ class PlatformStore:
                     selected_team_ids_json TEXT NOT NULL DEFAULT '[]',
                     workflow_id TEXT,
                     run_id TEXT,
+                    git_delivery_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY(organization_id) REFERENCES organizations(id)
@@ -366,6 +413,48 @@ class PlatformStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS git_delivery_configs (
+                    project_id TEXT PRIMARY KEY,
+                    provider TEXT NOT NULL DEFAULT 'generic',
+                    repository_url TEXT NOT NULL DEFAULT '',
+                    api_base_url TEXT NOT NULL DEFAULT '',
+                    default_branch TEXT NOT NULL DEFAULT 'main',
+                    delivery_mode TEXT NOT NULL DEFAULT 'local_commit',
+                    username TEXT NOT NULL DEFAULT '',
+                    encrypted_token TEXT NOT NULL DEFAULT '',
+                    token_hint TEXT NOT NULL DEFAULT '',
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(project_id) REFERENCES projects(id)
+                );
+                CREATE TABLE IF NOT EXISTS git_credentials (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    provider TEXT NOT NULL DEFAULT 'github',
+                    api_base_url TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT '',
+                    encrypted_token TEXT NOT NULL,
+                    token_hint TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS project_git_repositories (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    repository_url TEXT NOT NULL,
+                    default_branch TEXT NOT NULL DEFAULT 'main',
+                    credential_id TEXT,
+                    default_delivery_mode TEXT NOT NULL DEFAULT 'create_merge_request',
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(project_id,repository_url),
+                    FOREIGN KEY(project_id) REFERENCES projects(id),
+                    FOREIGN KEY(credential_id) REFERENCES git_credentials(id)
+                );
                 CREATE TABLE IF NOT EXISTS knowledge_sources (
                     id TEXT PRIMARY KEY,
                     project_id TEXT NOT NULL,
@@ -440,6 +529,25 @@ class PlatformStore:
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY(project_id) REFERENCES projects(id),
                     FOREIGN KEY(workflow_id) REFERENCES workflows(id)
+                );
+                CREATE TABLE IF NOT EXISTS run_git_deliveries (
+                    run_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    repository_id TEXT NOT NULL,
+                    repository_name TEXT NOT NULL,
+                    repository_url TEXT NOT NULL,
+                    target_branch TEXT NOT NULL,
+                    delivery_mode TEXT NOT NULL,
+                    credential_id TEXT,
+                    provider TEXT NOT NULL,
+                    api_base_url TEXT NOT NULL DEFAULT '',
+                    username TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(run_id) REFERENCES runs(id),
+                    FOREIGN KEY(project_id) REFERENCES projects(id),
+                    FOREIGN KEY(repository_id) REFERENCES project_git_repositories(id),
+                    FOREIGN KEY(credential_id) REFERENCES git_credentials(id)
                 );
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY,
@@ -570,6 +678,12 @@ class PlatformStore:
             )
             if "team_id" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN team_id TEXT")
+            db.execute(
+                """UPDATE tasks SET status='cancelled',updated_at=?
+                WHERE status NOT IN ('completed','failed','cancelled')
+                AND run_id IN (SELECT id FROM runs WHERE status='cancelled')""",
+                (utc_now(),),
+            )
             artifact_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(artifacts)").fetchall()}
             if "organization_id" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
@@ -625,9 +739,10 @@ class PlatformStore:
             if "skills_json" not in agent_columns:
                 db.execute("ALTER TABLE agent_blueprints ADD COLUMN skills_json TEXT NOT NULL DEFAULT '[]'")
             if "runtime" not in agent_columns:
-                db.execute("ALTER TABLE agent_blueprints ADD COLUMN runtime TEXT NOT NULL DEFAULT 'openclaw'")
+                db.execute("ALTER TABLE agent_blueprints ADD COLUMN runtime TEXT NOT NULL DEFAULT 'claude_code'")
             if "memory_policy_json" not in agent_columns:
                 db.execute("ALTER TABLE agent_blueprints ADD COLUMN memory_policy_json TEXT NOT NULL DEFAULT '{}'")
+            db.execute("UPDATE agent_blueprints SET runtime='claude_code' WHERE runtime='openclaw'")
             db.execute("UPDATE agent_blueprints SET family_id=id WHERE family_id IS NULL OR family_id='' ")
             workflow_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(workflows)").fetchall()}
             if "family_id" not in workflow_columns:
@@ -649,6 +764,8 @@ class PlatformStore:
                 db.execute("ALTER TABLE company_tasks ADD COLUMN workflow_id TEXT")
             if "run_id" not in commission_columns:
                 db.execute("ALTER TABLE company_tasks ADD COLUMN run_id TEXT")
+            if "git_delivery_json" not in commission_columns:
+                db.execute("ALTER TABLE company_tasks ADD COLUMN git_delivery_json TEXT NOT NULL DEFAULT '{}'")
             organization_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(organizations)").fetchall()}
             if "world_type" not in organization_columns:
                 db.execute("ALTER TABLE organizations ADD COLUMN world_type TEXT NOT NULL DEFAULT 'open_society'")
@@ -700,7 +817,7 @@ class PlatformStore:
                         STARTER_STRATEGIST["description"], STARTER_STRATEGIST["persona"],
                         json.dumps(STARTER_STRATEGIST["capabilities"], ensure_ascii=False),
                         json.dumps(STARTER_STRATEGIST["skills"], ensure_ascii=False),
-                        "openclaw", json.dumps(STARTER_STRATEGIST["memory_policy"], ensure_ascii=False),
+                        "claude_code", json.dumps(STARTER_STRATEGIST["memory_policy"], ensure_ascii=False),
                         "1.0.0", "public", "active", now, now,
                     ),
                 )
@@ -934,11 +1051,15 @@ class PlatformStore:
         return resolved
 
     @staticmethod
-    def _write_text_atomic(path: Path, content: str) -> None:
+    def _write_bytes_atomic(path: Path, content: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(f"{path.suffix}.tmp")
-        temporary.write_text(content, encoding="utf-8")
+        temporary.write_bytes(content)
         temporary.replace(path)
+
+    @classmethod
+    def _write_text_atomic(cls, path: Path, content: str) -> None:
+        cls._write_bytes_atomic(path, content.encode("utf-8"))
 
     def _write_json_atomic(self, path: Path, payload: dict[str, Any]) -> None:
         self._write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2))
@@ -1049,9 +1170,10 @@ class PlatformStore:
         if not destination.is_relative_to(root):
             raise ValueError("invalid_artifact_path")
         content = str(artifact["content"])
-        self._write_text_atomic(destination, content)
-        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        size_bytes = len(content.encode("utf-8"))
+        content_bytes = content.encode("utf-8")
+        self._write_bytes_atomic(destination, content_bytes)
+        digest = hashlib.sha256(content_bytes).hexdigest()
+        size_bytes = len(content_bytes)
         artifact.update(
             {
                 "relative_path": relative_path.as_posix(),
@@ -1090,7 +1212,7 @@ class PlatformStore:
             workflow = self.get_workflow(str(run_record["workflow_id"]))
             if not workflow:
                 continue
-            self._ensure_run_workspace(run_record, workflow)
+            workspace = self._ensure_run_workspace(run_record, workflow)
             with self._connect() as db:
                 artifact_rows = db.execute(
                     """SELECT a.*,COALESCE(t.node_key,'artifact') AS node_key
@@ -1101,6 +1223,40 @@ class PlatformStore:
                 artifact = dict(artifact_row)
                 node_key = str(artifact.pop("node_key", "artifact"))
                 if artifact.get("relative_path"):
+                    relative_path = Path(str(artifact["relative_path"]))
+                    destination = (Path(workspace["root"]) / relative_path).resolve()
+                    workspace_root = Path(workspace["root"]).resolve()
+                    canonical_bytes = str(artifact.get("content") or "").encode("utf-8")
+                    expected_sha256 = str(artifact.get("sha256") or "")
+                    if (
+                        destination.is_relative_to(workspace_root)
+                        and expected_sha256
+                        and hashlib.sha256(canonical_bytes).hexdigest() == expected_sha256
+                    ):
+                        observed_sha256 = (
+                            hashlib.sha256(destination.read_bytes()).hexdigest()
+                            if destination.is_file()
+                            else ""
+                        )
+                        if observed_sha256 != expected_sha256:
+                            self._write_bytes_atomic(destination, canonical_bytes)
+                            with self._connect() as repair_db:
+                                self._event(
+                                    repair_db,
+                                    str(artifact["run_id"]),
+                                    "artifact.storage.repaired",
+                                    "artifact",
+                                    f"“{artifact['title']}”的落盘字节已恢复为登记内容",
+                                    "平台只修复了由文本换行转换造成的存储字节偏差；Artifact 内容、版本和登记哈希均未改写。",
+                                    {
+                                        "artifact_id": artifact["id"],
+                                        "relative_path": relative_path.as_posix(),
+                                        "previous_observed_sha256": observed_sha256,
+                                        "registered_sha256": expected_sha256,
+                                        "repaired_size_bytes": len(canonical_bytes),
+                                        "reason": "platform_text_newline_translation",
+                                    },
+                                )
                     continue
                 materialized = self._materialize_artifact(artifact, node_key=node_key)
                 with self._connect() as db:
@@ -1178,7 +1334,7 @@ class PlatformStore:
         capabilities: list[str],
         visibility: str = "private",
         skills: list[dict[str, Any]] | None = None,
-        runtime: str = "openclaw",
+        runtime: str = "claude_code",
         memory_policy: dict[str, Any] | None = None,
         cognitive_level: int = 2,
         authority_level: int = 1,
@@ -1344,10 +1500,6 @@ class PlatformStore:
 
     def list_organizations(self) -> list[dict[str, Any]]:
         with self._connect() as db:
-            db.execute(
-                """UPDATE organizations SET name='我的江湖',owner_name='发起人',world_type='open_society',
-                user_identity='发起人' WHERE id='org_jianghu' AND (name LIKE '%Agent 公司%' OR name LIKE '%公司%')"""
-            )
             rows = db.execute("SELECT * FROM organizations ORDER BY created_at").fetchall()
         return [dict(row) for row in rows]
 
@@ -1518,15 +1670,24 @@ class PlatformStore:
             )
         return self.get_team(team_id)  # type: ignore[return-value]
 
-    def create_company_task(self, *, organization_id: str, title: str, description: str) -> dict[str, Any]:
+    def create_company_task(
+        self,
+        *,
+        organization_id: str,
+        title: str,
+        description: str,
+        git_delivery: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         now = utc_now()
         task_id = new_id("company_task")
         with self._connect() as db:
             if db.execute("SELECT 1 FROM organizations WHERE id=?", (organization_id,)).fetchone() is None:
                 raise ValueError("organization_not_found")
             db.execute(
-                "INSERT INTO company_tasks(id,organization_id,title,description,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
-                (task_id, organization_id, title, description, "assessing", now, now),
+                """INSERT INTO company_tasks
+                   (id,organization_id,title,description,status,git_delivery_json,created_at,updated_at)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (task_id, organization_id, title, description, "assessing", json.dumps(git_delivery or {}, ensure_ascii=False), now, now),
             )
         return self.get_company_task(task_id)  # type: ignore[return-value]
 
@@ -1542,6 +1703,7 @@ class PlatformStore:
             ).fetchone()
         result = dict(row)
         result["selected_team_ids"] = json.loads(result.pop("selected_team_ids_json"))
+        result["git_delivery"] = json.loads(result.pop("git_delivery_json", "{}") or "{}")
         result["assessments"] = [self._assessment(item) for item in assessments]
         result["team_proposal"] = self._team_proposal(proposal) if proposal else None
         return result
@@ -1830,14 +1992,20 @@ class PlatformStore:
                     ORDER BY r.run_version DESC, r.updated_at DESC""",
                     (),
                 ).fetchall()
-        latest_by_family: dict[str, dict[str, Any]] = {}
+        versions_by_family: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
             record = dict(row)
             family_id = str(record.get("run_family_id") or record.get("id"))
-            if family_id not in latest_by_family:
-                record["run_family_id"] = family_id
-                latest_by_family[family_id] = record
-        result = list(latest_by_family.values())
+            record["run_family_id"] = family_id
+            versions_by_family.setdefault(family_id, []).append(record)
+        active_statuses = {"running", "pause_requested", "paused"}
+        result = [
+            next(
+                (record for record in versions if str(record.get("status")) in active_statuses),
+                versions[0],
+            )
+            for versions in versions_by_family.values()
+        ]
         result.sort(key=lambda item: (str(item.get("updated_at") or ""), str(item.get("id") or "")), reverse=True)
         with self._connect() as db:
             for record in result:
@@ -2951,6 +3119,277 @@ class PlatformStore:
             "promoted_config_id": promoted_id,
         }
 
+    def list_git_delivery_configs(self) -> list[dict[str, Any]]:
+        with self._connect() as db:
+            rows = db.execute(
+                """SELECT project_id,provider,repository_url,api_base_url,default_branch,delivery_mode,
+                          username,token_hint,active,created_at,updated_at
+                   FROM git_delivery_configs ORDER BY updated_at DESC"""
+            ).fetchall()
+        return [dict(row) | {"active": bool(row["active"])} for row in rows]
+
+    def list_git_credentials(self) -> list[dict[str, Any]]:
+        with self._connect() as db:
+            rows = db.execute(
+                """SELECT id,name,provider,api_base_url,username,token_hint,active,created_at,updated_at
+                   FROM git_credentials ORDER BY active DESC,updated_at DESC"""
+            ).fetchall()
+        return [dict(row) | {"active": bool(row["active"])} for row in rows]
+
+    def get_git_credential(self, credential_id: str, include_secret: bool = False) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM git_credentials WHERE id=?", (credential_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["active"] = bool(result["active"])
+        encrypted = str(result.pop("encrypted_token") or "")
+        if include_secret:
+            result["token"] = unprotect_secret(encrypted, key_path=self.secret_key_path)
+        return result
+
+    def save_git_credential(
+        self,
+        *,
+        credential_id: str | None,
+        name: str,
+        provider: str,
+        api_base_url: str,
+        username: str,
+        token: str | None,
+        active: bool,
+    ) -> dict[str, Any]:
+        if provider not in {"github", "gitlab", "gitee", "generic"}:
+            raise ValueError("git_provider_invalid")
+        normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("git_credential_name_required")
+        now = utc_now()
+        resolved_id = credential_id or new_id("gitcred")
+        with self._connect() as db:
+            existing = db.execute("SELECT * FROM git_credentials WHERE id=?", (resolved_id,)).fetchone()
+            if existing and not token:
+                encrypted_token = str(existing["encrypted_token"])
+                token_hint = str(existing["token_hint"])
+            elif token:
+                encrypted_token = protect_secret(token, key_path=self.secret_key_path)
+                token_hint = self._token_hint(token)
+            else:
+                raise ValueError("git_token_required")
+            values = (
+                normalized_name, provider, api_base_url.rstrip("/"), username.strip(),
+                encrypted_token, token_hint, int(active), now, resolved_id,
+            )
+            if existing:
+                db.execute(
+                    """UPDATE git_credentials
+                       SET name=?,provider=?,api_base_url=?,username=?,encrypted_token=?,token_hint=?,active=?,updated_at=?
+                       WHERE id=?""",
+                    values,
+                )
+            else:
+                db.execute(
+                    """INSERT INTO git_credentials
+                       (name,provider,api_base_url,username,encrypted_token,token_hint,active,updated_at,id,created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    (*values, now),
+                )
+        return self.get_git_credential(resolved_id)  # type: ignore[return-value]
+
+    def list_project_git_repositories(self, project_id: str | None = None) -> list[dict[str, Any]]:
+        query = """SELECT r.*,c.name AS credential_name,c.token_hint AS credential_token_hint
+                   FROM project_git_repositories r
+                   LEFT JOIN git_credentials c ON c.id=r.credential_id"""
+        values: tuple[Any, ...] = ()
+        if project_id:
+            query += " WHERE r.project_id=?"
+            values = (project_id,)
+        query += " ORDER BY r.active DESC,r.updated_at DESC"
+        with self._connect() as db:
+            rows = db.execute(query, values).fetchall()
+        return [dict(row) | {"active": bool(row["active"])} for row in rows]
+
+    def get_project_git_repository(self, repository_id: str) -> dict[str, Any] | None:
+        return next((item for item in self.list_project_git_repositories() if item["id"] == repository_id), None)
+
+    def save_project_git_repository(
+        self,
+        *,
+        repository_id: str | None,
+        project_id: str,
+        name: str,
+        repository_url: str,
+        default_branch: str,
+        credential_id: str | None,
+        default_delivery_mode: str,
+        active: bool,
+    ) -> dict[str, Any]:
+        if default_delivery_mode not in {"local_commit", "push_branch", "create_merge_request"}:
+            raise ValueError("git_delivery_mode_invalid")
+        normalized_url = repository_url.strip()
+        if not normalized_url:
+            raise ValueError("git_repository_url_required")
+        now = utc_now()
+        resolved_id = repository_id or new_id("gitrepo")
+        with self._connect() as db:
+            if not db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+                raise ValueError("project_not_found")
+            if credential_id and not db.execute("SELECT 1 FROM git_credentials WHERE id=?", (credential_id,)).fetchone():
+                raise ValueError("git_credential_not_found")
+            existing = db.execute("SELECT 1 FROM project_git_repositories WHERE id=?", (resolved_id,)).fetchone()
+            values = (
+                project_id, name.strip() or normalized_url.rsplit("/", 1)[-1].removesuffix(".git"), normalized_url,
+                default_branch.strip() or "main", credential_id, default_delivery_mode, int(active), now, resolved_id,
+            )
+            if existing:
+                db.execute(
+                    """UPDATE project_git_repositories
+                       SET project_id=?,name=?,repository_url=?,default_branch=?,credential_id=?,default_delivery_mode=?,active=?,updated_at=?
+                       WHERE id=?""",
+                    values,
+                )
+            else:
+                db.execute(
+                    """INSERT INTO project_git_repositories
+                       (project_id,name,repository_url,default_branch,credential_id,default_delivery_mode,active,updated_at,id,created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                    (*values, now),
+                )
+        return self.get_project_git_repository(resolved_id)  # type: ignore[return-value]
+
+    def bind_run_git_delivery(
+        self,
+        run_id: str,
+        *,
+        repository_id: str,
+        target_branch: str | None = None,
+        delivery_mode: str | None = None,
+    ) -> dict[str, Any]:
+        repository = self.get_project_git_repository(repository_id)
+        if not repository or not repository.get("active"):
+            raise ValueError("git_repository_not_found")
+        mode = str(delivery_mode or repository["default_delivery_mode"])
+        if mode not in {"local_commit", "push_branch", "create_merge_request"}:
+            raise ValueError("git_delivery_mode_invalid")
+        now = utc_now()
+        with self._connect() as db:
+            run = db.execute("SELECT id,project_id FROM runs WHERE id=?", (run_id,)).fetchone()
+            if not run:
+                raise ValueError("run_not_found")
+            if str(run["project_id"]) != str(repository["project_id"]):
+                raise ValueError("git_repository_project_mismatch")
+            credential = None
+            if repository.get("credential_id"):
+                credential = db.execute("SELECT * FROM git_credentials WHERE id=?", (repository["credential_id"],)).fetchone()
+                if not credential or not bool(credential["active"]):
+                    raise ValueError("git_credential_not_available")
+            values = (
+                str(run["project_id"]), repository_id, str(repository["name"]), str(repository["repository_url"]),
+                (target_branch or str(repository["default_branch"])).strip() or "main", mode,
+                repository.get("credential_id"), str(credential["provider"] if credential else "generic"),
+                str(credential["api_base_url"] if credential else ""), str(credential["username"] if credential else ""),
+                now, run_id,
+            )
+            existing = db.execute("SELECT 1 FROM run_git_deliveries WHERE run_id=?", (run_id,)).fetchone()
+            if existing:
+                db.execute(
+                    """UPDATE run_git_deliveries SET project_id=?,repository_id=?,repository_name=?,repository_url=?,
+                       target_branch=?,delivery_mode=?,credential_id=?,provider=?,api_base_url=?,username=?,updated_at=? WHERE run_id=?""",
+                    values,
+                )
+            else:
+                db.execute(
+                    """INSERT INTO run_git_deliveries
+                       (project_id,repository_id,repository_name,repository_url,target_branch,delivery_mode,credential_id,
+                        provider,api_base_url,username,updated_at,run_id,created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (*values, now),
+                )
+        return self.get_run_git_delivery_config(run_id)  # type: ignore[return-value]
+
+    def get_run_git_delivery_config(self, run_id: str, include_secret: bool = False) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM run_git_deliveries WHERE run_id=?", (run_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["active"] = True
+        result["default_branch"] = result["target_branch"]
+        if result.get("credential_id"):
+            credential = self.get_git_credential(str(result["credential_id"]), include_secret=include_secret)
+            if not credential or not credential.get("active"):
+                if include_secret:
+                    raise ValueError("git_credential_not_available")
+            elif include_secret:
+                result["token"] = credential.get("token", "")
+        return result
+
+    def get_git_delivery_config(self, project_id: str, include_secret: bool = False) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM git_delivery_configs WHERE project_id=?", (project_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["active"] = bool(result["active"])
+        encrypted = str(result.pop("encrypted_token") or "")
+        if include_secret:
+            result["token"] = unprotect_secret(encrypted, key_path=self.secret_key_path) if encrypted else ""
+        return result
+
+    def save_git_delivery_config(
+        self,
+        *,
+        project_id: str,
+        provider: str,
+        repository_url: str,
+        api_base_url: str,
+        default_branch: str,
+        delivery_mode: str,
+        username: str,
+        token: str | None,
+        active: bool,
+    ) -> dict[str, Any]:
+        if provider not in {"github", "gitlab", "gitee", "generic"}:
+            raise ValueError("git_provider_invalid")
+        if delivery_mode not in {"local_commit", "push_branch", "create_merge_request"}:
+            raise ValueError("git_delivery_mode_invalid")
+        if delivery_mode != "local_commit" and not repository_url.strip():
+            raise ValueError("git_repository_url_required")
+        now = utc_now()
+        with self._connect() as db:
+            if not db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
+                raise ValueError("project_not_found")
+            existing = db.execute("SELECT * FROM git_delivery_configs WHERE project_id=?", (project_id,)).fetchone()
+            if existing and not token:
+                encrypted_token = str(existing["encrypted_token"] or "")
+                token_hint = str(existing["token_hint"] or "")
+            elif token:
+                encrypted_token = protect_secret(token, key_path=self.secret_key_path)
+                token_hint = self._token_hint(token)
+            else:
+                encrypted_token = ""
+                token_hint = ""
+            values = (
+                provider, repository_url.strip(), api_base_url.rstrip("/"), default_branch.strip() or "main",
+                delivery_mode, username.strip(), encrypted_token, token_hint, int(active), now, project_id,
+            )
+            if existing:
+                db.execute(
+                    """UPDATE git_delivery_configs
+                       SET provider=?,repository_url=?,api_base_url=?,default_branch=?,delivery_mode=?,username=?,
+                           encrypted_token=?,token_hint=?,active=?,updated_at=? WHERE project_id=?""",
+                    values,
+                )
+            else:
+                db.execute(
+                    """INSERT INTO git_delivery_configs
+                       (provider,repository_url,api_base_url,default_branch,delivery_mode,username,encrypted_token,
+                        token_hint,active,updated_at,project_id,created_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (*values, now),
+                )
+        return self.get_git_delivery_config(project_id)  # type: ignore[return-value]
+
     def get_agent(self, agent_id: str) -> dict[str, Any] | None:
         with self._connect() as db:
             row = db.execute("SELECT * FROM agent_blueprints WHERE id=?", (agent_id,)).fetchone()
@@ -3172,9 +3611,9 @@ class PlatformStore:
             ),
             None,
         )
-        error_detail = str((budget_event or {}).get("payload", {}).get("error_detail") or "")
-        if "run_time_limit" not in error_detail:
-            raise ValueError("run_time_extension_not_allowed")
+        budget_payload = (budget_event or {}).get("payload", {})
+        error_detail = str(budget_payload.get("error_detail") or "")
+        budget_kind = str(budget_payload.get("budget_kind") or "")
         workflow = self.get_workflow(str(run["workflow_id"]))
         if not workflow:
             raise ValueError("workflow_not_found")
@@ -3186,8 +3625,16 @@ class PlatformStore:
             if event.get("type") == "run.time_extended"
         )
         effective_before = base_minutes + previous_extensions
+        legacy_time_limit = active_run_seconds(run.get("events", [])) >= max(0, effective_before * 60 - 1)
+        if (
+            budget_kind != "run_time_limit"
+            and "run_time_limit" not in error_detail
+            and not legacy_time_limit
+        ):
+            raise ValueError("run_time_extension_not_allowed")
         effective_after = effective_before + minutes
-        if effective_after > 360:
+        maximum_minutes = configured_maximum_run_minutes()
+        if effective_after > maximum_minutes:
             raise ValueError("run_time_extension_limit_exceeded")
         now = utc_now()
         with self._connect() as db:
@@ -3209,14 +3656,13 @@ class PlatformStore:
                     "base_minutes": base_minutes,
                     "previous_extensions": previous_extensions,
                     "effective_minutes": effective_after,
-                    "maximum_minutes": 360,
-                    "source_error": error_detail,
+                    "maximum_minutes": maximum_minutes,
+                    "source_error": "run_time_limit",
                 },
             )
         return self.get_run(run_id)  # type: ignore[return-value]
 
-    def validate_retry(self, run_id: str, from_task_id: str | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Validate a retry without persisting a version or changing existing links."""
+    def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
         original = self.get_run(run_id)
         if not original:
             raise ValueError("run_not_found")
@@ -3225,12 +3671,6 @@ class PlatformStore:
         workflow = self.get_workflow(str(original["workflow_id"]))
         if not workflow:
             raise ValueError("workflow_not_found")
-        if from_task_id and not any(str(task["id"]) == str(from_task_id) for task in original.get("tasks", [])):
-            raise ValueError("retry_task_not_found")
-        return original, workflow
-
-    def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
-        original, workflow = self.validate_retry(run_id, from_task_id)
         original_task_by_key = {str(task["node_key"]): task for task in original.get("tasks", [])}
         original_task_by_id = {str(task["id"]): task for task in original.get("tasks", [])}
         latest_artifact_by_task: dict[str, dict[str, Any]] = {}
@@ -3240,6 +3680,8 @@ class PlatformStore:
             if current is None or int(artifact.get("version", 0) or 0) > int(current.get("version", 0) or 0):
                 latest_artifact_by_task[task_id] = artifact
         retry_from_task = original_task_by_id.get(str(from_task_id)) if from_task_id else None
+        if from_task_id and retry_from_task is None:
+            raise ValueError("retry_task_not_found")
         node_keys = {str(node["key"]) for node in workflow["definition"].get("nodes", [])}
         retry_node_keys = set(node_keys)
         if retry_from_task:
@@ -3344,14 +3786,32 @@ class PlatformStore:
         self._ensure_run_workspace(retry_record, workflow, source_run_id=run_id)
         for node_key in sorted(preserved_node_keys):
             source_task = original_task_by_key[node_key]
-            artifact = latest_artifact_by_task[str(source_task["id"])]
-            self.create_artifact(
+            source_artifact = latest_artifact_by_task[str(source_task["id"])]
+            inherited_artifact = self.create_artifact(
                 retry_id,
                 new_task_by_key[node_key],
-                str(artifact.get("kind") or "workflow_output"),
-                str(artifact.get("title") or source_task["node_name"]),
-                str(artifact.get("content") or ""),
-                str(artifact.get("status") or "candidate"),
+                str(source_artifact.get("kind") or "workflow_output"),
+                str(source_artifact.get("title") or source_task["node_name"]),
+                str(source_artifact.get("content") or ""),
+                str(source_artifact.get("status") or "candidate"),
+            )
+            self.append_run_event(
+                retry_id,
+                "artifact.inherited",
+                "artifact",
+                f"已继承“{source_task['node_name']}”的已验证产物",
+                "定向重试创建了新的不可变 Artifact，并记录其父 Run 来源和原始字节哈希。",
+                {
+                    "task_id": new_task_by_key[node_key],
+                    "node_key": node_key,
+                    "artifact_id": inherited_artifact["id"],
+                    "artifact_version": inherited_artifact["version"],
+                    "source_run_id": run_id,
+                    "source_task_id": source_task["id"],
+                    "source_artifact_id": source_artifact["id"],
+                    "source_artifact_sha256": source_artifact.get("sha256"),
+                    "inherited_artifact_sha256": inherited_artifact.get("sha256"),
+                },
             )
         return self.get_run(retry_id)  # type: ignore[return-value]
 
@@ -3414,7 +3874,13 @@ class PlatformStore:
         self._ensure_run_workspace(run_record, workflow)
         return self.get_run(run_id)  # type: ignore[return-value]
 
-    def get_run(self, run_id: str, organization_id: str | None = None) -> dict[str, Any] | None:
+    def get_run(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+        *,
+        event_limit: int | None = None,
+    ) -> dict[str, Any] | None:
         with self._connect() as db:
             if organization_id:
                 row = db.execute("SELECT * FROM runs WHERE id=? AND organization_id=?", (run_id, organization_id)).fetchone()
@@ -3425,7 +3891,29 @@ class PlatformStore:
             run_organization_id = str(row["organization_id"] or "org_jianghu")
             tasks = db.execute("SELECT * FROM tasks WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
             artifacts = db.execute("SELECT * FROM artifacts WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
-            events = db.execute("SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence", (run_id, run_organization_id)).fetchall()
+            event_count_row = db.execute(
+                "SELECT COUNT(*) AS value FROM events WHERE run_id=? AND organization_id=?",
+                (run_id, run_organization_id),
+            ).fetchone()
+            event_count_total = int(_row_value(event_count_row, "value") or 0)
+            normalized_event_limit = max(1, int(event_limit)) if event_limit is not None else None
+            if normalized_event_limit is None:
+                events = db.execute(
+                    "SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence",
+                    (run_id, run_organization_id),
+                ).fetchall()
+            else:
+                # Browser polling must not hydrate an unbounded event history.
+                # Fetch the newest window in descending index order, then restore
+                # chronological order for the existing UI/dossier contract.
+                events = db.execute(
+                    """SELECT * FROM (
+                        SELECT * FROM events
+                        WHERE run_id=? AND organization_id=?
+                        ORDER BY sequence DESC LIMIT ?
+                    ) recent_events ORDER BY sequence""",
+                    (run_id, run_organization_id, normalized_event_limit),
+                ).fetchall()
             interventions = db.execute(
                 "SELECT * FROM run_interventions WHERE run_id=? AND organization_id=? ORDER BY created_at",
                 (run_id, run_organization_id),
@@ -3443,7 +3931,10 @@ class PlatformStore:
         result["tasks"] = [self._task(item) for item in tasks]
         result["artifacts"] = [self._artifact(item) for item in artifacts]
         result["events"] = [self._event_json(item) for item in events]
+        result["event_count_total"] = event_count_total
+        result["events_truncated"] = len(events) < event_count_total
         result["interventions"] = [dict(item) for item in interventions]
+        result["git_delivery"] = self.get_run_git_delivery_config(run_id)
         workspace = self._run_workspace(str(result["project_id"]), str(result["id"]))
         result["workspace"] = {
             "root": str(workspace),
@@ -3644,6 +4135,7 @@ class PlatformStore:
             "agent.action.progress": ("working", "持续行动中"),
             "agent.action.retrying": ("retrying", "人物正在自动重试"),
             "agent.action.failed": ("blocked", "人物行动失败，等待重试"),
+            "agent.turn.started": ("working", "行动中"),
             "openclaw.turn.started": ("working", "行动中"),
             "agent.tool.started": ("tooling", "调用工具中"),
             "agent.command.started": ("tooling", "执行命令中"),
@@ -3745,7 +4237,17 @@ class PlatformStore:
                 (status, json.dumps(input_data) if input_data is not None else None, json.dumps(output_data) if output_data is not None else None, utc_now(), task_id),
             )
 
-    def create_artifact(self, run_id: str, task_id: str | None, kind: str, title: str, content: str, status: str = "candidate") -> dict[str, Any]:
+    def create_artifact(
+        self,
+        run_id: str,
+        task_id: str | None,
+        kind: str,
+        title: str,
+        content: str,
+        status: str = "candidate",
+        *,
+        supersede_candidates: bool = True,
+    ) -> dict[str, Any]:
         with self._connect() as db:
             run_row = db.execute("SELECT organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
             if not run_row:
@@ -3767,10 +4269,11 @@ class PlatformStore:
             node_key = str(task["node_key"])
         artifact = self._materialize_artifact(artifact, node_key=node_key)
         with self._connect() as db:
-            if task_id is None:
-                db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id IS NULL AND status='candidate'", (run_id,))
-            else:
-                db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
+            if supersede_candidates:
+                if task_id is None:
+                    db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id IS NULL AND status='candidate'", (run_id,))
+                else:
+                    db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
             db.execute(
                 """INSERT INTO artifacts
                 (id,run_id,organization_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
@@ -3782,6 +4285,185 @@ class PlatformStore:
                 ),
             )
         return artifact
+
+    def register_workspace_file_artifact(
+        self,
+        run_id: str,
+        task_id: str,
+        relative_path: str,
+        *,
+        status: str = "candidate",
+        change_action: str = "recorded",
+        previous_sha256: str = "",
+        file_category: str | None = None,
+    ) -> dict[str, Any]:
+        """Register a promoted file, or a deletion receipt, as an immutable Artifact."""
+        # This is a hot path after an engineering turn. A mature run can have
+        # tens of thousands of events, so hydrating the full run projection
+        # once per delivered file causes severe quadratic amplification.
+        # Resolve only the run and task fields required for registration.
+        with self._connect() as db:
+            run_row = db.execute(
+                "SELECT id,project_id,organization_id FROM runs WHERE id=?",
+                (run_id,),
+            ).fetchone()
+            if not run_row:
+                raise ValueError("run_not_found")
+            task_row = db.execute(
+                "SELECT id,node_key FROM tasks WHERE id=? AND run_id=?",
+                (task_id, run_id),
+            ).fetchone()
+            if not task_row:
+                raise ValueError("artifact_task_not_found")
+        task = dict(task_row)
+        workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
+        code_root = (workspace_root / "code").resolve()
+        source = (code_root / relative_path).resolve()
+        normalized_action = change_action if change_action in {"created", "modified", "deleted", "recorded"} else "recorded"
+        if not source.is_relative_to(code_root) or (normalized_action != "deleted" and not source.is_file()):
+            raise ValueError("workspace_artifact_file_not_found")
+        category = file_category or workspace_file_category(relative_path)
+        source_data = b"" if normalized_action == "deleted" else source.read_bytes()
+        source_digest = hashlib.sha256(source_data).hexdigest() if normalized_action != "deleted" else ""
+        metadata = {
+            "source_relative_path": relative_path,
+            "change_action": normalized_action,
+            "file_category": category,
+            "sha256": source_digest,
+            "previous_sha256": previous_sha256,
+        }
+        data = (
+            json.dumps(metadata, ensure_ascii=False, indent=2).encode("utf-8")
+            if normalized_action == "deleted"
+            else source_data
+        )
+        artifact_id = new_id("artifact")
+        now = utc_now()
+        with self._connect() as db:
+            version_row = db.execute(
+                "SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=? AND kind IN ('runtime_file','runtime_file_change')",
+                (run_id, task_id),
+            ).fetchone()
+        version = int(_row_value(version_row, "value") or 1)
+        suffix = (
+            ".json"
+            if normalized_action == "deleted"
+            else (source.suffix if source.suffix and len(source.suffix) <= 16 else ".bin")
+        )
+        artifact_relative = (
+            Path("artifacts")
+            / self._safe_segment(task.get("node_key"), "node")
+            / "files"
+            / f"{self._safe_segment(artifact_id, 'artifact')}{suffix}"
+        )
+        destination = (workspace_root / artifact_relative).resolve()
+        if not destination.is_relative_to(workspace_root):
+            raise ValueError("invalid_artifact_path")
+        self._write_bytes_atomic(destination, data)
+        media_type = (
+            "application/zip" if suffix.lower() == ".zip"
+            else "application/json" if suffix.lower() == ".json"
+            else "text/markdown" if suffix.lower() in {".md", ".markdown"}
+            else "text/plain" if suffix.lower() in {".txt", ".log", ".py", ".js", ".mjs", ".ts", ".vue", ".css", ".html", ".yaml", ".yml"}
+            else "application/octet-stream"
+        )
+        digest = hashlib.sha256(data).hexdigest()
+        artifact = {
+            "id": artifact_id,
+            "run_id": run_id,
+            "organization_id": str(run_row["organization_id"] or "org_jianghu"),
+            "task_id": task_id,
+            "kind": "runtime_file_change" if normalized_action == "deleted" else "runtime_file",
+            "title": relative_path,
+            "content": json.dumps(metadata, ensure_ascii=False),
+            "version": version,
+            "status": status,
+            "created_at": now,
+            "relative_path": artifact_relative.as_posix(),
+            "sha256": digest,
+            "media_type": media_type,
+            "size_bytes": len(data),
+        }
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO artifacts
+                (id,run_id,organization_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    artifact["id"], artifact["run_id"], artifact["organization_id"], artifact["task_id"],
+                    artifact["kind"], artifact["title"], artifact["content"], artifact["version"], artifact["status"],
+                    artifact["created_at"], artifact["relative_path"], artifact["sha256"], artifact["media_type"], artifact["size_bytes"],
+                ),
+            )
+            source_delivery = db.execute("SELECT * FROM run_git_deliveries WHERE run_id=?", (run_id,)).fetchone()
+            if source_delivery:
+                db.execute(
+                    """INSERT INTO run_git_deliveries
+                       (run_id,project_id,repository_id,repository_name,repository_url,target_branch,delivery_mode,
+                        credential_id,provider,api_base_url,username,created_at,updated_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        retry_id, source_delivery["project_id"], source_delivery["repository_id"],
+                        source_delivery["repository_name"], source_delivery["repository_url"], source_delivery["target_branch"],
+                        source_delivery["delivery_mode"], source_delivery["credential_id"], source_delivery["provider"],
+                        source_delivery["api_base_url"], source_delivery["username"], now, now,
+                    ),
+                )
+        manifest_path = workspace_root / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        entries = [item for item in manifest.get("artifacts", []) if item.get("id") != artifact_id]
+        entries.append(
+            {
+                "id": artifact_id,
+                "task_id": task_id,
+                "kind": artifact["kind"],
+                "title": artifact["title"],
+                "status": status,
+                "version": version,
+                "path": artifact["relative_path"],
+                "media_type": media_type,
+                "size_bytes": len(data),
+                "sha256": digest,
+                "created_at": now,
+                "source_relative_path": relative_path,
+                "change_action": normalized_action,
+                "file_category": category,
+                "previous_sha256": previous_sha256,
+            }
+        )
+        manifest["artifacts"] = sorted(entries, key=lambda item: (str(item.get("created_at")), str(item.get("id"))))
+        self._write_json_atomic(manifest_path, manifest)
+        return artifact
+
+    def verify_artifact_bytes(self, run_id: str, artifact_id: str) -> dict[str, Any]:
+        """Re-read a materialized Artifact and compare it with the Registry receipt."""
+        with self._connect() as db:
+            row = db.execute(
+                """SELECT a.id,a.task_id,a.kind,a.title,a.relative_path,a.sha256,a.size_bytes,
+                          r.project_id
+                   FROM artifacts a JOIN runs r ON r.id=a.run_id
+                   WHERE a.run_id=? AND a.id=?""",
+                (run_id, artifact_id),
+            ).fetchone()
+        if not row:
+            raise ValueError("artifact_not_found")
+        artifact = dict(row)
+        workspace_root = self._run_workspace(str(artifact["project_id"]), run_id).resolve()
+        artifact_path = (workspace_root / str(artifact["relative_path"] or "")).resolve()
+        if not artifact_path.is_relative_to(workspace_root) or not artifact_path.is_file():
+            return {**artifact, "matched": False, "observed_sha256": "", "observed_size_bytes": 0}
+        data = artifact_path.read_bytes()
+        observed_sha256 = hashlib.sha256(data).hexdigest()
+        observed_size_bytes = len(data)
+        return {
+            **artifact,
+            "matched": (
+                observed_sha256 == str(artifact["sha256"] or "")
+                and observed_size_bytes == int(artifact["size_bytes"] or 0)
+            ),
+            "observed_sha256": observed_sha256,
+            "observed_size_bytes": observed_size_bytes,
+        }
 
     def _event(self, db: sqlite3.Connection, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> None:
         sequence_row = db.execute("SELECT COALESCE(MAX(sequence),0)+1 AS value FROM events WHERE run_id=?", (run_id,)).fetchone()

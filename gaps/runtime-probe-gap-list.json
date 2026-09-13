@@ -1,0 +1,99 @@
+{
+  "schema_version": "jianghu.runtime-migration-gap-list.v1",
+  "run_id": "run_9226059d74a1",
+  "generated_from_evidence_index_sha256": "e678a0ebc8b9d6b4efb154edad4b308c0d75a4bc4a8e9428962de64019205594",
+  "overall": "NO_GO",
+  "items": [
+    {
+      "id": "CAM-00",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "OpenClaw capability baseline and retirement evidence",
+      "basis": "Mapping artifact exists, but parity, zero traffic, no bypass, single writer and rollback are not proven."
+    },
+    {
+      "id": "CAM-01",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Claude Agent SDK runtime identity and session lifecycle",
+      "basis": "26 completed-turn bindings verified; explicit SDK session start/continue lifecycle is incomplete."
+    },
+    {
+      "id": "CAM-02",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "Five distinct production roles",
+      "basis": "5 distinct bound agents are visible, but they are not bound to the five required named roles; role-to-session proof is absent."
+    },
+    {
+      "id": "CAM-03",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Tool request, authorization, result and side effect",
+      "basis": "979/979 projected groups have four platform phases; raw request/result bytes, independent schema denial and result digests are absent."
+    },
+    {
+      "id": "CAM-04",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "File delivery and Artifact Registry",
+      "basis": "38/38 registered bytes verify; full collect/download lifecycle covers 36 artifacts, not every artifact."
+    },
+    {
+      "id": "CAM-05",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Typed public collaboration",
+      "basis": "14 public messages across 5 actors are visible, not a five-role production flow."
+    },
+    {
+      "id": "CAM-06",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "Independent Judge rejection and re-judgment",
+      "basis": "Projected Judge/gate event count is 0."
+    },
+    {
+      "id": "CAM-07",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Immutable rework attempt causality",
+      "basis": "1 attempt.created event has rework_of, but no independent Judge causation is visible."
+    },
+    {
+      "id": "CAM-08",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Memory write, commit, new-session read and use",
+      "basis": "Committed=4; later cross-session commit→retrieve→use proven=False."
+    },
+    {
+      "id": "CAM-09",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "Intentional platform pause and resume",
+      "basis": "Intentional pause/resume event count is 0."
+    },
+    {
+      "id": "CAM-10",
+      "priority": "P0",
+      "status": "PARTIAL",
+      "gap": "Failure recovery and exactly-once reconciliation",
+      "basis": "Platform interruption/recovery chain exists, but terminal duplicate-side-effect reconciliation and convergence are absent."
+    },
+    {
+      "id": "CAM-11",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "Terminal Run reconciliation",
+      "basis": "Frozen Run status is running."
+    },
+    {
+      "id": "CAM-12",
+      "priority": "P0",
+      "status": "OPEN",
+      "gap": "OpenClaw retirement",
+      "basis": "No complete entrypoint inventory, zero-traffic window, no silent fallback and retirement rollback evidence."
+    }
+  ]
+}

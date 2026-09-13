@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,10 +21,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
+from .agent_runtime import AgentRuntimeError, public_runtime_error
+from .agent_runtime_registry import agent_runtime
+from .git_delivery import GitDeliveryError, deliver_commit_to_remote, export_commit_patch, test_remote_repository
 from .platform_store import platform_store
 from .llm_client import LLMConfigurationError, LLMRequestError, client_for_config, configured_llm
 from .platform_executor import execute_platform_run
-from .openclaw_runtime import OpenClawRuntimeError, openclaw_runtime
+from .run_budget import configured_maximum_run_minutes
 from .secret_store import SecretStorageError
 from .showcase import CASE_ID, CASE_TASK, comparison_report, ensure_showcase_assets, showcase_snapshot
 
@@ -40,6 +44,9 @@ class RunCreateRequest(BaseModel):
     project_id: str = "project_jianghu"
     clarification_id: str | None = None
     commission_id: str | None = None
+    git_repository_id: str | None = None
+    git_target_branch: str | None = None
+    git_delivery_mode: Literal["local_commit", "push_branch", "create_merge_request"] | None = None
 
 
 class ClarificationCreateRequest(BaseModel):
@@ -68,6 +75,53 @@ class ModelConnectionTestRequest(BaseModel):
     base_url: str | None = None
     model: str | None = None
     token: str | None = None
+
+
+class GitDeliveryConfigRequest(BaseModel):
+    project_id: str = "project_jianghu"
+    provider: Literal["github", "gitlab", "gitee", "generic"] = "generic"
+    repository_url: str = ""
+    api_base_url: str = ""
+    default_branch: str = "main"
+    delivery_mode: Literal["local_commit", "push_branch", "create_merge_request"] = "local_commit"
+    username: str = ""
+    token: str | None = None
+    active: bool = True
+
+
+class GitDeliveryConnectionTestRequest(GitDeliveryConfigRequest):
+    pass
+
+
+class GitCredentialRequest(BaseModel):
+    id: str | None = None
+    name: str = Field(min_length=1, max_length=160)
+    provider: Literal["github", "gitlab", "gitee", "generic"] = "github"
+    api_base_url: str = ""
+    username: str = ""
+    token: str | None = None
+    active: bool = True
+
+
+class ProjectGitRepositoryRequest(BaseModel):
+    id: str | None = None
+    project_id: str = "project_jianghu"
+    name: str = Field(min_length=1, max_length=160)
+    repository_url: str = Field(min_length=8)
+    default_branch: str = "main"
+    credential_id: str | None = None
+    default_delivery_mode: Literal["local_commit", "push_branch", "create_merge_request"] = "create_merge_request"
+    active: bool = True
+
+
+class ProjectGitRepositoryTestRequest(BaseModel):
+    repository_id: str
+
+
+class RunGitDeliveryBindRequest(BaseModel):
+    repository_id: str
+    target_branch: str | None = None
+    delivery_mode: Literal["local_commit", "push_branch", "create_merge_request"] | None = None
 
 
 class KnowledgeSourceRequest(BaseModel):
@@ -116,7 +170,7 @@ class AgentCreateRequest(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     visibility: str = "private"
     skills: list[dict[str, object]] = Field(default_factory=list)
-    runtime: str = "openclaw"
+    runtime: str = "claude_code"
     memory_policy: dict[str, object] = Field(default_factory=lambda: {"enabled": True, "max_prompt_items": 8, "write_after_task": True})
     cognitive_level: int = Field(default=2, ge=1, le=3)
     authority_level: int = Field(default=1, ge=1, le=3)
@@ -184,6 +238,7 @@ class CommissionAssessRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     commission_id: str | None = None
+    git_delivery: dict[str, object] | None = None
 
 
 class CommissionTeamResolveRequest(BaseModel):
@@ -224,6 +279,7 @@ class RunTimeExtensionRequest(BaseModel):
 
 
 platform_tasks: dict[str, asyncio.Task[None]] = {}
+platform_run_projection_lock = threading.Lock()
 
 
 def schedule_platform_execution(run_id: str) -> asyncio.Task[None]:
@@ -277,16 +333,17 @@ app.add_middleware(
 )
 
 
-def prepare_openclaw_run(run: dict[str, object]) -> dict[str, object]:
-    health = openclaw_runtime.health()
+def prepare_agent_runtime_run(run: dict[str, object]) -> dict[str, object]:
+    health = agent_runtime.health()
+    runtime_label = str(health.get("runtime") or agent_runtime.runtime_name)
     if not health.get("available"):
-        raise HTTPException(status_code=503, detail=f"OpenClaw Runtime 不可用：{health.get('error') or '健康检查失败'}")
+        raise HTTPException(status_code=503, detail=f"{runtime_label} Runtime 不可用：{health.get('error') or '健康检查失败'}")
     try:
         model_config = platform_store.get_active_model_config(include_secret=True)
     except SecretStorageError as exc:
         raise HTTPException(status_code=503, detail=public_llm_error(LLMConfigurationError(str(exc)))) from exc
     if not model_config:
-        raise HTTPException(status_code=503, detail="尚未配置可供 OpenClaw 使用的真实模型与凭据。")
+        raise HTTPException(status_code=503, detail=f"尚未配置可供 {runtime_label} Runtime 使用的真实模型与凭据。")
     workflow = platform_store.get_workflow(str(run["workflow_id"]))
     runtime_agents: dict[str, dict[str, object]] = {}
     for node in (workflow or {}).get("definition", {}).get("nodes", []):
@@ -299,11 +356,12 @@ def prepare_openclaw_run(run: dict[str, object]) -> dict[str, object]:
                 runtime_agents[str(member["id"])] = member
     try:
         memories = {agent_id: platform_store.list_agent_memories(agent_id, 30) for agent_id in runtime_agents}
-        return openclaw_runtime.sync(list(runtime_agents.values()), memories, model_config)
-    except (OpenClawRuntimeError, ValueError) as exc:
-        raise HTTPException(status_code=503, detail=f"OpenClaw 运行快照准备失败：{exc}") from exc
+        return agent_runtime.sync(list(runtime_agents.values()), memories, model_config)
+    except (AgentRuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=f"{runtime_label} 运行快照准备失败：{exc}") from exc
 
 
+# Compatibility alias for internal callers and older tests during G2.
 def contains_chinese(value: object) -> bool:
     return any("\u4e00" <= char <= "\u9fff" for char in str(value))
 
@@ -442,8 +500,8 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
     ]
     used_agent_names = {str(item.get("name") or "") for item in platform_store.list_agents()}
     if request.world_type == "large":
-        now_name = requested_name or (title if title and not title.startswith("例如") else "新江湖共同体")
-        organization = platform_store.create_organization(name=now_name, description=requested_purpose or source_context)
+        now_name = title if title and not title.startswith("例如") else "新江湖共同体"
+        organization = platform_store.create_organization(name=now_name, description=source_context)
         organization_id = str(organization["id"])
         generated_agents = []
         for index, (role, description, cognitive, authority) in enumerate(roster):
@@ -451,7 +509,7 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
                 name=next_generated_person_name(role, used_agent_names), role=role, description=description,
                 persona=f"围绕“{source_context[:120]}”行动，保持独立判断并通过公开产物协作。",
                 capabilities=["目标拆解", "行动执行" if index == 1 else "证据判断"], visibility="private",
-                runtime="openclaw", cognitive_level=cognitive, authority_level=authority, organization_id=organization_id,
+                runtime=agent_runtime.runtime_name, cognitive_level=cognitive, authority_level=authority, organization_id=organization_id,
             ))
         return {"organization": organization, "agents": generated_agents, "generation": {"mode": "created", "source": source_hint, "knowledge_source_ids": request.knowledge_source_ids}}
 
@@ -464,7 +522,7 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
             name=next_generated_person_name(role, used_agent_names), role=role, description=description,
             persona=f"围绕“{request.intent.strip()[:120]}”行动，保持独立判断并通过公开产物协作。",
             capabilities=["目标拆解", "行动执行" if index == 1 else "证据判断"],
-            visibility="private", runtime="openclaw", cognitive_level=cognitive, authority_level=authority, organization_id=request.organization_id,
+            visibility="private", runtime=agent_runtime.runtime_name, cognitive_level=cognitive, authority_level=authority, organization_id=request.organization_id,
         )
         members.append({"agent_id": str(agent["id"]), "member_role": "leader" if index == 0 else "member", "responsibility": description})
     team = platform_store.create_team(
@@ -483,11 +541,93 @@ async def list_platform_runs(organization_id: str | None = None) -> list[dict[st
     return platform_store.list_runs(organization_id=organization_id)
 
 
-def scoped_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = platform_store.get_run(run_id, organization_id=organization_id)
+def scoped_platform_run(
+    run_id: str,
+    organization_id: str | None = None,
+    *,
+    event_limit: int | None = None,
+) -> dict[str, object]:
+    run = platform_store.get_run(run_id, organization_id=organization_id, event_limit=event_limit)
     if not run:
         raise HTTPException(status_code=404, detail="run_not_found_in_organization" if organization_id else "run_not_found")
     return run
+
+
+_PRIVATE_RUNTIME_KEYS = {
+    "session_key",
+    "session_id",
+    "platform_session_id",
+    "claude_sdk_session_id",
+    "writer_session_id",
+    "reader_session_id",
+    "writer_sdk_session_id",
+    "reader_sdk_session_id",
+    "retry_feedback",
+    "raw_error",
+    "rawerror",
+}
+_INTERNAL_RUNTIME_TRACE = re.compile(
+    r"(?:openclaw_agent_failed|claude_timeout|startup stages:|workspace bootstrap file|"
+    r"provider-transport-fetch|model-fallback/decision|lane task error|tool policy removed|"
+    r"tools\.profile|session(?:id|key)=|rawerror=|"
+    r"https?://[^\s]+/v1/(?:responses|chat/completions))",
+    re.IGNORECASE,
+)
+
+
+def _public_runtime_value(value: object) -> object:
+    """Remove internal Runtime identities/traces from a browser-facing value."""
+
+    if isinstance(value, dict):
+        return {
+            str(key): _public_runtime_value(item)
+            for key, item in value.items()
+            if str(key).lower() not in _PRIVATE_RUNTIME_KEYS
+        }
+    if isinstance(value, list):
+        return [_public_runtime_value(item) for item in value]
+    if isinstance(value, str) and _INTERNAL_RUNTIME_TRACE.search(value):
+        return public_runtime_error(value)["error_detail"]
+    return value
+
+
+def public_platform_run(run: dict[str, object]) -> dict[str, object]:
+    """Build a safe public projection while preserving raw evidence in SQLite."""
+
+    projected = _public_runtime_value(run)
+    assert isinstance(projected, dict)
+    for task in projected.get("tasks", []):
+        if not isinstance(task, dict) or str(task.get("status")) not in {"failed", "retrying"}:
+            continue
+        output = task.get("output")
+        if not isinstance(output, dict):
+            continue
+        raw = output.get("error") or output.get("last_error") or "runtime failure"
+        public_error = public_runtime_error(str(raw))
+        if "error" in output:
+            output["error"] = public_error["error_detail"]
+        if "last_error" in output:
+            output["last_error"] = public_error["error_detail"]
+        output.setdefault("error_code", public_error["error_code"])
+        output.setdefault("diagnostic_id", public_error["diagnostic_id"])
+    for event in projected.get("events", []):
+        if not isinstance(event, dict):
+            continue
+        event_type = str(event.get("type") or "")
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            payload = {}
+            event["payload"] = payload
+        if not (event_type.endswith(".failed") or event_type.endswith(".retrying") or event_type == "run.failed"):
+            continue
+        raw = payload.get("error_detail") or event.get("summary") or "runtime failure"
+        public_error = public_runtime_error(str(raw))
+        event["summary"] = public_error["error_detail"]
+        payload["error_detail"] = public_error["error_detail"]
+        payload.setdefault("error_code", public_error["error_code"])
+        payload.setdefault("diagnostic_id", public_error["diagnostic_id"])
+        payload.pop("runtime_error", None)
+    return projected
 
 
 @app.get("/api/platform/showcases/production-flow-comparison")
@@ -552,13 +692,13 @@ async def start_production_flow_comparison(comparison_id: str) -> dict[str, obje
     draft_runs = [run for run in runs if run and run.get("status") == "draft"]
     # 两边均完成运行时准备后再启动，避免只启动一边导致不公平对照。
     for run in draft_runs:
-        prepare_openclaw_run(run)
+        prepare_agent_runtime_run(run)
     for run in draft_runs:
         schedule_platform_execution(str(run["id"]))
     return {
         "comparison": comparison_report(platform_store, comparison),
-        "execution": {"mode": "real-openclaw", "started_run_ids": [run["id"] for run in draft_runs]},
-        "message": "单 Agent 基线与多 Agent 协作/对抗 Run 已使用真实 OpenClaw 和真实模型启动。",
+        "execution": {"mode": f"real-{agent_runtime.runtime_name}", "runtime": agent_runtime.runtime_name, "started_run_ids": [run["id"] for run in draft_runs]},
+        "message": "单 Agent 基线与多 Agent 协作/对抗 Run 已使用真实执行底座和真实模型启动。",
     }
 
 
@@ -573,8 +713,8 @@ async def create_platform_agent(request: AgentCreateRequest) -> dict[str, object
         raise HTTPException(status_code=422, detail="江湖人物的姓名和职业身份必须使用中文。")
     if any(not contains_chinese(capability) for capability in request.capabilities):
         raise HTTPException(status_code=422, detail="江湖人物的能力标签必须使用中文描述。")
-    if request.runtime != "openclaw":
-        raise HTTPException(status_code=422, detail="当前正式 Agent Runtime 固定为 OpenClaw，不允许以普通 LLM 封装冒充 Agent。")
+    if request.runtime != agent_runtime.runtime_name:
+        raise HTTPException(status_code=422, detail=f"当前正式 Agent Runtime 为 {agent_runtime.runtime_name}。")
     return {"agent": platform_store.create_agent(**request.model_dump())}
 
 
@@ -584,8 +724,8 @@ async def revise_platform_agent(agent_id: str, request: AgentRevisionRequest) ->
         raise HTTPException(status_code=422, detail="江湖人物的姓名和职业身份必须使用中文。")
     if any(not contains_chinese(capability) for capability in request.capabilities):
         raise HTTPException(status_code=422, detail="江湖人物的能力标签必须使用中文描述。")
-    if request.runtime != "openclaw":
-        raise HTTPException(status_code=422, detail="当前正式 Agent Runtime 固定为 OpenClaw。")
+    if request.runtime != agent_runtime.runtime_name:
+        raise HTTPException(status_code=422, detail=f"当前正式 Agent Runtime 为 {agent_runtime.runtime_name}。")
     try:
         agent = platform_store.revise_agent(agent_id, **request.model_dump())
     except ValueError as exc:
@@ -621,9 +761,7 @@ async def add_platform_agent_memory(agent_id: str, request: AgentMemoryRequest) 
 
 @app.post("/api/platform/agents/generate")
 async def generate_platform_agent(request: AgentGenerateRequest) -> dict[str, object]:
-    if not any(item["id"] == request.organization_id for item in platform_store.list_organizations()):
-        raise HTTPException(status_code=404, detail="organization_not_found")
-    existing = platform_store.list_agents(request.organization_id)
+    existing = platform_store.list_agents()
     if request.preferred_role:
         requested = {item.strip() for item in request.required_capabilities if item.strip()}
         for existing_agent in existing:
@@ -694,7 +832,7 @@ async def generate_platform_agent(request: AgentGenerateRequest) -> dict[str, ob
         capabilities=[str(item) for item in capabilities],
         visibility="private",
         skills=[dict(item) for item in skills if isinstance(item, dict)],
-        runtime="openclaw",
+        runtime=agent_runtime.runtime_name,
         memory_policy={"enabled": True, "max_prompt_items": 8, "write_after_task": True},
         cognitive_level=bounded_score(generated.get("cognitive_level"), 2) if bounded_score(generated.get("cognitive_level"), 2) in {1, 2, 3} else 2,
         authority_level=bounded_score(generated.get("authority_level"), 1) if bounded_score(generated.get("authority_level"), 1) in {1, 2, 3} else 1,
@@ -927,6 +1065,7 @@ async def assess_commission(request: CommissionAssessRequest) -> dict[str, objec
                 organization_id=request.organization_id,
                 title=title,
                 description=description,
+                git_delivery=dict(request.git_delivery or {}),
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -1547,9 +1686,10 @@ async def llm_status() -> dict[str, object]:
     }
 
 
+@app.get("/api/platform/runtime/status")
 @app.get("/api/platform/openclaw/status")
-async def openclaw_status() -> dict[str, object]:
-    health = openclaw_runtime.health()
+async def agent_runtime_status() -> dict[str, object]:
+    health = agent_runtime.health()
     try:
         active = platform_store.get_active_model_config(include_secret=True)
     except SecretStorageError as exc:
@@ -1563,10 +1703,10 @@ async def openclaw_status() -> dict[str, object]:
         try:
             agents = platform_store.list_agents()
             memories = {agent["id"]: platform_store.list_agent_memories(agent["id"], 30) for agent in agents}
-            synced = openclaw_runtime.sync(agents, memories, active)
+            synced = agent_runtime.sync(agents, memories, active)
             health["config_ready"] = True
             health["synced"] = synced
-        except (OpenClawRuntimeError, ValueError) as exc:
+        except (AgentRuntimeError, ValueError) as exc:
             health["available"] = False
             health["error"] = str(exc)
     return health
@@ -1620,6 +1760,204 @@ async def test_model_config(request: ModelConnectionTestRequest) -> dict[str, ob
         return {"ok": True, "model": client.model, "usage": response.get("usage", {}), "response_id": response.get("id")}
     except (LLMConfigurationError, LLMRequestError) as exc:
         raise HTTPException(status_code=502, detail=public_llm_error(exc)) from exc
+
+
+@app.get("/api/platform/projects")
+async def list_platform_projects() -> list[dict[str, object]]:
+    return platform_store.list_projects()
+
+
+@app.get("/api/platform/git-credentials")
+async def list_git_credentials() -> list[dict[str, object]]:
+    return platform_store.list_git_credentials()
+
+
+@app.post("/api/platform/git-credentials")
+async def save_git_credential(request: GitCredentialRequest) -> dict[str, object]:
+    try:
+        credential = platform_store.save_git_credential(
+            credential_id=request.id,
+            name=request.name,
+            provider=request.provider,
+            api_base_url=request.api_base_url,
+            username=request.username,
+            token=request.token,
+            active=request.active,
+        )
+    except (ValueError, SecretStorageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"credential": credential}
+
+
+@app.get("/api/platform/project-git-repositories")
+async def list_project_git_repositories(project_id: str | None = None) -> list[dict[str, object]]:
+    return platform_store.list_project_git_repositories(project_id)
+
+
+@app.post("/api/platform/project-git-repositories")
+async def save_project_git_repository(request: ProjectGitRepositoryRequest) -> dict[str, object]:
+    try:
+        repository = platform_store.save_project_git_repository(
+            repository_id=request.id,
+            project_id=request.project_id,
+            name=request.name,
+            repository_url=request.repository_url,
+            default_branch=request.default_branch,
+            credential_id=request.credential_id,
+            default_delivery_mode=request.default_delivery_mode,
+            active=request.active,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"repository": repository}
+
+
+@app.post("/api/platform/project-git-repositories/test")
+async def test_project_git_repository(request: ProjectGitRepositoryTestRequest) -> dict[str, object]:
+    repository = platform_store.get_project_git_repository(request.repository_id)
+    if not repository:
+        raise HTTPException(status_code=404, detail="git_repository_not_found")
+    values = dict(repository)
+    if repository.get("credential_id"):
+        credential = platform_store.get_git_credential(str(repository["credential_id"]), include_secret=True)
+        if not credential:
+            raise HTTPException(status_code=422, detail="git_credential_not_found")
+        values.update(credential)
+    try:
+        return await asyncio.to_thread(test_remote_repository, values)
+    except GitDeliveryError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/platform/runs/{run_id}/git-delivery")
+async def bind_run_git_delivery(
+    run_id: str,
+    request: RunGitDeliveryBindRequest,
+    organization_id: str | None = None,
+) -> dict[str, object]:
+    scoped_platform_run(run_id, organization_id, event_limit=100)
+    try:
+        delivery = platform_store.bind_run_git_delivery(
+            run_id,
+            repository_id=request.repository_id,
+            target_branch=request.target_branch,
+            delivery_mode=request.delivery_mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    platform_store.append_run_event(
+        run_id,
+        "git.delivery.configured",
+        "artifact",
+        f"Git 交付目标已绑定：{delivery['repository_name']}",
+        f"本 Run 已冻结仓库、目标分支 {delivery['target_branch']} 与交付模式 {delivery['delivery_mode']}。",
+        {
+            "repository_id": delivery["repository_id"],
+            "repository_name": delivery["repository_name"],
+            "repository_url": delivery["repository_url"],
+            "target_branch": delivery["target_branch"],
+            "delivery_mode": delivery["delivery_mode"],
+            "credential_id": delivery.get("credential_id"),
+        },
+    )
+    return {"git_delivery": delivery}
+
+
+@app.post("/api/platform/runs/{run_id}/git-delivery/retry")
+async def retry_run_git_delivery(run_id: str, organization_id: str | None = None) -> dict[str, object]:
+    run = scoped_platform_run(run_id, organization_id, event_limit=300)
+    try:
+        config = platform_store.get_run_git_delivery_config(run_id, include_secret=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not config:
+        raise HTTPException(status_code=422, detail="run_git_delivery_not_configured")
+    commits: list[tuple[dict[str, object], dict[str, object]]] = []
+    for artifact in run.get("artifacts", []):
+        if artifact.get("kind") != "git_commit":
+            continue
+        try:
+            commit = json.loads(str(artifact.get("content") or "{}"))
+        except (TypeError, ValueError):
+            continue
+        if commit.get("commit_sha"):
+            commits.append((artifact, commit))
+    if not commits:
+        raise HTTPException(status_code=422, detail="run_git_commit_not_found")
+    artifact, commit = commits[-1]
+    platform_store.append_run_event(
+        run_id, "git.remote.started", "artifact",
+        f"Git Commit {str(commit['commit_sha'])[:12]} 开始远端重试",
+        "平台正在推送事件隔离分支，并按本 Run 冻结的交付目标创建或复用 Merge Request。",
+        {"commit_sha": commit["commit_sha"], "artifact_id": artifact["id"], "repository_url": config["repository_url"],
+         "target_branch": config["target_branch"], "delivery_mode": config["delivery_mode"]},
+    )
+    try:
+        result = await asyncio.to_thread(
+            deliver_commit_to_remote,
+            run["workspace"]["code"],
+            commit=commit,
+            config=config,
+        )
+    except (GitDeliveryError, OSError) as exc:
+        platform_store.append_run_event(
+            run_id, "git.remote.failed", "validation",
+            f"Git Commit {str(commit['commit_sha'])[:12]} 远端交付失败",
+            "本地 Commit、Patch 和文件 Artifact 已保留，可修复凭据或仓库配置后再次重试。",
+            {"commit_sha": commit["commit_sha"], "error_detail": str(exc)},
+        )
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    push = result.get("push")
+    merge_request = result.get("merge_request")
+    if push:
+        push_artifact = platform_store.create_artifact(
+            run_id, artifact.get("task_id"), "git_remote_push", f"Git Push · {push['branch']}",
+            json.dumps(push, ensure_ascii=False, indent=2), "recorded", supersede_candidates=False,
+        )
+        platform_store.append_run_event(
+            run_id, "git.remote.pushed", "artifact", f"隔离分支 {push['branch']} 已推送",
+            f"远端分支已更新到 {push['commit_sha']}。", {**push, "artifact_id": push_artifact["id"]},
+        )
+    if merge_request:
+        mr_artifact = platform_store.create_artifact(
+            run_id, artifact.get("task_id"), "git_merge_request",
+            f"Merge Request #{merge_request['number']} · {merge_request['title']}",
+            json.dumps(merge_request, ensure_ascii=False, indent=2), "recorded", supersede_candidates=False,
+        )
+        platform_store.append_run_event(
+            run_id, "git.merge_request.created", "artifact",
+            f"远端 Merge Request #{merge_request['number']} 已创建",
+            str(merge_request["url"]), {**merge_request, "artifact_id": mr_artifact["id"]},
+        )
+    return {"delivery": result}
+
+
+@app.get("/api/platform/git-delivery-configs")
+async def list_git_delivery_configs() -> list[dict[str, object]]:
+    return platform_store.list_git_delivery_configs()
+
+
+@app.post("/api/platform/git-delivery-configs")
+async def save_git_delivery_config(request: GitDeliveryConfigRequest) -> dict[str, object]:
+    try:
+        config = platform_store.save_git_delivery_config(**request.model_dump())
+    except (ValueError, SecretStorageError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"config": config}
+
+
+@app.post("/api/platform/git-delivery-configs/test")
+async def test_git_delivery_config(request: GitDeliveryConnectionTestRequest) -> dict[str, object]:
+    values = request.model_dump()
+    if not request.token:
+        stored = platform_store.get_git_delivery_config(request.project_id, include_secret=True)
+        if stored:
+            values["token"] = stored.get("token")
+            values["username"] = request.username or str(stored.get("username") or "")
+    try:
+        return await asyncio.to_thread(test_remote_repository, values)
+    except GitDeliveryError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/api/platform/llm/test")
@@ -1815,6 +2153,16 @@ async def create_platform_run(request: RunCreateRequest) -> dict[str, object]:
             if str(commission.get("organization_id")) != str(workflow.get("organization_id")):
                 raise ValueError("commission_organization_mismatch")
         run = platform_store.create_run(request.workflow_id, request.task, request.project_id, request.clarification_id)
+        delivery = dict((commission or {}).get("git_delivery") or {})
+        repository_id = request.git_repository_id or str(delivery.get("repository_id") or "") or None
+        if repository_id:
+            platform_store.bind_run_git_delivery(
+                str(run["id"]),
+                repository_id=repository_id,
+                target_branch=request.git_target_branch or str(delivery.get("target_branch") or "") or None,
+                delivery_mode=request.git_delivery_mode or str(delivery.get("delivery_mode") or "") or None,
+            )
+            run = platform_store.get_run(str(run["id"])) or run
         if request.commission_id:
             commission = platform_store.link_company_task(
                 request.commission_id,
@@ -1828,9 +2176,20 @@ async def create_platform_run(request: RunCreateRequest) -> dict[str, object]:
 
 
 @app.get("/api/platform/runs/{run_id}")
-async def get_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(run_id, organization_id)
-    return {"run": run}
+def get_platform_run(
+    run_id: str,
+    organization_id: str | None = None,
+    event_limit: int = Query(default=500, ge=100, le=5000),
+) -> dict[str, object]:
+    # This endpoint is deliberately synchronous so FastAPI runs the SQLite and
+    # public-projection work in its thread pool. A large historical Run must not
+    # block /api/health or unrelated browser requests on the main event loop.
+    # Bound projection concurrency as well as response size. Large task outputs
+    # and dossiers intentionally retain rich evidence, so parallel projections
+    # can otherwise multiply memory usage enough to terminate a local worker.
+    with platform_run_projection_lock:
+        run = scoped_platform_run(run_id, organization_id, event_limit=event_limit)
+        return {"run": public_platform_run(run)}
 
 
 @app.get("/api/platform/artifacts/{artifact_id}/download")
@@ -1881,18 +2240,15 @@ async def start_platform_run(run_id: str, organization_id: str | None = None) ->
         raise HTTPException(status_code=409, detail="run_already_active")
     if run["status"] != "draft":
         raise HTTPException(status_code=409, detail="run_is_immutable_use_retry_for_failed_run")
-    runtime_snapshot = prepare_openclaw_run(run)
+    runtime_snapshot = prepare_agent_runtime_run(run)
     schedule_platform_execution(run_id)
-    return {"run": platform_store.get_run(run_id), "execution": {"mode": "openclaw", "status": "started", "runtime_snapshot": runtime_snapshot}}
+    return {"run": public_platform_run(platform_store.get_run(run_id) or run), "execution": {"mode": agent_runtime.runtime_name, "runtime": agent_runtime.runtime_name, "status": "started", "runtime_snapshot": runtime_snapshot}}
 
 
 @app.post("/api/platform/runs/{run_id}/retry")
 async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None, organization_id: str | None = None) -> dict[str, object]:
     scoped_platform_run(run_id, organization_id)
     try:
-        source_run, _ = platform_store.validate_retry(run_id, from_task_id=request.from_task_id if request else None)
-        # Runtime preparation must succeed before creating a new version or relinking its commission.
-        runtime_snapshot = prepare_openclaw_run(source_run)
         retry = platform_store.retry_run(run_id, from_task_id=request.from_task_id if request else None)
     except ValueError as exc:
         status = 404 if str(exc) in {"run_not_found", "workflow_not_found"} else 409
@@ -1903,9 +2259,10 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
         if commission.get("run_id") == run_id:
             platform_store.link_company_task(commission["id"], workflow_id=retry["workflow_id"], run_id=retry["id"])
             break
+    runtime_snapshot = prepare_agent_runtime_run(retry)
     schedule_platform_execution(str(retry["id"]))
     return {
-        "run": platform_store.get_run(retry["id"]),
+        "run": public_platform_run(platform_store.get_run(retry["id"]) or retry),
         "retry": {
             "source_run_id": run_id,
             "source_task_id": request.from_task_id if request else None,
@@ -1925,17 +2282,21 @@ async def cancel_platform_run(run_id: str, organization_id: str | None = None) -
         raise HTTPException(status_code=409, detail="run_is_terminal")
     active = platform_tasks.get(run_id)
     platform_store.update_run(run_id, status="cancelled", stage="cancelled")
+    for task in run.get("tasks", []):
+        if str(task.get("status") or "") not in {"completed", "failed", "cancelled"}:
+            platform_store.update_task(str(task["id"]), status="cancelled")
     if active and not active.done():
         active.cancel()
     platform_store.append_run_event(run_id, "run.cancelled", "system", "执行已取消", "发起人停止了本次真实执行；已有事件和产物继续保留。")
-    return {"run": platform_store.get_run(run_id)}
+    current_run = platform_store.get_run(run_id)
+    return {"run": public_platform_run(current_run) if current_run else None}
 
 
 @app.post("/api/platform/runs/{run_id}/pause")
 async def pause_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
     run = scoped_platform_run(run_id, organization_id)
     if run["status"] in {"pause_requested", "paused"}:
-        return {"run": run}
+        return {"run": public_platform_run(run)}
     if run["status"] != "running":
         raise HTTPException(status_code=409, detail="only_running_run_can_pause")
     platform_store.update_run(run_id, status="pause_requested")
@@ -1946,14 +2307,112 @@ async def pause_platform_run(run_id: str, organization_id: str | None = None) ->
         "发起人要求现场停手",
         "当前已经发出的模型回合允许完成；下一个受控边界开始前，所有人物必须暂停并等待恢复。",
     )
-    return {"run": platform_store.get_run(run_id)}
+
+
+    checkpoint_state = platform_store.get_run(run_id) or run
+    checkpoint = platform_store.create_artifact(
+        run_id,
+        None,
+        "run_checkpoint",
+        "平台暂停 Checkpoint",
+        json.dumps(
+            {
+                "run_id": run_id,
+                "status": "pause_requested",
+                "completed_node_keys": sorted(
+                    str(task.get("node_key"))
+                    for task in checkpoint_state.get("tasks", [])
+                    if task.get("status") == "completed"
+                ),
+                "artifact_ids": [item.get("id") for item in checkpoint_state.get("artifacts", [])],
+                "last_sequence": max(
+                    (int(item.get("sequence") or 0) for item in checkpoint_state.get("events", [])),
+                    default=0,
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        "candidate",
+    )
+    checkpoint_receipt = platform_store.verify_artifact_bytes(run_id, checkpoint["id"])
+    checkpoint_payload = {
+        "artifact_id": checkpoint["id"],
+        "artifact_kind": checkpoint["kind"],
+        "artifact_title": checkpoint["title"],
+        "relative_path": checkpoint["relative_path"],
+        "sha256": checkpoint["sha256"],
+        "size_bytes": checkpoint["size_bytes"],
+    }
+    platform_store.append_run_event(
+        run_id,
+        "artifact.created",
+        "artifact",
+        "暂停 Checkpoint Artifact 已登记",
+        "Checkpoint 已写入 Run 不可变 Artifact 区。",
+        checkpoint_payload,
+    )
+    if checkpoint_receipt["matched"]:
+        platform_store.append_run_event(
+            run_id,
+            "artifact.collected",
+            "artifact",
+            "暂停 Checkpoint Artifact 已采集",
+            "平台已按 Registry 记录重新读取 Checkpoint 原始字节。",
+            {**checkpoint_payload, "status": "sha256_verified"},
+        )
+        platform_store.append_run_event(
+            run_id,
+            "artifact.download.verified",
+            "validation",
+            "暂停 Checkpoint 下载字节已复算",
+            "Checkpoint 下载路径的字节数和 SHA-256 与 Registry 一致。",
+            {**checkpoint_payload, "status": "matched"},
+        )
+    platform_store.append_run_event(
+        run_id,
+        "run.checkpoint.persisted",
+        "recovery",
+        "暂停 Checkpoint 已持久化",
+        "平台已在受控暂停边界前登记当前节点、Artifact 与事件游标。",
+        {
+            "artifact_id": checkpoint["id"], "sha256": checkpoint["sha256"],
+            "size_bytes": checkpoint["size_bytes"], "status": "persisted",
+        },
+    )
+    current_run = platform_store.get_run(run_id)
+    return {"run": public_platform_run(current_run) if current_run else None}
+
+
+@app.get("/api/platform/runs/{run_id}/git/commits/{commit_sha}/patch")
+async def download_platform_git_commit_patch(
+    run_id: str,
+    commit_sha: str,
+    organization_id: str | None = None,
+) -> FileResponse:
+    run = scoped_platform_run(run_id, organization_id)
+    code_root = Path(str(run["workspace"]["code"])).resolve()
+    try:
+        patch_bytes = export_commit_patch(code_root, commit_sha)
+    except GitDeliveryError as exc:
+        status = 404 if str(exc) == "commit_not_found" else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    temp_root = Path(tempfile.mkdtemp(prefix=f"jianghu-{run_id}-commit-"))
+    patch_path = temp_root / f"{commit_sha[:12]}.patch"
+    patch_path.write_bytes(patch_bytes)
+    return FileResponse(
+        patch_path,
+        media_type="text/x-patch",
+        filename=f"{run_id}-{commit_sha[:12]}.patch",
+        background=BackgroundTask(shutil.rmtree, temp_root, ignore_errors=True),
+    )
 
 
 @app.post("/api/platform/runs/{run_id}/resume")
 async def resume_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
     run = scoped_platform_run(run_id, organization_id)
     if run["status"] == "running":
-        return {"run": run}
+        return {"run": public_platform_run(run)}
     if run["status"] not in {"pause_requested", "paused"}:
         raise HTTPException(status_code=409, detail="run_is_not_paused")
     active = platform_tasks.get(run_id)
@@ -1965,10 +2424,30 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
         "发起人允许继续行动",
         "现场沿用原 Run、原 WorkflowVersion 和已有产物，从暂停边界继续执行。",
     )
+    latest_checkpoint = next(
+        (
+            item for item in reversed((platform_store.get_run(run_id) or run).get("artifacts", []))
+            if item.get("kind") == "run_checkpoint"
+        ),
+        None,
+    )
+    platform_store.append_run_event(
+        run_id,
+        "run.checkpoint.loaded",
+        "recovery",
+        "暂停 Checkpoint 已载入",
+        "恢复继续沿用原 Run、WorkflowVersion、完成节点与已登记 Artifact。",
+        {
+            "artifact_id": (latest_checkpoint or {}).get("id"),
+            "sha256": (latest_checkpoint or {}).get("sha256"),
+            "status": "loaded" if latest_checkpoint else "missing",
+        },
+    )
     if not active or active.done():
-        prepare_openclaw_run(platform_store.get_run(run_id) or run)
+        prepare_agent_runtime_run(platform_store.get_run(run_id) or run)
         schedule_platform_execution(run_id)
-    return {"run": platform_store.get_run(run_id)}
+    current_run = platform_store.get_run(run_id)
+    return {"run": public_platform_run(current_run) if current_run else None}
 
 
 @app.post("/api/platform/runs/{run_id}/extend")
@@ -1982,12 +2461,12 @@ async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest, org
         raise HTTPException(status_code=status, detail=detail) from exc
     active = platform_tasks.get(run_id)
     if not active or active.done():
-        runtime_snapshot = prepare_openclaw_run(extended)
+        runtime_snapshot = prepare_agent_runtime_run(extended)
         schedule_platform_execution(run_id)
     else:
         runtime_snapshot = {"status": "existing_execution_finishing"}
     return {
-        "run": platform_store.get_run(run_id),
+        "run": public_platform_run(platform_store.get_run(run_id) or extended),
         "extension": {
             "minutes": request.minutes,
             "effective_minutes": next(
@@ -1998,7 +2477,7 @@ async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest, org
                 ),
                 None,
             ),
-            "maximum_minutes": 360,
+            "maximum_minutes": configured_maximum_run_minutes(),
             "status": "started",
             "runtime_snapshot": runtime_snapshot,
         },
@@ -2042,7 +2521,8 @@ async def intervene_platform_run(run_id: str, request: RunInterventionRequest, o
             "status": "queued",
         },
     )
-    return {"intervention": intervention, "run": platform_store.get_run(run_id)}
+    current_run = platform_store.get_run(run_id)
+    return {"intervention": intervention, "run": public_platform_run(current_run) if current_run else None}
 
 
 """Removed legacy in-memory demo API.

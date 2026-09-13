@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import hashlib
 import io
 import json
 import subprocess
@@ -11,12 +12,21 @@ from pathlib import Path
 import httpx
 import pytest
 
-from server.app.main import app, bounded_score, capability_overlap_ratio
+from server.app.agent_runtime import AgentRuntimeError
+from server.app.main import app, bounded_score, capability_overlap_ratio, public_platform_run
 from server.app.models import RunStatus
 from server.app.simulator import run_demo
 from server.app.store import RunStore
 from server.app.platform_store import PlatformStore, STARTER_STRATEGIST
-from server.app.platform_executor import _extract_initiator_note, _resolve_gate_targets, _team_knowledge, execute_platform_run
+from server.app.platform_executor import (
+    _continues_after_expected_rejection,
+    _extract_initiator_note,
+    _resolve_gate_targets,
+    _team_knowledge,
+    execute_platform_run,
+)
+from server.app.agent_runtime_registry import agent_runtime
+from server.app.git_delivery import commit_run_changes, ensure_run_repository
 from server.app.openclaw_runtime import OpenClawRuntime, OpenClawRuntimeError, openclaw_runtime
 from server.app.showcase import CASE_ID, CASE_MANIFEST, CASE_TASK, comparison_report, ensure_showcase_assets
 
@@ -37,14 +47,155 @@ async def test_health() -> None:
 
 
 @pytest.mark.anyio
+async def test_large_run_detail_does_not_block_health(monkeypatch) -> None:
+    observed: dict[str, object] = {}
+    active_projections = 0
+    maximum_active_projections = 0
+    projection_guard = threading.Lock()
+
+    def slow_run(*_args, **_kwargs):
+        nonlocal active_projections, maximum_active_projections
+        observed.update(_kwargs)
+        with projection_guard:
+            active_projections += 1
+            maximum_active_projections = max(maximum_active_projections, active_projections)
+        try:
+            time.sleep(0.25)
+            return {
+                "id": "run_slow",
+                "status": "running",
+                "tasks": [],
+                "artifacts": [],
+                "events": [],
+                "interventions": [],
+                "node_dossiers": {},
+                "agent_presence": [],
+            }
+        finally:
+            with projection_guard:
+                active_projections -= 1
+
+    monkeypatch.setattr("server.app.main.platform_store.get_run", slow_run)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        detail_request = asyncio.create_task(client.get("/api/platform/runs/run_slow"))
+        second_detail_request = asyncio.create_task(client.get("/api/platform/runs/run_slow"))
+        await asyncio.sleep(0.03)
+        started_at = time.monotonic()
+        health = await client.get("/api/health")
+        health_elapsed = time.monotonic() - started_at
+        detail = await detail_request
+        second_detail = await second_detail_request
+
+    assert health.status_code == 200
+    assert health_elapsed < 0.15
+    assert detail.status_code == 200
+    assert second_detail.status_code == 200
+    assert detail.json()["run"]["id"] == "run_slow"
+    assert observed["event_limit"] == 500
+    assert maximum_active_projections == 1
+
+
+def test_list_organizations_is_read_only_during_active_writer(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "organization-read.db"))
+
+    with platform._connect() as writer:
+        writer.execute("BEGIN IMMEDIATE")
+        organizations = platform.list_organizations()
+
+    assert any(item["id"] == "org_jianghu" for item in organizations)
+
+
+def test_public_platform_run_redacts_legacy_runtime_trace_without_mutating_evidence() -> None:
+    raw_error = (
+        "openclaw_agent_failed:[agents/tool-policy] tool policy removed via tools.profile "
+        "sessionKey=agent:private [provider-transport-fetch] url=http://43.106.8.32:3000/v1/responses "
+        "causeCode=EACCES message=fetch failed rawError=Connection error"
+    )
+    run = {
+        "id": "run_legacy",
+        "tasks": [{"id": "task_legacy", "status": "failed", "output": {"error": raw_error, "session_key": "private"}}],
+        "events": [{
+            "id": "evt_legacy",
+            "type": "agent.action.failed",
+            "summary": raw_error,
+            "payload": {"error_detail": raw_error, "session_key": "private", "runtime_error": {"message": raw_error}},
+        }],
+        "node_dossiers": [{"private_trace": raw_error, "claude_sdk_session_id": "sdk-private"}],
+    }
+
+    projected = public_platform_run(run)
+    serialized = json.dumps(projected, ensure_ascii=False)
+
+    assert "43.106.8.32" not in serialized
+    assert "tools.profile" not in serialized
+    assert "sessionKey" not in serialized
+    assert "sdk-private" not in serialized
+    assert "模型服务暂时无法连接" in serialized
+    assert projected["events"][0]["payload"]["diagnostic_id"].startswith("diag-")
+    assert raw_error in run["events"][0]["summary"]
+
+
+@pytest.mark.anyio
+async def test_git_commit_patch_download_returns_the_recorded_commit(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "git-patch.db"))
+    agent = platform.create_agent(
+        name="代码交付者",
+        role="后端工程师",
+        description="形成可下载的 Git Commit",
+        persona="工程交付",
+        capabilities=["代码实现"],
+    )
+    workflow = platform.create_workflow(
+        "Git 交付流",
+        "验证 Commit Patch 下载",
+        "test",
+        {
+            "nodes": [{
+                "key": "implementation",
+                "name": "代码实现",
+                "agent_id": agent["id"],
+                "agent_role": agent["role"],
+            }],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "实现 Git 交付")
+    code_root = Path(run["workspace"]["code"])
+    ensure_run_repository(code_root, run["id"])
+    (code_root / "feature.py").write_text("FEATURE = True\n", encoding="utf-8")
+    commit = commit_run_changes(
+        code_root,
+        run_id=run["id"],
+        node_key="implementation",
+        node_name="代码实现",
+        agent=agent,
+    )
+    assert commit is not None
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            f"/api/platform/runs/{run['id']}/git/commits/{commit['commit_sha']}/patch"
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/x-patch")
+    assert b"feature.py" in response.content
+    assert b"Subject: [PATCH]" in response.content
+
+
+@pytest.mark.anyio
 async def test_legacy_demo_api_is_not_available() -> None:
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.post("/api/demo")
-    # StaticFiles returns 405 for POST; a source-only checkout returns 404.
-    assert response.status_code in {404, 405}
-    assert "/api/demo" not in app.openapi()["paths"]
+    assert response.status_code == 405
 
 
 @pytest.mark.anyio
@@ -93,6 +244,99 @@ async def test_terminal_platform_run_cannot_be_cancelled(monkeypatch, tmp_path) 
     assert platform.get_run(run["id"])["status"] == "completed"
 
 
+@pytest.mark.anyio
+async def test_cancelling_platform_run_cancels_all_non_terminal_tasks(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "cancel-running-tasks.db"))
+    agent = platform.create_agent(
+        name="取消状态校验员",
+        role="执行状态校验",
+        description="验证 Run 取消后节点不再残留为运行中",
+        persona="严格核对终态",
+        capabilities=["状态校验"],
+    )
+    workflow = platform.create_workflow(
+        "运行中取消校验流",
+        "验证取消 Run 会同步终止所有未完成节点",
+        "test",
+        {
+            "nodes": [
+                {"key": "done", "name": "已完成节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "active", "name": "运行中节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "queued", "name": "等待节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "retry", "name": "重试节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "failed", "name": "失败节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "验证取消时的任务状态同步")
+    tasks = {task["node_key"]: task for task in run["tasks"]}
+    platform.update_task(tasks["done"]["id"], status="completed")
+    platform.update_task(tasks["active"]["id"], status="running")
+    platform.update_task(tasks["retry"]["id"], status="retrying")
+    platform.update_task(tasks["failed"]["id"], status="failed")
+    platform.update_run(run["id"], status="running", stage="executing")
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(f"/api/platform/runs/{run['id']}/cancel")
+
+    assert response.status_code == 200
+    cancelled = response.json()["run"]
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["stage"] == "cancelled"
+    statuses = {task["node_key"]: task["status"] for task in cancelled["tasks"]}
+    assert statuses == {
+        "done": "completed",
+        "active": "cancelled",
+        "queued": "cancelled",
+        "retry": "cancelled",
+        "failed": "failed",
+    }
+    assert cancelled["events"][-1]["type"] == "run.cancelled"
+
+
+def test_store_startup_repairs_legacy_cancelled_run_task_statuses(tmp_path) -> None:
+    database_path = tmp_path / "legacy-cancelled-run.db"
+    platform = PlatformStore(str(database_path))
+    agent = platform.create_agent(
+        name="历史状态校验员",
+        role="数据迁移校验",
+        description="验证旧取消现场的运行中节点会被修正",
+        persona="保留历史证据并修复矛盾状态",
+        capabilities=["数据迁移"],
+    )
+    workflow = platform.create_workflow(
+        "旧取消现场修复流",
+        "验证服务启动时修复历史不一致任务状态",
+        "test",
+        {
+            "nodes": [
+                {"key": "done", "name": "已完成节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "active", "name": "残留运行节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "修复历史取消现场")
+    tasks = {task["node_key"]: task for task in run["tasks"]}
+    platform.update_task(tasks["done"]["id"], status="completed")
+    platform.update_task(tasks["active"]["id"], status="running")
+    platform.update_run(run["id"], status="cancelled", stage="cancelled")
+
+    reopened = PlatformStore(str(database_path)).get_run(run["id"])
+
+    assert reopened is not None
+    assert {task["node_key"]: task["status"] for task in reopened["tasks"]} == {
+        "done": "completed",
+        "active": "cancelled",
+    }
+
+
 def _make_runtime_limited_run(tmp_path, *, max_run_minutes: int = 180):
     platform = PlatformStore(str(tmp_path / "runtime-extension.db"))
     agent = platform.create_agent(
@@ -129,7 +373,11 @@ def _make_runtime_limited_run(tmp_path, *, max_run_minutes: int = 180):
         "system",
         "Budget exhausted",
         "Runtime limit reached",
-        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:run_time_limit"},
+        {
+            "error_type": "RuntimeError",
+            "error_detail": "本次 Run 已达到当前运行时限。",
+            "budget_kind": "run_time_limit",
+        },
     )
     return platform, run, collect, deliver
 
@@ -148,6 +396,36 @@ def test_runtime_extension_preserves_completed_nodes_and_records_event(tmp_path)
     assert extension["payload"]["effective_minutes"] == 240
 
 
+def test_runtime_extension_recovers_legacy_friendly_time_limit_event(tmp_path) -> None:
+    platform, run, _, _ = _make_runtime_limited_run(tmp_path)
+    with platform._connect() as db:
+        db.execute(
+            "UPDATE events SET created_at=? WHERE run_id=? AND type='run.started'",
+            ("2026-09-12T00:00:00+00:00", run["id"]),
+        )
+        db.execute(
+            "UPDATE events SET created_at=?,payload_json=? WHERE run_id=? AND type='run.budget_exhausted'",
+            (
+                "2026-09-12T03:00:01+00:00",
+                json.dumps(
+                    {
+                        "error_type": "RuntimeError",
+                        "error_detail": "本次 Run 已达到当前运行时限。",
+                        "error_code": "runtime_execution_failed",
+                    },
+                    ensure_ascii=False,
+                ),
+                run["id"],
+            ),
+        )
+
+    extended = platform.extend_run_time(run["id"], 60)
+
+    assert extended["status"] == "running"
+    extension = next(item for item in extended["events"] if item["type"] == "run.time_extended")
+    assert extension["payload"]["source_error"] == "run_time_limit"
+
+
 def test_runtime_extension_rejects_token_limit_and_total_cap(tmp_path) -> None:
     platform, run, _, _ = _make_runtime_limited_run(tmp_path)
     platform.append_run_event(
@@ -156,7 +434,11 @@ def test_runtime_extension_rejects_token_limit_and_total_cap(tmp_path) -> None:
         "system",
         "Token budget exhausted",
         "Token limit reached",
-        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:token_limit"},
+        {
+            "error_type": "RuntimeError",
+            "error_detail": "本次 Run 已达到 Token 预算上限。",
+            "budget_kind": "token_limit",
+        },
     )
     with pytest.raises(ValueError, match="run_time_extension_not_allowed"):
         platform.extend_run_time(run["id"], 60)
@@ -171,7 +453,11 @@ def test_runtime_extension_rejects_token_limit_and_total_cap(tmp_path) -> None:
         "system",
         "Runtime limit reached",
         "Runtime limit reached",
-        {"error_type": "RuntimeError", "error_detail": "budget_exhausted:run_time_limit"},
+        {
+            "error_type": "RuntimeError",
+            "error_detail": "本次 Run 已达到当前运行时限。",
+            "budget_kind": "run_time_limit",
+        },
     )
     with pytest.raises(ValueError, match="run_time_extension_limit_exceeded"):
         capped.extend_run_time(capped_run["id"], 30)
@@ -181,7 +467,7 @@ def test_runtime_extension_rejects_token_limit_and_total_cap(tmp_path) -> None:
 async def test_runtime_extension_api_resumes_same_run(monkeypatch, tmp_path) -> None:
     platform, run, _, _ = _make_runtime_limited_run(tmp_path)
     monkeypatch.setattr("server.app.main.platform_store", platform)
-    monkeypatch.setattr("server.app.main.prepare_openclaw_run", lambda current: {"mode": "test"})
+    monkeypatch.setattr("server.app.main.prepare_agent_runtime_run", lambda current: {"mode": "test"})
     monkeypatch.setattr("server.app.main.schedule_platform_execution", lambda run_id: None)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(f"/api/platform/runs/{run['id']}/extend", json={"minutes": 120})
@@ -241,19 +527,42 @@ async def test_demo_simulation_completes_with_fixed_defect_and_scores() -> None:
 
 @pytest.mark.anyio
 async def test_platform_assets_are_persisted_and_workflow_binds_agents(monkeypatch, tmp_path) -> None:
-    db_path = str(tmp_path / "persisted-assets.db")
-    platform = PlatformStore(db_path)
-    ensure_showcase_assets(platform)
-    # Reopen the database instead of depending on data from a developer's workspace.
-    monkeypatch.setattr("server.app.main.platform_store", PlatformStore(db_path))
+    database_path = tmp_path / "persisted-assets.db"
+    platform = PlatformStore(str(database_path))
+    agent = platform.create_agent(
+        name="持久化验证员",
+        role="流程验证",
+        description="验证 Workflow 与 Agent 绑定可跨重启读取",
+        persona="只依据持久化事实判断",
+        capabilities=["流程核验"],
+    )
+    created = platform.create_workflow(
+        "持久化资产验证流",
+        "验证流程资产和人物绑定",
+        "test",
+        {
+            "nodes": [
+                {
+                    "key": "verify",
+                    "name": "验证持久化资产",
+                    "agent_id": agent["id"],
+                    "agent_role": agent["role"],
+                }
+            ],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    reopened = PlatformStore(str(database_path))
+    monkeypatch.setattr("server.app.main.platform_store", reopened)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         workflows = await client.get("/api/platform/workflows")
         assert workflows.status_code == 200
-        workflow = workflows.json()[0]
+        workflow = next(item for item in workflows.json() if item["id"] == created["id"])
         assert workflow["status"] == "ready"
-        assert workflow["agent_ids"]
+        assert workflow["agent_ids"] == [agent["id"]]
         assert workflow["definition"]["nodes"][0]["agent_id"] in workflow["agent_ids"]
 
 
@@ -345,6 +654,56 @@ def test_rejected_judge_prefers_explicit_targets_then_upstream() -> None:
     dependencies = {"build": set(), "judge": {"build"}, "publish": {"judge"}}
     assert _resolve_gate_targets("judge", {"target_node_keys": ["build"]}, dependencies, set(dependencies)) == {"build"}
     assert _resolve_gate_targets("judge", {}, dependencies, set(dependencies)) == {"build"}
+
+
+def test_explicit_expected_rejection_continues_to_downstream() -> None:
+    dependencies = {"audit": set(), "judge": {"audit"}, "remediate": {"judge"}}
+    definitions = {
+        "judge": {"key": "judge", "type": "judge", "expected_verdict": "revise", "continue_after_rejection": True},
+        "remediate": {"key": "remediate", "name": "整改执行"},
+    }
+    assert _continues_after_expected_rejection("judge", definitions["judge"], dependencies, definitions)
+
+
+def test_existing_initial_rejection_workflow_continues_to_remediation() -> None:
+    dependencies = {
+        "audit": set(),
+        "initial_judge_rejection": {"audit"},
+        "remediation_rerun": {"audit", "initial_judge_rejection"},
+    }
+    definitions = {
+        "initial_judge_rejection": {
+            "key": "initial_judge_rejection",
+            "name": "首轮独立裁判退回裁决",
+            "purpose": "对真实阻断项作出不通过并退回的正式裁决。",
+            "type": "judge",
+        },
+        "remediation_rerun": {"key": "remediation_rerun", "name": "退回缺陷整改与全链路重跑"},
+    }
+    assert _continues_after_expected_rejection(
+        "initial_judge_rejection",
+        definitions["initial_judge_rejection"],
+        dependencies,
+        definitions,
+    )
+
+
+def test_initial_rejection_without_remediation_child_still_reworks_upstream() -> None:
+    dependencies = {"audit": set(), "initial_judge_rejection": {"audit"}, "publish": {"initial_judge_rejection"}}
+    definitions = {
+        "initial_judge_rejection": {
+            "key": "initial_judge_rejection",
+            "name": "首轮退回裁决",
+            "type": "judge",
+        },
+        "publish": {"key": "publish", "name": "发布结果"},
+    }
+    assert not _continues_after_expected_rejection(
+        "initial_judge_rejection",
+        definitions["initial_judge_rejection"],
+        dependencies,
+        definitions,
+    )
 
 
 def test_active_model_config_prefers_medium_tier(tmp_path) -> None:
@@ -575,6 +934,41 @@ def test_failed_run_retry_creates_new_immutable_run(tmp_path) -> None:
     assert len(platform.list_runs(organization_id="org_jianghu")) == 1
 
 
+def test_run_list_prefers_active_family_version_over_newer_cancelled_version(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "active-run-version.db"))
+    agent = platform.create_agent(
+        name="沈续行",
+        role="执行者",
+        description="负责继续未完成现场",
+        persona="优先呈现仍在执行的版本",
+        capabilities=["任务执行"],
+    )
+    workflow = platform.create_workflow(
+        "活跃版本章法",
+        "同一家族优先展示活跃版本",
+        "test",
+        {
+            "nodes": [{"key": "work", "name": "实际行动", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    failed = platform.create_run(workflow["id"], "完成一项真实任务")
+    platform.update_run(failed["id"], status="failed", stage="execution_failed")
+    active = platform.retry_run(failed["id"])
+    platform.update_run(active["id"], status="running", stage="executing")
+    cancelled = platform.retry_run(failed["id"])
+    platform.update_run(cancelled["id"], status="cancelled", stage="cancelled")
+
+    listed = platform.list_runs(organization_id="org_jianghu")
+
+    assert len(listed) == 1
+    assert listed[0]["id"] == active["id"]
+    assert listed[0]["run_version"] == 2
+    assert listed[0]["status"] == "running"
+    assert listed[0]["attempt_count"] == 3
+
+
 def test_targeted_retry_preserves_completed_upstream_artifact(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "targeted-run-retry.db"))
     planner = platform.create_agent(
@@ -615,6 +1009,149 @@ def test_targeted_retry_preserves_completed_upstream_artifact(tmp_path) -> None:
     assert retried["artifacts"][0]["content"] == "# 已验证规划"
     assert retried["events"][0]["payload"]["retry_from_node_key"] == "build"
     assert retried["events"][0]["payload"]["preserved_node_keys"] == ["plan"]
+    inherited_event = next(event for event in retried["events"] if event["type"] == "artifact.inherited")
+    assert inherited_event["payload"]["artifact_id"] == retried["artifacts"][0]["id"]
+    assert inherited_event["payload"]["source_run_id"] == failed["id"]
+    assert inherited_event["payload"]["source_artifact_id"] == platform.get_run(failed["id"])["artifacts"][0]["id"]
+    assert inherited_event["payload"]["source_artifact_sha256"] == retried["artifacts"][0]["sha256"]
+
+
+def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "file-artifact.db"))
+    agent = platform.create_agent(
+        name="林归档", role="工程师", description="登记真实文件", persona="按字节复核",
+        capabilities=["文件交付"],
+    )
+    workflow = platform.create_workflow(
+        "文件归档章法", "登记二进制产物", "test",
+        {
+            "nodes": [{"key": "build", "name": "构建", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "交付原始字节")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "delivery" / "bundle.zip"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"PK\x03\x04\x00binary")
+
+    def fail_full_run_projection(*_args, **_kwargs):
+        raise AssertionError("file registration must not hydrate the full run projection")
+
+    monkeypatch.setattr(platform, "get_run", fail_full_run_projection)
+
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "delivery/bundle.zip", change_action="created"
+    )
+
+    materialized = Path(run["workspace"]["root"]) / artifact["relative_path"]
+    assert artifact["media_type"] == "application/zip"
+    assert artifact["sha256"] == hashlib.sha256(b"PK\x03\x04\x00binary").hexdigest()
+    assert materialized.read_bytes() == b"PK\x03\x04\x00binary"
+    receipt = platform.verify_artifact_bytes(run["id"], artifact["id"])
+    assert receipt["matched"] is True
+    assert receipt["observed_size_bytes"] == len(b"PK\x03\x04\x00binary")
+    metadata = json.loads(artifact["content"])
+    assert metadata["change_action"] == "created"
+    assert metadata["file_category"] == "other"
+
+
+def test_register_deleted_workspace_file_as_change_receipt(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "deleted-file-artifact.db"))
+    agent = platform.create_agent(
+        name="林归档", role="工程师", description="登记删除记录", persona="按变更复核",
+        capabilities=["文件交付"],
+    )
+    workflow = platform.create_workflow(
+        "删除归档章法", "登记删除产物", "test",
+        {
+            "nodes": [{"key": "build", "name": "构建", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "交付删除凭据")
+    task = run["tasks"][0]
+    previous_sha256 = "a" * 64
+
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "client/src/obsolete.ts",
+        change_action="deleted", previous_sha256=previous_sha256,
+    )
+
+    metadata = json.loads(artifact["content"])
+    assert artifact["kind"] == "runtime_file_change"
+    assert artifact["media_type"] == "application/json"
+    assert metadata == {
+        "source_relative_path": "client/src/obsolete.ts",
+        "change_action": "deleted",
+        "file_category": "code",
+        "sha256": "",
+        "previous_sha256": previous_sha256,
+    }
+    receipt = platform.verify_artifact_bytes(run["id"], artifact["id"])
+    assert receipt["matched"] is True
+
+
+def test_git_delivery_config_encrypts_token_and_preserves_it_on_blank_update(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "git-config.db"))
+    saved = platform.save_git_delivery_config(
+        project_id="project_jianghu", provider="gitlab",
+        repository_url="https://git.example.com/group/project.git",
+        api_base_url="https://git.example.com/api/v4", default_branch="main",
+        delivery_mode="create_merge_request", username="oauth2",
+        token="top-secret-token", active=True,
+    )
+    assert saved["token_hint"] == "top-****oken"
+    assert "token" not in saved
+    secret = platform.get_git_delivery_config("project_jianghu", include_secret=True)
+    assert secret is not None and secret["token"] == "top-secret-token"
+
+    platform.save_git_delivery_config(
+        project_id="project_jianghu", provider="gitlab",
+        repository_url="https://git.example.com/group/project.git",
+        api_base_url="https://git.example.com/api/v4", default_branch="develop",
+        delivery_mode="push_branch", username="oauth2", token=None, active=True,
+    )
+    updated = platform.get_git_delivery_config("project_jianghu", include_secret=True)
+    assert updated is not None
+    assert updated["default_branch"] == "develop"
+    assert updated["token"] == "top-secret-token"
+
+
+def test_git_credentials_repositories_and_run_delivery_are_separate(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "git-delivery-layers.db"))
+    credential = platform.save_git_credential(
+        credential_id=None, name="GitHub delivery", provider="github", api_base_url="",
+        username="delivery-user", token="credential-secret", active=True,
+    )
+    assert credential["token_hint"] == "cred****cret"
+    assert "token" not in credential
+    repository = platform.save_project_git_repository(
+        repository_id=None, project_id="project_jianghu", name="agent-arena",
+        repository_url="https://github.com/Logayan/agent-arena.git", default_branch="master",
+        credential_id=credential["id"], default_delivery_mode="create_merge_request", active=True,
+    )
+    agent = platform.create_agent(
+        name="Git delivery agent", role="Engineer", description="Delivers code", persona="Evidence first",
+        capabilities=["Git delivery"],
+    )
+    workflow = platform.create_workflow(
+        "Git event flow", "event scoped delivery", source="test",
+        definition={"schema_version": "1.0", "inputs": ["task"], "outputs": ["result"], "nodes": [{
+            "key": "implementation", "name": "Implementation", "agent_id": agent["id"], "agent_role": agent["role"],
+        }], "edges": [], "policies": {}},
+    )
+    run = platform.create_run(workflow["id"], "Claude Code SDK migration")
+    bound = platform.bind_run_git_delivery(
+        run["id"], repository_id=repository["id"], target_branch="master", delivery_mode="create_merge_request",
+    )
+    assert bound["repository_url"] == repository["repository_url"]
+    assert bound["target_branch"] == "master"
+    assert "token" not in bound
+    resolved = platform.get_run_git_delivery_config(run["id"], include_secret=True)
+    assert resolved is not None
+    assert resolved["token"] == "credential-secret"
+    assert platform.get_run(run["id"])["git_delivery"]["credential_id"] == credential["id"]
 
 
 @pytest.mark.anyio
@@ -862,13 +1399,53 @@ def test_run_workspace_is_isolated_and_artifact_is_materialized(tmp_path) -> Non
     assert (workspace_root / "workflow" / "workflow.json").is_file()
     assert (workspace_root / "code").is_dir()
     task = run["tasks"][0]
-    artifact = platform.create_artifact(run["id"], task["id"], "workflow_output", "交付说明", "# 真实交付\n\n内容", "candidate")
+    content = "# 真实交付\n\n内容\r\n保留模型原始换行"
+    artifact = platform.create_artifact(run["id"], task["id"], "workflow_output", "交付说明", content, "candidate")
     artifact_path = workspace_root / artifact["relative_path"]
-    assert artifact_path.read_text(encoding="utf-8") == "# 真实交付\n\n内容"
+    assert artifact_path.read_bytes() == content.encode("utf-8")
+    assert hashlib.sha256(artifact_path.read_bytes()).hexdigest() == artifact["sha256"]
     assert artifact["sha256"]
     manifest = (workspace_root / "manifest.json").read_text(encoding="utf-8")
     assert artifact["id"] in manifest
     assert platform.artifact_file_path(artifact["id"]) == artifact_path.resolve()
+
+
+def test_platform_store_repairs_legacy_artifact_newline_translation(tmp_path) -> None:
+    database_path = tmp_path / "workspace.db"
+    platform = PlatformStore(str(database_path))
+    agent = platform.create_agent(
+        name="林修复",
+        role="交付工程师",
+        description="负责验证落盘字节修复",
+        persona="只修复可证明的存储偏差",
+        capabilities=["交付归档"],
+    )
+    workflow = platform.create_workflow(
+        "字节修复流",
+        "修复旧版 Windows 文本换行转换",
+        "test",
+        {
+            "nodes": [{"key": "deliver", "name": "形成交付物", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "形成可复算交付物")
+    task = run["tasks"][0]
+    content = "# 原始内容\n\n第二行"
+    artifact = platform.create_artifact(run["id"], task["id"], "workflow_output", "旧版交付", content, "candidate")
+    artifact_path = platform.artifact_file_path(artifact["id"])
+    artifact_path.write_bytes(content.replace("\n", "\r\n").encode("utf-8"))
+    assert hashlib.sha256(artifact_path.read_bytes()).hexdigest() != artifact["sha256"]
+
+    repaired = PlatformStore(str(database_path))
+
+    assert repaired.artifact_file_path(artifact["id"]).read_bytes() == content.encode("utf-8")
+    repaired_run = repaired.get_run(run["id"])
+    repair_events = [event for event in repaired_run["events"] if event["type"] == "artifact.storage.repaired"]
+    assert len(repair_events) == 1
+    assert repair_events[0]["payload"]["artifact_id"] == artifact["id"]
+    assert repair_events[0]["payload"]["registered_sha256"] == artifact["sha256"]
 
 
 def test_team_knowledge_upload_is_platform_managed_and_bound_to_team(tmp_path) -> None:
@@ -1085,14 +1662,14 @@ def test_agent_revision_preserves_frozen_workflow_and_continues_memory_and_knowl
                 "enabled": True,
             }
         ],
-        runtime="openclaw",
+        runtime="claude_code",
         memory_policy={"enabled": True, "max_prompt_items": 12, "write_after_task": True},
         knowledge_source_ids=None,
     )
 
     assert revised["family_id"] == original["id"]
     assert revised["version"] == "1.1.0"
-    assert revised["runtime"] == "openclaw"
+    assert revised["runtime"] == "claude_code"
     assert revised["skills"][0]["name"] == "来源核验"
     assert revised["knowledge_source_ids"] == [source["id"]]
     assert revised["memory_count"] == 1
@@ -1322,11 +1899,11 @@ async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tm
                 "id": session_key,
                 "content": [{"type": "text", "text": text}],
                 "usage": {"input_tokens": 10, "output_tokens": 5},
-                "openclaw": {"runtime": "team-test"},
+                "claude_code": {"runtime": "team-test", "session_id": f"sdk-{session_key}"},
             }
 
     runtime = TeamRuntime()
-    monkeypatch.setattr(openclaw_runtime, "for_run", lambda run_id: runtime)
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
     await asyncio.wait_for(execute_platform_run(platform, run["id"]), timeout=10)
 
     completed = platform.get_run(run["id"])
@@ -1335,10 +1912,94 @@ async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tm
     assert "team.synthesis.started" in event_types
     assert "team.synthesis.completed" in event_types
     assert "run.completed" in event_types
+    completed_turns = [event for event in completed["events"] if event["type"] == "agent.turn.completed"]
+    assert completed_turns
+    assert all(event["payload"]["platform_session_id"] == event["payload"]["session_key"] for event in completed_turns)
+    assert all(str(event["payload"]["claude_sdk_session_id"]).startswith("sdk-") for event in completed_turns)
+    committed_memories = [event for event in completed["events"] if event["type"] == "agent.memory.committed"]
+    assert committed_memories
+    assert all(event["payload"]["memory_key"].startswith("agent-family:") for event in committed_memories)
+    assert all(event["payload"]["writer_session_id"] for event in committed_memories)
+    assert all(event["payload"]["writer_sdk_session_id"] for event in committed_memories)
     conclusions = [item for item in completed["artifacts"] if item["title"] == "一页纸结论"]
     assert len(conclusions) == 1
     assert conclusions[0]["task_id"] is None
     assert all(section in conclusions[0]["content"] for section in ["核心发现", "使用边界", "下一步"])
+
+
+@pytest.mark.anyio
+async def test_pause_boundary_drains_current_node_before_publishing_paused(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "pause-boundary.db"))
+    agent = platform.create_agent(
+        name="边界执行者",
+        role="执行工程师",
+        description="验证暂停边界",
+        persona="按节点顺序交付",
+        capabilities=["执行"],
+    )
+    platform.save_model_config(
+        config_id=None,
+        name="pause-boundary-test",
+        provider="openai-responses",
+        base_url="https://example.invalid",
+        model="test-model",
+        token="unit-test-secret",
+        active=True,
+    )
+    workflow = platform.create_workflow(
+        "暂停边界章法",
+        "当前节点排空后才能公布暂停",
+        "test",
+        {
+            "nodes": [
+                {"key": "first", "name": "第一节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "second", "name": "第二节点", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [["first", "second"]],
+            "policies": {"max_parallel_agents": 1},
+        },
+    )
+    run = platform.create_run(workflow["id"], "验证暂停后不会启动下一个节点")
+    calls = 0
+
+    class PauseRuntime:
+        def sync(self, agents, memories, model_config):
+            return {"agent_count": len(agents), "config_path": "isolated-test", "model": "test/test-model"}
+
+        async def message(self, *, agent, prompt, session_key, model_config, timeout_seconds):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                platform.update_run(run["id"], status="pause_requested")
+            return {
+                "id": session_key,
+                "content": [{"type": "text", "text": f"第 {calls} 个节点交付"}],
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "claude_code": {"runtime": "pause-test"},
+            }
+
+    runtime = PauseRuntime()
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
+    execution = asyncio.create_task(execute_platform_run(platform, run["id"]))
+    for _ in range(200):
+        if platform.get_run(run["id"])["status"] == "paused":
+            break
+        await asyncio.sleep(0.01)
+    paused = platform.get_run(run["id"])
+    assert paused["status"] == "paused"
+    paused_sequence = max(event["sequence"] for event in paused["events"] if event["type"] == "run.paused")
+    assert not any(
+        event["type"] == "task.started"
+        and event["payload"].get("node_key") == "second"
+        and event["sequence"] > paused_sequence
+        for event in paused["events"]
+    )
+
+    platform.update_run(run["id"], status="running")
+    await asyncio.wait_for(execution, timeout=10)
+    completed = platform.get_run(run["id"])
+    assert completed["status"] == "completed"
+    assert calls == 2
 
 
 @pytest.mark.anyio
@@ -1426,11 +2087,11 @@ async def test_judge_rejection_reopens_responsible_dag_subgraph(monkeypatch, tmp
                 "id": session_key,
                 "content": [{"type": "text", "text": text}],
                 "usage": {"input_tokens": 10, "output_tokens": 5},
-                "openclaw": {"runtime": "deterministic-test"},
+                "claude_code": {"runtime": "deterministic-test"},
             }
 
     deterministic_runtime = DeterministicRuntime()
-    monkeypatch.setattr(openclaw_runtime, "for_run", lambda run_id: deterministic_runtime)
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: deterministic_runtime)
     await execute_platform_run(platform, run["id"])
 
     completed = platform.get_run(run["id"])
@@ -1445,6 +2106,107 @@ async def test_judge_rejection_reopens_responsible_dag_subgraph(monkeypatch, tmp
     assert "workflow.loop.created" in event_types
     assert "gate.passed" in event_types
     assert "run.completed" in event_types
+
+
+@pytest.mark.anyio
+async def test_expected_initial_rejection_records_gate_and_executes_remediation(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "expected-rejection.db"))
+    worker = platform.create_agent(
+        name="林整改",
+        role="整改负责人",
+        description="根据首轮裁决完成真实整改",
+        persona="只提交可核验的整改结果",
+        capabilities=["整改执行"],
+    )
+    judge = platform.create_agent(
+        name="顾独立",
+        role="独立裁判",
+        description="对首轮阻断项作出退回裁决",
+        persona="不参与交付创作",
+        capabilities=["独立验收"],
+    )
+    platform.save_model_config(
+        config_id=None,
+        name="expected-rejection-test",
+        provider="openai-responses",
+        base_url="https://example.invalid",
+        model="test-model",
+        token="unit-test-secret",
+        active=True,
+    )
+    workflow = platform.create_workflow(
+        "首轮退回后整改流",
+        "保留真实退回证据并继续执行整改",
+        "test",
+        {
+            "nodes": [
+                {"key": "audit", "name": "形成首轮证据", "agent_id": worker["id"], "agent_role": worker["role"]},
+                {
+                    "key": "initial_judge_rejection",
+                    "name": "首轮独立裁判退回裁决",
+                    "purpose": "对真实阻断项作出不通过并退回的正式裁决",
+                    "type": "judge",
+                    "agent_id": judge["id"],
+                    "agent_role": judge["role"],
+                },
+                {
+                    "key": "remediation_rerun",
+                    "name": "退回缺陷整改与全链路重跑",
+                    "agent_id": worker["id"],
+                    "agent_role": worker["role"],
+                },
+            ],
+            "edges": [["audit", "initial_judge_rejection"], ["initial_judge_rejection", "remediation_rerun"]],
+            "policies": {"max_revision_rounds": 2, "max_parallel_agents": 1},
+        },
+    )
+    run = platform.create_run(workflow["id"], "先由独立裁判真实退回，再执行整改")
+    calls = {"audit": 0, "judge": 0, "remediation": 0}
+
+    class ExpectedRejectionRuntime:
+        runtime_name = "claude_code"
+
+        def health(self):
+            return {"mode": "test-runtime"}
+
+        def sync(self, agents, memories, model_config):
+            return {"agent_count": len(agents), "config_path": "isolated-test", "model": "test/test-model"}
+
+        async def message(self, *, agent, prompt, session_key, model_config, timeout_seconds):
+            if agent["id"] == judge["id"]:
+                calls["judge"] += 1
+                text = (
+                    '{"verdict":"revise","score":40,"summary":"首轮阻断项真实存在",'
+                    '"feedback":"进入整改节点消除阻断项","target_node_keys":["audit"],'
+                    '"acceptance_evidence":["首轮证据"],"remaining_risks":["待整改"]}'
+                )
+            elif "退回缺陷整改" in prompt:
+                calls["remediation"] += 1
+                text = "整改已执行，并形成新的可核验结果。"
+            else:
+                calls["audit"] += 1
+                text = "首轮证据已形成，包含一个预先声明且真实存在的阻断项。"
+            return {
+                "id": session_key,
+                "content": [{"type": "text", "text": text}],
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "claude_code": {"runtime": "expected-rejection-test"},
+            }
+
+    runtime = ExpectedRejectionRuntime()
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
+    await execute_platform_run(platform, run["id"])
+
+    completed = platform.get_run(run["id"])
+    assert completed["status"] == "completed"
+    assert calls == {"audit": 1, "judge": 1, "remediation": 1}
+    event_types = [event["type"] for event in completed["events"]]
+    assert "gate.rejected" in event_types
+    assert "gate.expected_rejection.recorded" in event_types
+    assert "workflow.loop.created" not in event_types
+    assert "run.completed" in event_types
+    rejected = next(event for event in completed["events"] if event["type"] == "gate.rejected")
+    assert rejected["payload"]["continue_downstream"] is True
 
 
 @pytest.mark.anyio
@@ -1526,11 +2288,11 @@ async def test_running_run_recovers_completed_artifacts_and_only_reexecutes_unfi
                 "id": session_key,
                 "content": [{"type": "text", "text": "基于已确认事实形成的可追溯正式方案。"}],
                 "usage": {"input_tokens": 12, "output_tokens": 8},
-                "openclaw": {"runtime": "recovery-test"},
+                "claude_code": {"runtime": "recovery-test"},
             }
 
     runtime = RecoveryRuntime()
-    monkeypatch.setattr(openclaw_runtime, "for_run", lambda run_id: runtime)
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
     await execute_platform_run(platform, run["id"])
 
     recovered = platform.get_run(run["id"])
@@ -1542,10 +2304,17 @@ async def test_running_run_recovers_completed_artifacts_and_only_reexecutes_unfi
     assert recovery_event["payload"]["completed_node_keys"] == ["collect"]
     assert recovery_event["payload"]["interrupted_node_keys"] == ["write"]
     assert recovery_event["payload"]["execution_epoch"] == 2
+    for event_type in ("artifact.created", "artifact.collected", "artifact.download.verified"):
+        reconciled = [
+            event for event in recovered["events"]
+            if event["type"] == event_type and event["payload"].get("artifact_id") == old_artifact["id"]
+        ]
+        assert len(reconciled) == 1
+        assert reconciled[0]["payload"]["reconciled_after_interruption"] is True
 
 
 @pytest.mark.anyio
-async def test_agent_action_uses_a_fresh_isolated_retry_before_retrying_the_whole_node(monkeypatch, tmp_path) -> None:
+async def test_timeout_retries_keep_increasing_across_agent_and_node_attempts(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "agent-retry.db"))
     agent = platform.create_agent(
         name="陆行舟",
@@ -1579,10 +2348,12 @@ async def test_agent_action_uses_a_fresh_isolated_retry_before_retrying_the_whol
                 }
             ],
             "edges": [],
+            "policies": {"max_run_minutes": 720},
         },
     )
     run = platform.create_run(workflow["id"], "完成一项可验证交付")
     session_keys: list[str] = []
+    timeout_values: list[int] = []
 
     class RetryRuntime:
         def sync(self, agents, memories, model_config):
@@ -1590,31 +2361,50 @@ async def test_agent_action_uses_a_fresh_isolated_retry_before_retrying_the_whol
 
         async def message(self, *, agent, prompt, session_key, model_config, timeout_seconds):
             session_keys.append(session_key)
-            if len(session_keys) == 1:
-                raise OpenClawRuntimeError("temporary network failure")
+            timeout_values.append(timeout_seconds)
+            if len(session_keys) < 4:
+                raise AgentRuntimeError(
+                    f"claude_timeout:{timeout_seconds}s",
+                    category="timeout",
+                    retryable=True,
+                    runtime="claude_code",
+                )
             return {
                 "id": session_key,
                 "content": [{"type": "text", "text": "已完成真实交付并给出验证结果。"}],
                 "usage": {"input_tokens": 8, "output_tokens": 6},
-                "openclaw": {"runtime": "retry-test"},
+                "claude_code": {"runtime": "retry-test"},
             }
 
     async def no_wait(seconds: float) -> None:
         return None
 
-    monkeypatch.setattr(openclaw_runtime, "for_run", lambda run_id: RetryRuntime())
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: RetryRuntime())
     monkeypatch.setattr("server.app.platform_executor.asyncio.sleep", no_wait)
+    monkeypatch.setenv("JIANGHU_AGENT_TIMEOUT_SECONDS", "1800")
+    monkeypatch.setenv("JIANGHU_AGENT_TIMEOUT_MAX_SECONDS", "14400")
+    monkeypatch.setenv("JIANGHU_MAX_RUN_MINUTES", "720")
     await execute_platform_run(platform, run["id"])
 
     completed = platform.get_run(run["id"])
     assert completed["status"] == "completed"
-    assert len(session_keys) == 2
+    assert len(session_keys) == 4
     assert session_keys[0].endswith("agent-attempt1")
     assert session_keys[1].endswith("agent-attempt2")
-    retry_event = next(item for item in completed["events"] if item["type"] == "agent.action.retrying")
-    assert retry_event["payload"]["agent_id"] == agent["id"]
-    assert retry_event["payload"]["next_attempt"] == 2
-    assert not any(item["type"] == "agent.action.failed" for item in completed["events"])
+    assert session_keys[2].endswith("agent-attempt1")
+    assert session_keys[3].endswith("agent-attempt2")
+    assert timeout_values == [1800, 3600, 7200, 14400]
+    timeout_events = [
+        item for item in completed["events"]
+        if item["type"] in {"agent.action.retrying", "agent.action.failed"}
+    ]
+    assert [item["payload"]["agent_id"] for item in timeout_events] == [agent["id"]] * 3
+    assert [
+        (item["payload"]["timeout_seconds"], item["payload"]["next_timeout_seconds"])
+        for item in timeout_events
+    ] == [(1800, 3600), (3600, 7200), (7200, 14400)]
+    assert all(item["payload"]["timeout_extended"] is True for item in timeout_events)
+    assert len([item for item in completed["events"] if item["type"] == "task.retrying"]) == 1
 
 
 def test_run_public_dossier_intervention_and_presence_are_derived(tmp_path) -> None:

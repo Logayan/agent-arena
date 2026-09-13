@@ -1,0 +1,45 @@
+
+$ python -m py_compile run_acceptance.py runtime_acceptance/__init__.py runtime_acceptance/verifier.py src/capture_platform_snapshot.py tests/test_runtime_acceptance.py 
+EXIT_CODE=0
+
+$ python -m unittest discover -s tests -v 
+test_all_latest_manifest_rows_are_reviewed (test_runtime_acceptance.RuntimeAcceptanceTests.test_all_latest_manifest_rows_are_reviewed) ... ok
+test_artifact_registry_is_raw_empty_evidence (test_runtime_acceptance.RuntimeAcceptanceTests.test_artifact_registry_is_raw_empty_evidence) ... ok
+test_evidence_error_is_fail_closed (test_runtime_acceptance.RuntimeAcceptanceTests.test_evidence_error_is_fail_closed) ... ok
+test_frozen_projection_identity (test_runtime_acceptance.RuntimeAcceptanceTests.test_frozen_projection_identity) ... ok
+test_manifest_when_present_is_complete (test_runtime_acceptance.RuntimeAcceptanceTests.test_manifest_when_present_is_complete) ... ok
+test_mapping_and_gap_verdicts_are_fail_closed (test_runtime_acceptance.RuntimeAcceptanceTests.test_mapping_and_gap_verdicts_are_fail_closed) ... ok
+test_memory_read_use_is_partial (test_runtime_acceptance.RuntimeAcceptanceTests.test_memory_read_use_is_partial) ... ok
+test_model_field_is_not_conflated_with_route (test_runtime_acceptance.RuntimeAcceptanceTests.test_model_field_is_not_conflated_with_route) ... ok
+test_node_tool_lifecycle_and_binding_coverage (test_runtime_acceptance.RuntimeAcceptanceTests.test_node_tool_lifecycle_and_binding_coverage) ... ok
+test_non_materialized_submission_bytes_are_not_overclaimed (test_runtime_acceptance.RuntimeAcceptanceTests.test_non_materialized_submission_bytes_are_not_overclaimed) ... ok
+test_projection_is_filtered_not_source_database (test_runtime_acceptance.RuntimeAcceptanceTests.test_projection_is_filtered_not_source_database) ... ok
+test_recovery_is_partial_and_not_converged (test_runtime_acceptance.RuntimeAcceptanceTests.test_recovery_is_partial_and_not_converged) ... ok
+test_required_negative_lifecycles_remain_blocked (test_runtime_acceptance.RuntimeAcceptanceTests.test_required_negative_lifecycles_remain_blocked) ... ok
+test_run_wide_tool_lifecycle (test_runtime_acceptance.RuntimeAcceptanceTests.test_run_wide_tool_lifecycle) ... ok
+test_runtime_route_and_source_attestation (test_runtime_acceptance.RuntimeAcceptanceTests.test_runtime_route_and_source_attestation) ... ok
+test_sdk_bindings_are_current (test_runtime_acceptance.RuntimeAcceptanceTests.test_sdk_bindings_are_current) ... ok
+test_snapshot_verifier_is_deterministic (test_runtime_acceptance.RuntimeAcceptanceTests.test_snapshot_verifier_is_deterministic) ... ok
+test_target_schema_is_explicitly_not_current_conformance (test_runtime_acceptance.RuntimeAcceptanceTests.test_target_schema_is_explicitly_not_current_conformance) ... ok
+test_two_collaboration_cycles_are_preserved (test_runtime_acceptance.RuntimeAcceptanceTests.test_two_collaboration_cycles_are_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 2.414s
+
+OK
+EXIT_CODE=0
+
+$ python run_acceptance.py verify 
+VERIFICATION PASS events=4395 sdk_bindings=16 node_sdk_bindings=12 run_tool_calls=785 node_tool_calls=371 public_messages=8 artifacts=0 open_p0=12 overall=NO_GO_COMPLETE_MIGRATION_NOT_PROVEN
+EXIT_CODE=0
+
+$ python run_acceptance.py write-receipts 
+VERIFICATION PASS events=4395 sdk_bindings=16 node_sdk_bindings=12 run_tool_calls=785 node_tool_calls=371 public_messages=8 artifacts=0 open_p0=12 overall=NO_GO_COMPLETE_MIGRATION_NOT_PROVEN
+EXIT_CODE=0
+
+$ python -c import\ json\,pathlib\;\ \[json.loads\(p.read_text\(encoding=\"utf-8-sig\"\)\)\ for\ p\ in\ pathlib.Path\(\".\"\).rglob\(\"\*.json\"\)\]\;\ print\(\"JSON_PARSE_PASS\"\) 
+JSON_PARSE_PASS
+EXIT_CODE=0
+
+PIPELINE_PRE_MANIFEST=PASS
+WORKDIR=delivery/

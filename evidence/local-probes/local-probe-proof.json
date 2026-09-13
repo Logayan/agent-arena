@@ -1,0 +1,57 @@
+{
+  "acceptance_eligible": false,
+  "boundary": "This proves the supplied local engineering harness only. It does not prove Jianghu orchestrator, Worker lease, Claude SDK Session, platform Memory, platform Judge, or platform pause/resume semantics.",
+  "claude_sdk_session_id": null,
+  "commands": 13,
+  "dependency": {
+    "first_exit": 69,
+    "retry_exit": 0
+  },
+  "event_chain_head_sha256": "b444f9471bc4f99bc047f599014ba8b77c8859d2b596b6665f7bcf5913dabba0",
+  "event_count": 23,
+  "evidence_class": "observed_local_process",
+  "failure_recovery": {
+    "distinct_processes": true,
+    "duplicate_suppressed": true,
+    "effect_count": 1,
+    "old_worker_exit": 1,
+    "old_worker_pid": 28524,
+    "recovery_pid": 27684
+  },
+  "file_delivery": {
+    "path_escape_exit": 64,
+    "sha256": "11ba8a832354b510459e8085287e425193b40ae2967fd71e41e4f072ecf32b3a",
+    "size_bytes": 28
+  },
+  "memory": {
+    "distinct_processes": true,
+    "reader_pid": 13040,
+    "value_sha256": "71ca70f93945ac460b56b29df41d5d60e9468b15975cf122211469c6f436da21",
+    "writer_pid": 21300,
+    "wrong_namespace_exit": 77
+  },
+  "negative_gate": {
+    "blocker_id": "NEG-001-MISSING-PLATFORM-EVIDENCE-BINDING",
+    "platform_judge_event": false,
+    "v1_exit": 42,
+    "v1_unchanged": true,
+    "v1_verdict": "REJECT",
+    "v2_exit": 0,
+    "v2_verdict": "ACCEPT"
+  },
+  "node_key": "runtime_probe_harness",
+  "pause_resume": {
+    "checkpoint_sha256": "253f1f6a028bc946062f01e7812a37c08a70a54ba6fc20622806a694997d3b89",
+    "checkpoint_unchanged": true,
+    "distinct_processes": true,
+    "pause_exit": 75,
+    "pause_pid": 16536,
+    "resume_exit": 0,
+    "resume_pid": 28156,
+    "silent_window_seconds": 0.25
+  },
+  "platform_session_id": null,
+  "run_id": "run_9226059d74a1",
+  "schema_version": "jianghu.local-probe-proof.v1",
+  "status": "PASS_LOCAL_SCOPE"
+}

@@ -1,0 +1,7 @@
+{
+  "path": "file/delivered.txt",
+  "sha256": "11ba8a832354b510459e8085287e425193b40ae2967fd71e41e4f072ecf32b3a",
+  "size_bytes": 28,
+  "status": "WRITTEN",
+  "worker_pid": 16952
+}

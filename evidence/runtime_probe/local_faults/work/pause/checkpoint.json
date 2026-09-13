@@ -1,0 +1,13 @@
+{
+  "logical_execution_id": "RP-PAUSE-EXEC-001",
+  "state": "PAUSED",
+  "completed_steps": [
+    "input_loaded",
+    "checkpoint_committed"
+  ],
+  "pending_steps": [
+    "finalize"
+  ],
+  "writer_pid": 29144,
+  "lease_epoch": 1
+}

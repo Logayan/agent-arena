@@ -1,0 +1,7 @@
+{
+  "effect_count": 1,
+  "idempotency_key": "idempotency-run-9226059d74a1",
+  "operation_id": "effect-op-run-9226059d74a1",
+  "status": "SIDE_EFFECT_COMMITTED_TASK_IN_PROGRESS",
+  "worker_pid": 28524
+}

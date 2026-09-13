@@ -27,8 +27,11 @@ const workflows = ref<Json[]>([])
 const runs = ref<Json[]>([])
 const commissions = ref<Json[]>([])
 const modelConfigs = ref<Json[]>([])
+const projects = ref<Json[]>([])
+const gitCredentials = ref<Json[]>([])
+const projectGitRepositories = ref<Json[]>([])
 const knowledgeSources = ref<Json[]>([])
-const openClawStatus = ref<Json>({ available: false, mode: 'embedded-local' })
+const runtimeStatus = ref<Json>({ available: false, mode: 'agent-sdk-bridge', runtime: 'claude_code' })
 const knowledgeGraph = ref<Json>({ nodes: [], edges: [] })
 const showcase = ref<Json>({})
 const showcaseBusy = ref(false)
@@ -108,8 +111,14 @@ const workflowDeletingId = ref('')
 const modelForm = ref({ id: '', name: '', provider: 'openai-responses', base_url: '', model: '', tier: 'medium', token: '', token_hint: '', active: true })
 const modelMessage = ref('')
 const modelDeletingId = ref('')
+const gitDeliveryMessage = ref('')
+const gitDeliveryBusy = ref(false)
+const gitCredentialForm = ref<Json>({ id: '', name: '', provider: 'github', api_base_url: '', username: '', token: '', token_hint: '', active: true })
+const projectRepositoryForm = ref<Json>({ id: '', project_id: 'project_jianghu', name: '', repository_url: '', default_branch: 'main', credential_id: '', default_delivery_mode: 'create_merge_request', active: true })
+const eventGitDelivery = ref<Json>({ enabled: false, project_id: 'project_jianghu', repository_id: '', target_branch: '', delivery_mode: 'create_merge_request' })
 let runPollTimer: ReturnType<typeof setInterval> | null = null
 let showcasePollTimer: ReturnType<typeof setInterval> | null = null
+let runPollInFlight = false
 
 const organization = computed(() => organizations.value.find(item => String(item.id) === activeOrganizationId.value) ?? organizations.value[0] ?? null)
 const currentOrganizationId = computed(() => String(organization.value?.id ?? ''))
@@ -123,6 +132,9 @@ const currentRealmOverview = computed(() => ({
   workflows: workflowFamilies.value.length,
   runs: runs.value.length,
 }))
+const eventProjectRepositories = computed(() => projectGitRepositories.value.filter(item =>
+  item.active !== false && String(item.project_id) === String(eventGitDelivery.value.project_id),
+))
 const teamById = computed(() => Object.fromEntries(teams.value.map(team => [team.id, team])))
 const agentById = computed(() => Object.fromEntries(agents.value.map(agent => [agent.id, agent])))
 const activeRunEvents = computed(() => [...(activeRun.value?.events ?? [])].reverse())
@@ -142,6 +154,33 @@ const runTimeLimitExhausted = computed(() => Boolean(
 const runConclusionArtifact = computed(() => (activeRun.value?.artifacts ?? []).find((artifact: Json) =>
   String(artifact.title ?? '') === '一页纸结论'
 ))
+const artifactGroups = computed(() => {
+  const definitions = [
+    { key: 'git', icon: '⑂', eyebrow: 'VERSION CONTROL', title: 'Git 提交与合并请求', description: '不可变提交、Patch 与真实远端 MR 凭据' },
+    { key: 'code', icon: '</>', eyebrow: 'SOURCE & TEST', title: '代码与测试文件', description: '源代码、测试用例与可执行脚本' },
+    { key: 'docs', icon: '文', eyebrow: 'DOCUMENTATION', title: 'Docs 文档', description: '方案、说明、ADR 与使用文档' },
+    { key: 'config', icon: '⚙', eyebrow: 'CONFIG & DEPLOY', title: '配置与部署', description: '环境配置、依赖、容器与部署清单' },
+    { key: 'reports', icon: '✓', eyebrow: 'REPORT & AUDIT', title: '报告与审计', description: '节点结论、验证报告和审计证据' },
+    { key: 'other', icon: '◇', eyebrow: 'OTHER DELIVERY', title: '其他交付物', description: '资源文件、归档包和未归类产物' },
+  ]
+  const grouped: Record<string, Json[]> = Object.fromEntries(definitions.map(item => [item.key, []]))
+  for (const artifact of activeRun.value?.artifacts ?? []) {
+    ;(grouped[artifactCategory(artifact)] ?? grouped.other).push(artifact)
+  }
+  return definitions
+    .map(definition => ({ ...definition, artifacts: grouped[definition.key] }))
+    .filter(group => group.artifacts.length)
+})
+const gitDeliveryEvents = computed(() => [...(activeRun.value?.events ?? [])]
+  .filter((event: Json) => String(event.type ?? '').startsWith('git.'))
+  .reverse())
+const gitCommitArtifacts = computed(() => (activeRun.value?.artifacts ?? [])
+  .filter((artifact: Json) => artifact.kind === 'git_commit'))
+const gitDeliveryState = computed(() => {
+  if (gitCommitArtifacts.value.length) return { tone: 'completed', label: `已形成 ${gitCommitArtifacts.value.length} 个真实 Commit` }
+  if (activeRun.value?.status === 'running') return { tone: 'waiting', label: '仓库已就绪，等待工程节点提交' }
+  return { tone: 'empty', label: '本 Run 尚未形成 Git Commit' }
+})
 const latestShowcaseComparison = computed(() => showcase.value?.latest_comparison ?? null)
 const workflowFamilies = computed(() => {
   const groups: Record<string, Json[]> = {}
@@ -409,7 +448,7 @@ async function openAgentEditor(agent: Json): Promise<void> {
     authority_level: agent.authority_level ?? 1,
     capabilities: agent.capabilities ?? [],
     visibility: agent.visibility ?? 'private',
-    runtime: 'openclaw',
+    runtime: 'claude_code',
     skills: agent.skills ?? [],
     memory_policy: agent.memory_policy ?? { enabled: true, max_prompt_items: 8, write_after_task: true },
     knowledge_source_ids: agent.knowledge_source_ids ?? [],
@@ -758,7 +797,9 @@ function eventTypeLabel(type: string): string {
     'run.created': '事件建立', 'run.started': '开始执行', 'run.recovered': '断点恢复', 'run.interrupted': '等待恢复', 'run.completed': '全部完成',
     'run.retry_created': '重试现场建立', 'run.failed': '执行失败', 'run.cancelled': '已取消', 'run.budget_exhausted': '预算耗尽', 'run.time_extended': '运行时限延长',
     'run.pause_requested': '请求停手', 'run.paused': '现场已暂停', 'run.resumed': '恢复行动',
-    'run.revision_exhausted': '返工轮次耗尽', 'openclaw.runtime.ready': '执行底座已接管', 'openclaw.runtime.recovered': '执行底座已恢复',
+    'run.revision_exhausted': '返工轮次耗尽', 'agent.runtime.ready': '执行底座已接管', 'agent.runtime.recovered': '执行底座已恢复',
+    'agent.turn.started': '人物行动回合启动', 'agent.turn.completed': '人物行动回合完成',
+    'openclaw.runtime.ready': '执行底座已接管', 'openclaw.runtime.recovered': '执行底座已恢复',
     'openclaw.turn.started': '人物行动回合启动', 'openclaw.turn.completed': '人物行动回合完成',
     'task.started': '节点启动', 'task.retrying': '节点整体重试', 'task.failed': '节点失败', 'llm.retrying': '模型连接重试',
     'agent.action.retrying': '人物自动重试', 'agent.action.failed': '人物行动失败',
@@ -767,6 +808,12 @@ function eventTypeLabel(type: string): string {
     'team.communication.round.completed': '公开议事完成', 'team.synthesis.started': '负责人开始整合',
     'team.synthesis.completed': '团队完成合议', 'engineering.submission.published': '工程提交已公开',
     'artifact.created': '产物形成', 'agent.message.sent': '人物公开通信',
+    'git.workspace.ready': 'Git 工作区就绪', 'git.workspace.unavailable': 'Git 工作区不可用', 'git.delivery.planned': 'Git 交付计划建立',
+    'git.delivery.configured': 'Git 交付目标已绑定',
+    'git.commit.started': '开始创建 Git Commit', 'git.commit.skipped': 'Git Commit 已明确跳过',
+    'git.commit.created': 'Git Commit 形成', 'git.commit.verified': 'Git Commit 已复核', 'git.commit.failed': 'Git Commit 失败',
+    'git.remote.started': '开始远端 Git 交付', 'git.remote.pushed': '隔离分支已推送', 'git.remote.failed': '远端 Git 交付失败',
+    'git.merge_request.created': 'Merge Request 已创建',
     'agent.memory.persisted': '人物记忆沉淀', 'gate.passed': '裁判通过', 'gate.rejected': '裁判退回',
     'workflow.loop.created': '自动返工循环',
     'agent.context.prepared': '行动前整备', 'agent.action.started': '开始行动', 'agent.action.progress': '公开进度',
@@ -778,6 +825,133 @@ function eventTypeLabel(type: string): string {
     'artifact.validation.started': '交付校验', 'artifact.validation.passed': '校验通过', 'artifact.validation.failed': '校验失败',
     'user.intervention.queued': '用户意见待送达', 'user.intervention.applied': '用户意见已送达',
   } as Record<string, string>)[type] ?? type
+}
+
+function artifactMetadata(artifact: Json): Json | null {
+  try {
+    const value = JSON.parse(String(artifact.content ?? '{}'))
+    return value && typeof value === 'object' ? value : null
+  } catch {
+    return null
+  }
+}
+
+function artifactGitMetadata(artifact: Json): Json | null {
+  if (artifact?.kind !== 'git_commit') return null
+  return artifactMetadata(artifact)
+}
+
+function artifactMergeRequestMetadata(artifact: Json): Json | null {
+  if (!['git_merge_request', 'pull_request'].includes(String(artifact?.kind ?? ''))) return null
+  const metadata = artifactMetadata(artifact)
+  const url = String(metadata?.web_url ?? metadata?.html_url ?? metadata?.url ?? '')
+  const number = metadata?.iid ?? metadata?.number
+  const status = String(metadata?.state ?? metadata?.status ?? '')
+  if (!/^https?:\/\//.test(url) || number === undefined || number === null || !status) return null
+  return { ...metadata, url, number, status }
+}
+
+function artifactFileMetadata(artifact: Json): Json | null {
+  if (!['runtime_file', 'runtime_file_change'].includes(String(artifact?.kind ?? ''))) return null
+  return artifactMetadata(artifact)
+}
+
+function inferredFileCategory(pathValue: unknown): string {
+  const path = String(pathValue ?? '').replace(/\\/g, '/').toLowerCase()
+  const name = path.split('/').pop() ?? ''
+  if (/^(dockerfile|compose\.|docker-compose\.)/.test(name) || /\/(docker|k8s|kubernetes|helm|deploy|deployment)\//.test(`/${path}/`)) return 'deployment'
+  if (/\/(reports?|audits?|evidence)\//.test(`/${path}/`)) return 'report'
+  if (/\/(tests?|testing|specs?|__tests__)\//.test(`/${path}/`) || /^test_/.test(name) || /(_test\.py|\.(test|spec)\.(js|ts|tsx))$/.test(name)) return 'test'
+  if (/\/(docs?|documentation)\//.test(`/${path}/`) || /\.(md|markdown|rst|adoc)$/.test(name)) return 'documentation'
+  if (/^\.env/.test(name) || /\.(json|ya?ml|toml|ini|cfg|conf|properties)$/.test(name) || ['makefile', 'package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'pyproject.toml'].includes(name)) return 'configuration'
+  if (/\.(py|pyi|[cm]?js|tsx?|jsx|vue|java|kts?|go|rs|rb|php|cs|fsx?|c|cc|cpp|h|hpp|swift|scala|sh|ps1|bat|cmd|sql|html|css|scss|sass)$/.test(name)) return 'code'
+  if (/\.(png|jpe?g|gif|webp|svg|ico|bmp|avif|mp3|wav|mp4|webm|woff2?|ttf|otf)$/.test(name)) return 'asset'
+  return 'other'
+}
+
+function artifactCategory(artifact: Json): string {
+  const kind = String(artifact?.kind ?? '').toLowerCase()
+  if (['git_commit', 'git_remote_push', 'git_merge_request', 'pull_request'].includes(kind)) return 'git'
+  const metadata = artifactFileMetadata(artifact)
+  const fileCategory = String(metadata?.file_category ?? '')
+  if (fileCategory === 'test' || fileCategory === 'code') return 'code'
+  if (fileCategory === 'documentation') return 'docs'
+  if (fileCategory === 'configuration' || fileCategory === 'deployment') return 'config'
+  if (fileCategory === 'report') return 'reports'
+  if (metadata) {
+    const inferred = inferredFileCategory(metadata.source_relative_path ?? artifact.title)
+    if (inferred === 'test' || inferred === 'code') return 'code'
+    if (inferred === 'documentation') return 'docs'
+    if (inferred === 'configuration' || inferred === 'deployment') return 'config'
+    if (inferred === 'report') return 'reports'
+  }
+  if (/report|audit|validation|workflow_output|conclusion|summary|comparison|evidence/.test(kind) || String(artifact.title ?? '') === '一页纸结论') return 'reports'
+  if (/doc|markdown|adr/.test(kind)) return 'docs'
+  return 'other'
+}
+
+function artifactChangeAction(artifact: Json): string {
+  if (artifact?.kind === 'git_commit') return 'commit'
+  if (artifact?.kind === 'git_remote_push') return 'push'
+  if (['git_merge_request', 'pull_request'].includes(String(artifact?.kind ?? ''))) return artifactMergeRequestMetadata(artifact) ? 'merge-request' : 'unverified'
+  return String(artifactFileMetadata(artifact)?.change_action ?? (artifact?.kind === 'workflow_output' ? 'generated' : 'recorded'))
+}
+
+function artifactActionBadge(action: string): string {
+  return ({ created: 'A', modified: 'M', deleted: 'D', commit: 'GIT', push: 'PUSH', 'merge-request': 'MR', generated: '✓', recorded: 'R', unverified: '?' } as Json)[action] ?? 'R'
+}
+
+function artifactActionLabel(action: string): string {
+  return ({ created: '新增', modified: '修改', deleted: '删除', commit: 'Git Commit', push: '远端 Push', 'merge-request': '远端 MR', generated: '生成', recorded: '已登记', unverified: '未验证 MR' } as Json)[action] ?? '已登记'
+}
+
+function artifactGroupMrCount(artifacts: Json[]): number {
+  return artifacts.filter(artifact => artifactMergeRequestMetadata(artifact)).length
+}
+
+async function copyGitCommit(commitSha: string): Promise<void> {
+  if (!commitSha) return
+  try {
+    await navigator.clipboard.writeText(commitSha)
+    notice.value = `已复制 Git Commit：${commitSha}`
+  } catch {
+    notice.value = `Git Commit：${commitSha}`
+  }
+}
+
+function gitArtifactForEvent(event: Json): Json | undefined {
+  const artifactId = String(event.payload?.artifact_id ?? '')
+  const commitSha = String(event.payload?.commit_sha ?? '')
+  return gitCommitArtifacts.value.find((artifact: Json) => {
+    if (artifactId && artifact.id === artifactId) return true
+    return commitSha && String(artifactGitMetadata(artifact)?.commit_sha ?? '') === commitSha
+  })
+}
+
+function revealGitArtifact(event: Json): void {
+  const artifact = gitArtifactForEvent(event)
+  if (!artifact) {
+    notice.value = '这条 Git 事件还没有对应的 Commit 交付物。'
+    return
+  }
+  requestAnimationFrame(() => {
+    const element = document.getElementById(`artifact-${artifact.id}`)
+    if (element instanceof HTMLDetailsElement) element.open = true
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
+function focusPlannedGitNode(event: Json): void {
+  const nodeKeys = Array.isArray(event.payload?.engineering_node_keys) ? event.payload.engineering_node_keys : []
+  const task = (activeRun.value?.tasks ?? []).find((item: Json) =>
+    nodeKeys.includes(item.node_key) && !['completed', 'cancelled'].includes(String(item.status)))
+  if (!task) {
+    notice.value = 'Git 工作区已准备完成，正在等待工程节点产生新的文件变更。'
+    return
+  }
+  selectedSceneTaskId.value = task.id
+  notice.value = `已定位到待交付节点：${task.node_name}`
+  requestAnimationFrame(() => document.querySelector('.event-world')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
 function runWorkflow(run: Json): Json | undefined {
@@ -827,6 +1001,8 @@ function taskActionEvents(task: Json): Json[] {
     'agent.action.retrying', 'agent.action.failed',
     'agent.file.created', 'agent.file.modified', 'agent.file.deleted',
     'agent.command.started', 'agent.command.completed', 'agent.test.started', 'agent.test.completed',
+    'git.commit.started', 'git.commit.skipped', 'git.commit.created', 'git.commit.verified', 'git.commit.failed',
+    'git.remote.started', 'git.remote.pushed', 'git.remote.failed', 'git.merge_request.created',
     'artifact.validation.started', 'artifact.validation.passed', 'artifact.validation.failed',
   ].includes(String(event.type)))
 }
@@ -843,6 +1019,8 @@ function taskEvidenceEvents(task: Json): Json[] {
   return taskEvents(task).filter((event: Json) => [
     'agent.file.created', 'agent.file.modified', 'agent.file.deleted', 'agent.command.completed', 'agent.test.completed',
     'engineering.submission.published', 'artifact.validation.passed', 'artifact.validation.failed', 'artifact.created',
+    'git.commit.started', 'git.commit.skipped', 'git.commit.created', 'git.commit.verified', 'git.commit.failed',
+    'git.remote.started', 'git.remote.pushed', 'git.remote.failed', 'git.merge_request.created',
   ].includes(String(event.type)))
 }
 
@@ -910,6 +1088,9 @@ function presenceTask(presence: Json): Json | undefined {
 }
 
 function presencePreview(presence: Json): string {
+  if (['agent.action.failed', 'agent.action.retrying', 'task.failed', 'task.retrying', 'run.failed'].includes(String(presence.latest_event?.type))) {
+    return speechPreview(friendlyFailureReason(presence.latest_event), '执行遇到异常，现场和已有产物已保留。')
+  }
   return speechPreview(
     presence.latest_event?.payload?.content
       ?? presence.latest_event?.payload?.contribution_preview
@@ -979,23 +1160,26 @@ function personActivity(task: Json, person: Json): Json {
   const presence = (activeRun.value?.agent_presence ?? []).find((item: Json) => item.agent_id === person.id)
   if (presence && (!presence.task_id || presence.task_id === task.id)) {
     const tone = ({ blocked: 'failed', paused: 'waiting', waiting: 'waiting', reviewing: 'completed', idle: 'completed' } as Record<string, string>)[presence.state] ?? 'working'
-    return { state: uiRuntimeText(presence.state_label), speech: speechPreview(presence.latest_event?.payload?.content ?? presence.latest_event?.summary, `我正在“${task.node_name}”处理公开事务。`), tone }
+    const speech = ['agent.action.failed', 'agent.action.retrying', 'task.failed', 'task.retrying', 'run.failed'].includes(String(presence.latest_event?.type))
+      ? friendlyFailureReason(presence.latest_event)
+      : presence.latest_event?.payload?.content ?? presence.latest_event?.summary
+    return { state: uiRuntimeText(presence.state_label), speech: speechPreview(speech, `我正在“${task.node_name}”处理公开事务。`), tone }
   }
   const events = taskEvents(task).filter((event: Json) => event.payload?.agent_id === person.id).reverse()
   const latest = events[0]
   if (latest?.type === 'agent.message.sent') return { state: `正在${latest.payload?.message_type ?? '交流'}`, speech: speechPreview(latest.payload?.content ?? latest.summary, '我正在向协作者发出公开消息。'), tone: 'working' }
-  if (latest?.type === 'openclaw.turn.started') return { state: '正在执行', speech: speechPreview(latest.summary, '正在装载我的身份、记忆和技能。'), tone: 'working' }
+  if (['agent.turn.started', 'openclaw.turn.started'].includes(String(latest?.type))) return { state: '正在执行', speech: speechPreview(latest.summary, '正在装载我的身份、记忆和技能。'), tone: 'working' }
   if (latest?.type === 'agent.memory.persisted') return { state: '经历已沉淀', speech: '本次公开贡献已进入我的独立长期记忆。', tone: 'completed' }
   if (latest?.type === 'llm.retrying') return { state: '正在重连模型', speech: speechPreview(latest.summary, '模型连接不稳定，正在自动恢复。'), tone: 'retrying' }
   if (latest?.type === 'agent.action.retrying') return { state: '人物正在自动重试', speech: speechPreview(latest.summary, '本次独立行动失败，正在使用新的隔离回合重试。'), tone: 'retrying' }
-  if (latest?.type === 'agent.action.failed') return { state: '人物行动失败', speech: speechPreview(latest.payload?.error_detail ?? latest.summary, '人物自动重试后仍未完成，等待发起人重新行动。'), tone: 'failed' }
+  if (latest?.type === 'agent.action.failed') return { state: '人物行动失败', speech: speechPreview(friendlyFailureReason(latest), '人物自动重试后仍未完成，等待发起人重新行动。'), tone: 'failed' }
   if (latest?.type === 'team.member.completed') return { state: '已提交意见', speech: speechPreview(latest.payload?.contribution_preview ?? latest.summary, '我的独立意见已经提交，正在等待团队合议。'), tone: 'completed' }
   if (latest?.type === 'team.synthesis.completed') return { state: '正在主持合议', speech: speechPreview(latest.payload?.contribution_preview ?? latest.summary, '团队意见已经汇总为正式产物。'), tone: 'completed' }
   if (latest?.type === 'team.member.started') return { state: '正在独立工作', speech: speechPreview(latest.summary, `我正在负责“${task.node_name}”。`), tone: 'working' }
-  if (task.status === 'failed') return { state: '行动受阻', speech: speechPreview(task.output?.error, '节点执行失败，等待发起人处理。'), tone: 'failed' }
+  if (task.status === 'failed') return { state: '行动受阻', speech: speechPreview(eventDetail({ payload: { error_detail: task.output?.error, diagnostic_id: task.output?.diagnostic_id } }), '节点执行失败，等待发起人处理。'), tone: 'failed' }
   if (task.status === 'completed') return { state: '本节点已完成', speech: '正式产物已经交付并进入下游。', tone: 'completed' }
   if (task.status === 'running') return { state: '正在处理任务', speech: `我正在负责“${task.node_name}”。`, tone: 'working' }
-  if (task.status === 'retrying') return { state: '正在准备重试', speech: task.output?.last_error ?? '连接不稳定，平台正在自动恢复。', tone: 'retrying' }
+  if (task.status === 'retrying') return { state: '正在准备重试', speech: eventDetail({ payload: { error_detail: task.output?.last_error, diagnostic_id: task.output?.diagnostic_id } }) || '连接不稳定，平台正在自动恢复。', tone: 'retrying' }
   return { state: '等待前置产物', speech: '前置节点完成后，我会立刻开始。', tone: 'waiting' }
 }
 
@@ -1051,10 +1235,24 @@ function focusCurrentTask(): void {
 
 function eventDetail(event: Json | undefined): string {
   const detail = uiRuntimeText(event?.payload?.error_detail ?? event?.summary ?? '').trim()
+  const diagnostic = String(event?.payload?.diagnostic_id ?? '').trim()
+  const traceSuffix = diagnostic ? `（诊断编号：${diagnostic}）` : ''
   if (!detail || /(?:failure|error)\s*:\s*$/i.test(detail)) {
     return '这是一条旧执行记录，当时没有保存底层异常正文，无法还原更具体的网络错误；当前模型连接测试已经恢复正常。请创建新的重试现场，新执行会完整记录请求次数、HTTP 状态、异常类型与失败详情。'
   }
-  return detail
+  if (/provider-transport-fetch|fetch failed|connection error|network connection error|econnrefused|econnreset|enotfound|etimedout|causecode=eacces/i.test(detail)) {
+    return `模型服务暂时无法连接。平台已完成自动重试但仍未恢复；可以稍后从当前节点重试，已完成节点和产物不会丢失。${traceSuffix}`
+  }
+  if (/\b(?:401|403)\b|unauthorized|forbidden|credential|token[^_a-z]/i.test(detail)) {
+    return `模型服务拒绝了当前凭据。请检查“模型与凭据”配置后，从当前节点重试；页面不会显示或记录完整凭据。${traceSuffix}`
+  }
+  if (/\b429\b|rate[_ -]?limit/i.test(detail)) {
+    return `模型服务当前请求繁忙。平台已完成自动重试；可以稍后从当前节点继续。${traceSuffix}`
+  }
+  if (/startup stages|session(?:id|key)=|tools\.profile|tool policy removed|rawerror=|lane task error|workspace bootstrap file/i.test(detail) || detail.length > 800) {
+    return `执行底座遇到异常，自动重试后仍未恢复。现场和已有产物已保留，可以从当前节点重试。${traceSuffix}`
+  }
+  return `${detail}${traceSuffix}`
 }
 
 function retryEventDetail(event: Json): string {
@@ -1068,7 +1266,7 @@ function retryEventDetail(event: Json): string {
 function friendlyFailureReason(event: Json): string {
   const detail = eventDetail(event)
   if (detail.includes('openclaw_empty_output')) return '执行回合已完成，但暂未收到正式文本。公开行动仍然保留，平台会从可见输出恢复，避免把已完成行动误判为空。'
-  if (/network failure|connection attempts failed|timeout/i.test(detail)) return '模型服务连接超时或中断。平台会先自动重试模型请求，再重试整个节点；全部失败后才停止本次 Run。'
+  if (/network failure|connection attempts failed|timeout|模型服务暂时无法连接/i.test(detail)) return '模型服务连接超时或中断。平台会先自动重试模型请求，再重试整个节点；全部失败后才停止本次 Run。'
   if (detail.includes('artifact_validation_failed')) return `真实交付校验未通过：${detail.split(':').slice(2).join('；') || '缺少文件、成功命令或通过的自动化测试。'}`
   if (/401|403|credential|token/i.test(detail)) return '模型服务拒绝了当前凭据。请在“模型与凭据”检查配置；页面不会显示或记录完整 Token。'
   return speechPreview(detail, '节点执行遇到异常，平台已保留全部已完成行动和重试证据。')
@@ -1098,6 +1296,11 @@ function stopRunPolling(): void {
 }
 
 async function refreshActiveRun(runId: string): Promise<void> {
+  // A mature production run may contain tens of thousands of events. Never
+  // allow overlapping full-run refreshes: a slow response must apply back
+  // pressure instead of creating an ever-growing request queue.
+  if (runPollInFlight) return
+  runPollInFlight = true
   try {
     const result = await api.getPlatformRun(runId, currentOrganizationId.value)
     activeRun.value = result.run as Json
@@ -1112,13 +1315,17 @@ async function refreshActiveRun(runId: string): Promise<void> {
   } catch (cause) {
     stopRunPolling()
     error.value = cause instanceof Error ? cause.message : '事件现场刷新失败'
+  } finally {
+    runPollInFlight = false
   }
 }
 
 function beginRunPolling(runId: string): void {
   stopRunPolling()
   runPolling.value = true
-  runPollTimer = setInterval(() => { void refreshActiveRun(runId) }, 1500)
+  const eventCount = Number(activeRun.value?.event_count_total ?? activeRun.value?.events?.length ?? 0)
+  const intervalMs = eventCount >= 5000 ? 10000 : eventCount >= 1000 ? 5000 : 2500
+  runPollTimer = setInterval(() => { void refreshActiveRun(runId) }, intervalMs)
 }
 
 function stopShowcasePolling(): void {
@@ -1371,13 +1578,17 @@ async function loadAll(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const [o, orgs, configs, demo] = await Promise.all([
+    const [o, orgs, configs, projectItems, credentialItems, repositoryItems, demo] = await Promise.all([
       api.platformOverview(), api.organizations(), api.modelConfigs(),
+      api.projects(), api.gitCredentials(), api.projectGitRepositories(),
       showcaseEnabled ? api.productionFlowShowcase() : Promise.resolve({}),
     ])
     overview.value = o
     organizations.value = orgs
     modelConfigs.value = configs
+    projects.value = projectItems
+    gitCredentials.value = credentialItems
+    projectGitRepositories.value = repositoryItems
     showcase.value = demo
     const requestedId = organizationIdFromLocation()
     const rememberedId = localStorage.getItem('jianghu.activeOrganizationId') ?? ''
@@ -1392,15 +1603,19 @@ async function loadAll(): Promise<void> {
       knowledgeSources.value = []
     }
     try {
-      openClawStatus.value = await api.openClawStatus()
+      runtimeStatus.value = await api.runtimeStatus()
     } catch (cause) {
-      openClawStatus.value = { available: false, mode: 'unavailable', error: '执行底座健康检查失败' }
+      runtimeStatus.value = { available: false, mode: 'unavailable', runtime: 'claude_code', error: '执行底座健康检查失败' }
     }
     const selected = configs.find(item => item.id === modelForm.value.id)
       ?? configs.find(item => item.active)
       ?? configs[0]
     if (selected) selectModel(selected)
     else beginNewModel()
+    const selectedCredential = credentialItems.find(item => item.id === gitCredentialForm.value.id) ?? credentialItems[0]
+    if (selectedCredential) selectGitCredential(selectedCredential)
+    const selectedRepository = repositoryItems.find(item => item.id === projectRepositoryForm.value.id) ?? repositoryItems[0]
+    if (selectedRepository) selectProjectRepository(selectedRepository)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '平台数据加载失败'
   } finally {
@@ -1421,7 +1636,16 @@ async function assessTask(): Promise<void> {
   lastTeamResolution.value = null
   setTeamProposal(null)
   try {
-    const result = await api.assessCommission(taskForm.value.title.trim(), taskForm.value.description.trim(), organization.value?.id)
+    const delivery = eventGitDelivery.value.enabled && eventGitDelivery.value.repository_id
+      ? {
+          repository_id: eventGitDelivery.value.repository_id,
+          target_branch: eventGitDelivery.value.target_branch,
+          delivery_mode: eventGitDelivery.value.delivery_mode,
+        }
+      : undefined
+    const result = await api.assessCommission(
+      taskForm.value.title.trim(), taskForm.value.description.trim(), organization.value?.id, undefined, delivery,
+    )
     currentTask.value = (result.commission ?? result.company_task) as Json
     selectedAssessmentTeams.value = []
     teamResolutionLoading.value = true
@@ -1805,7 +2029,11 @@ async function startWorkflow(flow: Json): Promise<void> {
   notice.value = ''
   try {
     const task = `${commission.title}\n\n${commission.description}`
-    const created = await api.createPlatformRun(flow.id, task, undefined, 'project_jianghu', commission.id)
+    const selectedRepository = projectGitRepositories.value.find(item => item.id === commission.git_delivery?.repository_id)
+    const projectId = String(selectedRepository?.project_id ?? 'project_jianghu')
+    const created = await api.createPlatformRun(
+      flow.id, task, undefined, projectId, commission.id, commission.git_delivery,
+    )
     const run = created.run as Json
     await api.startPlatformRun(run.id, currentOrganizationId.value)
     currentTask.value = (created.commission ?? commission) as Json
@@ -2069,6 +2297,97 @@ async function deleteModel(config: Json): Promise<void> {
   }
 }
 
+function selectGitCredential(credential: Json): void {
+  gitCredentialForm.value = {
+    id: credential.id ?? '', name: credential.name ?? '', provider: credential.provider ?? 'github',
+    api_base_url: credential.api_base_url ?? '', username: credential.username ?? '', token: '',
+    token_hint: credential.token_hint ?? '', active: credential.active !== false,
+  }
+}
+
+function beginNewGitCredential(): void {
+  gitCredentialForm.value = { id: '', name: '', provider: 'github', api_base_url: '', username: '', token: '', token_hint: '', active: true }
+}
+
+async function saveGitCredential(): Promise<void> {
+  gitDeliveryBusy.value = true
+  gitDeliveryMessage.value = ''
+  try {
+    const result = await api.saveGitCredential({ ...gitCredentialForm.value, token: gitCredentialForm.value.token || undefined })
+    gitCredentials.value = await api.gitCredentials()
+    selectGitCredential(result.credential as Json)
+    gitDeliveryMessage.value = 'Git 凭据已加密保存；它不包含仓库或分支信息。'
+  } catch (cause) {
+    gitDeliveryMessage.value = cause instanceof Error ? cause.message : 'Git 凭据保存失败'
+  } finally { gitDeliveryBusy.value = false }
+}
+
+function selectProjectRepository(repository: Json): void {
+  projectRepositoryForm.value = {
+    id: repository.id ?? '', project_id: repository.project_id ?? 'project_jianghu', name: repository.name ?? '',
+    repository_url: repository.repository_url ?? '', default_branch: repository.default_branch ?? 'main',
+    credential_id: repository.credential_id ?? '', default_delivery_mode: repository.default_delivery_mode ?? 'create_merge_request',
+    active: repository.active !== false,
+  }
+  if (!eventGitDelivery.value.repository_id) {
+    eventGitDelivery.value = {
+      enabled: false, project_id: projectRepositoryForm.value.project_id, repository_id: projectRepositoryForm.value.id,
+      target_branch: projectRepositoryForm.value.default_branch, delivery_mode: projectRepositoryForm.value.default_delivery_mode,
+    }
+  }
+}
+
+function beginNewProjectRepository(): void {
+  projectRepositoryForm.value = {
+    id: '', project_id: projects.value[0]?.id ?? 'project_jianghu', name: '', repository_url: '', default_branch: 'main',
+    credential_id: gitCredentials.value[0]?.id ?? '', default_delivery_mode: 'create_merge_request', active: true,
+  }
+}
+
+async function saveProjectRepository(): Promise<void> {
+  gitDeliveryBusy.value = true
+  gitDeliveryMessage.value = ''
+  try {
+    const result = await api.saveProjectGitRepository(projectRepositoryForm.value)
+    projectGitRepositories.value = await api.projectGitRepositories()
+    selectProjectRepository(result.repository as Json)
+    gitDeliveryMessage.value = '项目仓库已保存；编码类事件可单独选择该仓库与分支。'
+  } catch (cause) {
+    gitDeliveryMessage.value = cause instanceof Error ? cause.message : '项目仓库保存失败'
+  } finally { gitDeliveryBusy.value = false }
+}
+
+async function testProjectRepository(): Promise<void> {
+  if (!projectRepositoryForm.value.id) return
+  gitDeliveryBusy.value = true
+  try {
+    const result = await api.testProjectGitRepository(projectRepositoryForm.value.id)
+    gitDeliveryMessage.value = `仓库与凭据连接成功，读取到 ${result.branch_count ?? 0} 个分支。`
+  } catch (cause) {
+    gitDeliveryMessage.value = cause instanceof Error ? cause.message : 'Git 远端连接失败'
+  } finally { gitDeliveryBusy.value = false }
+}
+
+function selectEventRepository(): void {
+  const repository = projectGitRepositories.value.find(item => item.id === eventGitDelivery.value.repository_id)
+  if (!repository) return
+  eventGitDelivery.value.target_branch = repository.default_branch ?? 'main'
+  eventGitDelivery.value.delivery_mode = repository.default_delivery_mode ?? 'create_merge_request'
+}
+
+async function retryCurrentGitDelivery(): Promise<void> {
+  if (!activeRun.value?.id) return
+  gitDeliveryBusy.value = true
+  try {
+    await api.retryRunGitDelivery(activeRun.value.id, currentOrganizationId.value)
+    await hydrateRun(activeRun.value.id, false)
+    notice.value = 'Git 远端交付已完成，Push 和 MR 真实回执已写入事件与 Artifact。'
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Git 远端交付失败'
+    await hydrateRun(activeRun.value.id, false)
+  } finally { gitDeliveryBusy.value = false }
+}
+
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenTarget)
   window.addEventListener('popstate', handleRealmPopState)
@@ -2123,7 +2442,21 @@ onUnmounted(() => {
             <button class="empty-lot" @click="go('teams')"><Plus /><strong>{{ teams.length ? '建立新组织' : '建立第一个组织' }}</strong><small>已有组织不影响继续组建新的队伍</small></button>
           </div>
         </section>
-        <section class="boss-command"><label>委托或事件名称<input v-model="taskForm.title" placeholder="例如：开发产品、组织公益行动、调解争端或完成研究" /></label><label>事情说明<textarea v-model="taskForm.description" placeholder="说明目标、期望结果、约束、相关角色和你愿意提供的知识。江湖中的组织会先判断是否适合承接。"></textarea></label><button class="jh-primary" :disabled="busy || !taskForm.title.trim() || !taskForm.description.trim()" @click="assessTask"><LoaderCircle v-if="busy" class="spin" /><Sparkles v-else />发布需求并获得团队建议</button></section>
+        <section class="boss-command">
+          <label>委托或事件名称<input v-model="taskForm.title" placeholder="例如：开发产品、组织公益行动、调解争端或完成研究" /></label>
+          <label>事情说明<textarea v-model="taskForm.description" placeholder="说明目标、期望结果、约束、相关角色和你愿意提供的知识。江湖中的组织会先判断是否适合承接。"></textarea></label>
+          <section class="event-git-delivery">
+            <label class="event-git-toggle"><input v-model="eventGitDelivery.enabled" type="checkbox" /><span><b>这是编码或文件修改类事件</b><small>启用后，本事件单独选择仓库、分支和 MR 方式；不影响其他事件。</small></span></label>
+            <div v-if="eventGitDelivery.enabled" class="event-git-grid">
+              <label>所属项目<select v-model="eventGitDelivery.project_id"><option v-for="project in projects" :key="project.id" :value="project.id">{{ project.name }}</option></select></label>
+              <label>目标仓库<select v-model="eventGitDelivery.repository_id" @change="selectEventRepository"><option value="">请选择项目仓库</option><option v-for="repository in eventProjectRepositories" :key="repository.id" :value="repository.id">{{ repository.name }} · {{ repository.repository_url }}</option></select></label>
+              <label>目标分支<input v-model="eventGitDelivery.target_branch" placeholder="main" /></label>
+              <label>交付方式<select v-model="eventGitDelivery.delivery_mode"><option value="local_commit">仅本地 Commit</option><option value="push_branch">推送隔离分支</option><option value="create_merge_request">推送并创建 MR</option></select></label>
+            </div>
+            <small v-if="eventGitDelivery.enabled && !eventProjectRepositories.length" class="event-git-warning">当前项目还没有仓库，请先在“模型与凭据 → 项目代码仓库”中登记。</small>
+          </section>
+          <button class="jh-primary" :disabled="busy || !taskForm.title.trim() || !taskForm.description.trim() || (eventGitDelivery.enabled && !eventGitDelivery.repository_id)" @click="assessTask"><LoaderCircle v-if="busy" class="spin" /><Sparkles v-else />发布需求并获得团队建议</button>
+        </section>
 
         <section v-if="currentTask" class="assessment-board"><header><div><span>江湖响应议事堂 · 委托已保存</span><h2>{{ currentTask.title }}</h2><small>{{ currentTask.id }} · 先确定执行团队，再依据团队生成生产流</small></div><strong :data-status="currentTask.selected_team_ids?.length ? 'team_ready' : currentTask.status">{{ currentTask.selected_team_ids?.length ? '执行团队已确定' : (currentTask.status === 'team_ready' ? '存在可复用团队' : '需要按需求重新组队') }}</strong></header>
           <section v-if="currentTask.selected_team_ids?.length" class="team-resolution-strip"><div><Users /><span><strong>{{ lastTeamResolution?.mode === 'create' ? '平台已根据需求新组建执行团队' : '本委托已确定执行团队' }}</strong><small>{{ lastTeamResolution?.reason || '平台会把需求与这些团队一起用于生产流复用、优化或新建判断。' }}</small></span></div><b v-for="teamId in currentTask.selected_team_ids" :key="teamId">{{ teamById[teamId]?.name ?? teamId }}</b></section>
@@ -2190,7 +2523,7 @@ onUnmounted(() => {
       </main>
 
       <main v-else-if="screen === 'agents'" class="jh-page">
-        <section class="page-heading"><div><span>江湖人物志</span><h1>创建与管理江湖人物</h1><p>人物不是一次性档案：每个人都拥有独立经历、专属知识、技艺与持续演化的版本，并能在不同组织和事件中承担真实职责。</p></div><div class="runtime-seal" :data-ready="openClawStatus.available"><span>⚔️</span><div><small>人物行动状态</small><strong>{{ openClawStatus.available ? '行动底座已就绪' : '行动底座不可用' }}</strong><em>{{ openClawStatus.available ? '可独立办事、使用工具并积累经历' : '等待执行底座恢复' }}</em></div></div></section>
+        <section class="page-heading"><div><span>江湖人物志</span><h1>创建与管理江湖人物</h1><p>人物不是一次性档案：每个人都拥有独立经历、专属知识、技艺与持续演化的版本，并能在不同组织和事件中承担真实职责。</p></div><div class="runtime-seal" :data-ready="runtimeStatus.available"><span>⚔️</span><div><small>人物行动状态</small><strong>{{ runtimeStatus.available ? '行动底座已就绪' : '行动底座不可用' }}</strong><em>{{ runtimeStatus.available ? '可独立办事、使用工具并积累经历' : '等待执行底座恢复' }}</em></div></div></section>
         <section class="agent-creator"><div class="creator-sign"><span>🪪</span><div><small>人物创建处</small><h2>引入一位新人物</h2><p>根据你的需要形成完整中文人物设定，并为他建立独立经历、专属知识和技艺空间。</p></div></div><label>人物需求<textarea v-model="agentRequirement" placeholder="例如：需要一位谨慎但敢于质疑共识、熟悉安全审计、面对压力仍坚持证据的人"></textarea></label><button class="jh-primary" :disabled="busy || !agentRequirement.trim()" @click="generateAgent"><LoaderCircle v-if="busy" class="spin" /><Sparkles v-else />创建江湖人物</button></section>
         <section v-if="!agents.length" class="jh-empty">江湖中还没有可复用人物。</section>
         <section v-else class="agent-grid"><article v-for="agent in agents" :key="agent.id" :class="{ highlighted: highlightedAgentId === agent.id }"><div class="agent-avatar">{{ initials(agent.name) }}</div><div class="agent-live-status" :data-state="agentSocietyPresence(agent).state"><i></i><span><b>{{ agentSocietyPresence(agent).state_label }}</b><small>{{ agentSocietyPresence(agent).node_name || '当前没有承接中的节点' }}</small></span></div><span>职业身份：{{ agent.role }} · 第 {{ agent.version }} 版</span><h2>{{ agent.name }}</h2><p>{{ agent.description }}</p><div class="agent-runtime-facts"><b>⚔️ 可独立行动</b><b>🧠 {{ agent.memory_count ?? 0 }} 段经历</b><b>🧰 {{ enabledSkillCount(agent) }} 项技艺</b><b>📚 {{ agent.knowledge_source_ids?.length ?? 0 }} 份专属知识</b></div><div class="agent-model-badges"><span>思考能力：{{ ['','执行型','综合型','高阶判断型'][agent.cognitive_level ?? 2] }}</span><span>影响力：{{ ['','建议','可影响团队','结论更易被遵守'][agent.authority_level ?? 1] }}</span><b>建议模型：{{ ({ high: '高', medium: '中', low: '低' } as Json)[agent.recommended_model_tier ?? 'medium'] }}</b></div><div class="capability-tags"><span v-for="capability in agent.capabilities" :key="capability">擅长：{{ capability }}</span></div><button class="agent-edit-button" @click="openAgentEditor(agent)"><Settings2 />编辑人物并创建新版本</button></article></section>
@@ -2356,7 +2689,7 @@ onUnmounted(() => {
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>事件 {{ activeRun.run_family_id || activeRun.id }} · 第 {{ activeRun.run_version || 1 }} 版</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
           <section v-if="activeRun.attempts?.length > 1" class="run-version-history"><div><strong>同一事件的执行版本</strong><small>重试不会创建新事件；每次执行作为不可覆盖的版本保留。</small></div><button v-for="attempt in activeRun.attempts" :key="attempt.id" :class="{ active: attempt.id === activeRun.id }" @click="openRun(attempt.id)">第 {{ attempt.run_version }} 版 · {{ runStatusLabel(attempt.status) }}</button></section>
-          <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? '预算或运行时限已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ eventDetail(latestFailureEvent) }}</p><small>原 Run、失败证据和已有产物不会被覆盖；可以从当前未完成节点定向重试，也可以完整重跑。</small></div></div><div class="failure-retry-actions"><button v-if="selectedSceneTask" class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”重试</button><button class="jh-secondary" :disabled="busy" @click="retryActiveRun()"><RefreshCw />完整重跑</button></div></section>
+          <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? '预算或运行时限已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>原 Run、失败证据和已有产物不会被覆盖；可以从当前未完成节点定向重试，也可以完整重跑。</small></div></div><div class="failure-retry-actions"><button v-if="selectedSceneTask" class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”重试</button><button class="jh-secondary" :disabled="busy" @click="retryActiveRun()"><RefreshCw />完整重跑</button></div></section>
           <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id, currentOrganizationId)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
           <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
           <section class="society-duty-board">
@@ -2405,7 +2738,7 @@ onUnmounted(() => {
                   <section class="dossier-summary"><strong>节点公共卷宗</strong><div><span>获准知识 <b>{{ selectedNodeDossier?.knowledge?.length ?? 0 }}</b></span><span>独立提交 <b>{{ selectedNodeDossier?.contributions?.length ?? 0 }}</b></span><span>公开消息 <b>{{ selectedNodeDossier?.communications?.length ?? 0 }}</b></span><span>工程提交 <b>{{ selectedNodeDossier?.integration?.length ?? 0 }}</b></span><span>用户意见 <b>{{ selectedNodeDossier?.interventions?.length ?? 0 }}</b></span><span>正式产物 <b>{{ selectedNodeDossier?.artifacts?.length ?? 0 }}</b></span></div><p>卷宗中的每条内容都有来源人物、节点、时间和事件类型；点击下方记录可查看实际注入了哪些上游产物、知识和发起人意见。</p></section>
                   <details v-for="event in selectedNodeDossier?.context ?? []" :key="event.id" class="ledger-detail"><summary><b>{{ collaborationSpeaker(event) }}</b><span>{{ eventTypeLabel(event.type) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre><div v-if="event.payload?.interventions?.length" class="intervention-chips"><span v-for="item in event.payload.interventions" :key="item.id">{{ item.kind }} · {{ item.content }}</span></div></details>
                   <details v-for="event in selectedNodeDossier?.knowledge ?? []" :key="event.id" class="ledger-detail knowledge-entry"><summary><b>{{ collaborationSpeaker(event) }}</b><span>{{ eventTypeLabel(event.type) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><pre>{{ publicEventContent(event) || event.summary }}</pre><div v-if="event.payload?.matches?.length" class="knowledge-match-list"><span v-for="match in event.payload.matches" :key="`${match.source_id}-${match.locator}`"><b>{{ match.source_name }}</b><small>{{ match.locator }} · 相关度 {{ Number(match.score ?? 0).toFixed(3) }}</small></span></div></details>
-                  <details v-if="taskRetryEvents(selectedSceneTask).length" class="retry-ledger" open><summary>重试与失败记录</summary><div v-for="event in taskRetryEvents(selectedSceneTask)" :key="event.id"><b>{{ eventTypeLabel(event.type) }}</b><span>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</span><p>{{ friendlyFailureReason(event) }}</p><code>{{ retryEventDetail(event) }}</code><details><summary>查看技术详情</summary><pre>{{ eventDetail(event) }}</pre></details></div></details>
+                  <details v-if="taskRetryEvents(selectedSceneTask).length" class="retry-ledger" open><summary>重试与失败记录</summary><div v-for="event in taskRetryEvents(selectedSceneTask)" :key="event.id"><b>{{ eventTypeLabel(event.type) }}</b><span>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</span><p>{{ friendlyFailureReason(event) }}</p><code>{{ retryEventDetail(event) }}</code><details><summary>查看诊断摘要</summary><pre>{{ eventDetail(event) }}</pre></details></div></details>
                 </div>
 
                 <div v-else-if="scenePanelTab === 'actions'" class="scene-tab-content action-ledger">
@@ -2421,7 +2754,7 @@ onUnmounted(() => {
 
                 <div v-else-if="scenePanelTab === 'evidence'" class="scene-tab-content evidence-ledger">
                   <div v-if="!taskEvidenceEvents(selectedSceneTask).length" class="empty-room">工程人物真实修改文件、执行命令或运行测试后，证据会在这里出现。</div>
-                  <details v-for="event in [...taskEvidenceEvents(selectedSceneTask)].reverse()" :key="event.id" class="ledger-detail" :data-type="event.type"><summary><b>{{ eventTypeLabel(event.type) }}</b><span>{{ event.payload?.path ?? event.payload?.command ?? uiRuntimeText(event.summary) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><code v-if="event.payload?.sha256">SHA-256：{{ event.payload.sha256 }}</code><code v-if="event.payload?.exit_code !== undefined && event.payload?.exit_code !== null">退出码：{{ event.payload?.exit_code }} · {{ event.payload?.passed === false ? '未通过' : '已完成' }}</code><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre></details>
+                  <details v-for="event in [...taskEvidenceEvents(selectedSceneTask)].reverse()" :key="event.id" class="ledger-detail" :data-type="event.type"><summary><b>{{ eventTypeLabel(event.type) }}</b><span>{{ event.payload?.path ?? event.payload?.command ?? event.payload?.short_sha ?? uiRuntimeText(event.summary) }}</span><small>{{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></summary><code v-if="event.payload?.commit_sha">Git Commit：{{ event.payload.commit_sha }} · {{ event.payload.subject }}</code><code v-if="event.payload?.sha256">SHA-256：{{ event.payload.sha256 }}</code><code v-if="event.payload?.exit_code !== undefined && event.payload?.exit_code !== null">退出码：{{ event.payload?.exit_code }} · {{ event.payload?.passed === false ? '未通过' : '已完成' }}</code><pre>{{ publicEventContent(event) || uiRuntimeText(event.summary) }}</pre></details>
                   <a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" class="code-package-link" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载本 Run 的真实工程代码包</a>
                 </div>
 
@@ -2437,9 +2770,50 @@ onUnmounted(() => {
                 </div>
               </aside>
             </div>
-            <footer class="world-broadcast"><strong>📣 江湖播报</strong><div><article v-for="event in worldBroadcasts" :key="event.id"><span>{{ eventAgent(event)?.name ?? (event.payload?.team_id ? teamById[event.payload.team_id]?.name : '平台') }}</span><p>{{ ['task.failed','run.failed','llm.retrying','task.retrying'].includes(String(event.type)) ? eventDetail(event) : uiRuntimeText(event.payload?.contribution_preview ?? event.summary) }}</p><small>{{ eventTypeLabel(event.type) }} · {{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></article></div></footer>
+            <footer class="world-broadcast"><strong>📣 江湖播报</strong><div><article v-for="event in worldBroadcasts" :key="event.id"><span>{{ eventAgent(event)?.name ?? (event.payload?.team_id ? teamById[event.payload.team_id]?.name : '平台') }}</span><p>{{ ['task.failed','run.failed','llm.retrying','task.retrying'].includes(String(event.type)) ? friendlyFailureReason(event) : uiRuntimeText(event.payload?.contribution_preview ?? event.summary) }}</p><small>{{ eventTypeLabel(event.type) }} · {{ new Date(event.created_at).toLocaleTimeString('zh-CN') }}</small></article></div></footer>
           </section>
-          <section class="artifact-board"><header><div><span>正式交付</span><h3>节点产物</h3></div><b>{{ activeRun.artifacts?.length ?? 0 }} 份</b></header><div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div><details v-for="artifact in activeRun.artifacts" :key="artifact.id" class="artifact-card"><summary><div><strong>{{ artifact.title }}</strong><small>{{ artifact.kind }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开查看</span></summary><div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />下载独立文件</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div><pre>{{ artifact.content }}</pre></details></section>
+          <section class="artifact-board">
+            <header><div><span>正式交付</span><h3>交付物清单</h3><p>按版本控制、代码、文档、配置与审计结果分类归档。</p></div><b>{{ activeRun.artifacts?.length ?? 0 }} 份</b></header>
+            <section class="git-delivery-timeline">
+              <header><div><small>VERSION CONTROL FLOW</small><strong>Git 交付执行过程</strong><p v-if="activeRun.git_delivery">本事件目标：{{ activeRun.git_delivery.repository_name }} → {{ activeRun.git_delivery.target_branch }} · {{ activeRun.git_delivery.delivery_mode }}</p><p v-else>本事件未绑定远端仓库；本地 Commit 仍按真实事件展示。</p></div><button v-if="activeRun.git_delivery?.delivery_mode !== 'local_commit' && gitCommitArtifacts.length" class="jh-secondary" :disabled="gitDeliveryBusy" @click="retryCurrentGitDelivery"><LoaderCircle v-if="gitDeliveryBusy" class="spin" /><Network v-else />执行 Push / MR</button><span :data-tone="gitDeliveryState.tone">{{ gitDeliveryState.label }}</span><b>{{ gitDeliveryEvents.length }} 条</b></header>
+              <div v-if="!gitDeliveryEvents.length" class="git-delivery-empty">尚未进入 Git 交付阶段；工程节点通过文件与测试校验后会在这里逐步记录。</div>
+              <ol v-else>
+                <li v-for="event in gitDeliveryEvents" :key="event.id" :data-type="event.type">
+                  <i>{{ event.type === 'git.commit.created' || event.type === 'git.commit.verified' || event.type === 'git.remote.pushed' || event.type === 'git.merge_request.created' ? '✓' : event.type.endsWith('.failed') || event.type === 'git.workspace.unavailable' ? '!' : event.type === 'git.commit.skipped' ? '—' : '•' }}</i>
+                  <div><span>{{ eventTypeLabel(event.type) }}</span><strong>{{ event.payload?.short_sha ?? event.payload?.commit_sha?.slice?.(0, 12) ?? event.payload?.node_key ?? uiRuntimeText(event.title) }}</strong><p>{{ uiRuntimeText(event.summary) }}</p><code v-if="event.payload?.commit_sha">{{ event.payload.commit_sha }}</code><small>{{ new Date(event.created_at).toLocaleString('zh-CN') }}</small>
+                    <div v-if="event.type === 'git.merge_request.created' && event.payload?.url" class="git-event-actions"><a :href="event.payload.url" target="_blank" rel="noreferrer"><Network />打开 Merge Request #{{ event.payload.number }}</a></div>
+                    <div v-else-if="event.payload?.commit_sha" class="git-event-actions"><button type="button" @click="revealGitArtifact(event)">查看提交内容</button><button type="button" @click="copyGitCommit(event.payload.commit_sha)">复制 SHA</button><a :href="api.gitCommitPatchUrl(activeRun.id, event.payload.commit_sha, currentOrganizationId)"><Download />下载 Patch</a></div>
+                    <div v-else-if="event.type === 'git.workspace.ready' || event.type === 'git.delivery.planned'" class="git-event-pending"><b>尚未产生 Commit</b><span>这一步只完成了隔离仓库初始化。工程节点通过文件与测试校验后，才会出现提交 SHA 和文件清单。</span><button type="button" @click="focusPlannedGitNode(event)">查看待提交节点</button></div>
+                    <div v-else-if="event.type === 'git.commit.skipped'" class="git-event-pending"><b>本次没有可提交变更</b><span>工作区是干净的，因此没有伪造空 Commit。</span></div>
+                  </div>
+                </li>
+              </ol>
+            </section>
+            <div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div>
+            <div v-else class="artifact-group-list">
+              <section v-for="group in artifactGroups" :key="group.key" class="artifact-group" :data-category="group.key">
+                <header><i>{{ group.icon }}</i><div><small>{{ group.eyebrow }}</small><strong>{{ group.title }}</strong><p>{{ group.description }}</p></div><b>{{ group.artifacts.length }}</b></header>
+                <div v-if="group.key === 'git' && artifactGroupMrCount(group.artifacts) === 0" class="git-mr-empty"><span>MR</span><div><b>尚未创建远端 Merge Request</b><small>当前只展示真实形成的本地 Commit 与 Patch；没有远端 URL、编号和状态时不会伪装成已创建 MR。</small></div></div>
+                <div class="artifact-group-grid">
+                  <details v-for="artifact in group.artifacts" :id="`artifact-${artifact.id}`" :key="artifact.id" class="artifact-card" :data-kind="artifact.kind" :data-action="artifactChangeAction(artifact)">
+                    <summary><span class="artifact-change-badge" :data-action="artifactChangeAction(artifact)">{{ artifactActionBadge(artifactChangeAction(artifact)) }}</span><div><strong>{{ artifact.title }}</strong><small>{{ artifactActionLabel(artifactChangeAction(artifact)) }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开</span></summary>
+                    <section v-if="artifactGitMetadata(artifact)" class="git-commit-card">
+                      <div><small>不可变 Git Commit</small><code>{{ artifactGitMetadata(artifact)?.commit_sha }}</code><button type="button" @click="copyGitCommit(artifactGitMetadata(artifact)?.commit_sha)">复制 SHA</button></div>
+                      <h4>{{ artifactGitMetadata(artifact)?.subject }}</h4>
+                      <p>{{ artifactGitMetadata(artifact)?.author_name }} · {{ artifactGitMetadata(artifact)?.branch }} · {{ artifactGitMetadata(artifact)?.committed_at }}</p>
+                      <p>{{ artifactGitMetadata(artifact)?.shortstat || `${artifactGitMetadata(artifact)?.file_count ?? 0} 个文件` }}</p>
+                      <div class="git-file-list"><span v-for="file in artifactGitMetadata(artifact)?.files ?? []" :key="`${artifact.id}-${file.status}-${file.path}`"><b>{{ file.status }}</b>{{ file.path }}</span></div>
+                      <a :href="api.gitCommitPatchUrl(activeRun.id, artifactGitMetadata(artifact)?.commit_sha, currentOrganizationId)"><Download />下载 Commit Patch</a>
+                    </section>
+                    <section v-else-if="artifactMergeRequestMetadata(artifact)" class="git-mr-card"><div><small>REMOTE MERGE REQUEST</small><b>#{{ artifactMergeRequestMetadata(artifact)?.number }}</b><span>{{ artifactMergeRequestMetadata(artifact)?.status }}</span></div><h4>{{ artifactMergeRequestMetadata(artifact)?.title ?? artifact.title }}</h4><p>{{ artifactMergeRequestMetadata(artifact)?.source_branch }} → {{ artifactMergeRequestMetadata(artifact)?.target_branch }}</p><a :href="artifactMergeRequestMetadata(artifact)?.url" target="_blank" rel="noreferrer">打开远端 MR</a></section>
+                    <section v-else-if="artifactFileMetadata(artifact)" class="file-change-receipt"><span><b>变更类型</b>{{ artifactActionLabel(artifactChangeAction(artifact)) }}</span><span><b>交付路径</b><code>{{ artifactFileMetadata(artifact)?.source_relative_path ?? artifact.title }}</code></span><span v-if="artifactFileMetadata(artifact)?.previous_sha256"><b>修改前 SHA</b><code>{{ artifactFileMetadata(artifact)?.previous_sha256 }}</code></span><span v-if="artifactFileMetadata(artifact)?.sha256"><b>当前 SHA</b><code>{{ artifactFileMetadata(artifact)?.sha256 }}</code></span></section>
+                    <div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />{{ artifactChangeAction(artifact) === 'deleted' ? '下载删除凭据' : '下载独立文件' }}</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
+                    <pre v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact) && !artifactFileMetadata(artifact)">{{ artifact.content }}</pre>
+                  </details>
+                </div>
+              </section>
+            </div>
+          </section>
         </section>
       </main>
 
@@ -2447,9 +2821,9 @@ onUnmounted(() => {
         <section class="page-heading">
           <div><span>模型与执行设置</span><h1>模型、凭据与执行底座</h1><p>可保存多份真实模型配置，并按高、中、低档分别选择当前启用项。</p></div>
         </section>
-        <section class="openclaw-runtime-card" :data-ready="openClawStatus.available">
+        <section class="runtime-status-card" :data-ready="runtimeStatus.available">
           <Settings2 />
-          <div><small>执行底座状态</small><h2>{{ openClawStatus.available ? '运行正常，可开始人物任务' : '暂不可用，将阻断新人物任务' }}</h2><p>{{ openClawStatus.available ? '独立会话、工具和经历空间已准备就绪。' : '请稍后重新检查运行状态。' }}</p></div>
+          <div><small>执行底座状态 · {{ runtimeStatus.runtime ?? 'claude_code' }}</small><h2>{{ runtimeStatus.available ? '运行正常，可开始人物任务' : '暂不可用，将阻断新人物任务' }}</h2><p>{{ runtimeStatus.available ? '独立会话、工具和经历空间已准备就绪。' : '请稍后重新检查运行状态。' }}</p></div>
           <button class="jh-secondary" @click="loadAll"><RefreshCw />重新检查</button>
         </section>
         <section class="model-tier-notice"><b>支持多配置并存</b><span>同一档位可以保存多份配置，其中一份处于启用状态；切换配置不会覆盖其他配置的地址、模型或加密凭据。</span></section>
@@ -2483,6 +2857,32 @@ onUnmounted(() => {
             </div>
             <p class="model-message">{{ modelMessage }}</p>
           </div>
+        </section>
+        <section class="git-delivery-settings git-credential-settings">
+          <header><div><small>SECURE CREDENTIAL VAULT</small><h2>Git 凭据库</h2><p>只管理账号和加密 Token，不在全局凭据中绑定仓库或分支。</p></div><button class="jh-secondary" @click="beginNewGitCredential"><Plus />新建凭据</button></header>
+          <div v-if="gitCredentials.length" class="git-config-pills"><button v-for="credential in gitCredentials" :key="credential.id" :class="{ active: gitCredentialForm.id === credential.id }" @click="selectGitCredential(credential)"><b>{{ credential.name }}</b><small>{{ credential.provider }} · {{ credential.token_hint }}</small></button></div>
+          <div class="git-delivery-grid">
+            <label>凭据名称<input v-model="gitCredentialForm.name" placeholder="例如：Logayan GitHub" /></label>
+            <label>Git 平台<select v-model="gitCredentialForm.provider"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="gitee">Gitee</option><option value="generic">通用 Git</option></select></label>
+            <label>Git 用户名<input v-model="gitCredentialForm.username" placeholder="GitHub 用户名或机器人账号" /></label>
+            <label>API 地址<input v-model="gitCredentialForm.api_base_url" placeholder="GitHub 可留空" /></label>
+            <label class="wide">Access Token<input v-model="gitCredentialForm.token" type="password" :placeholder="gitCredentialForm.token_hint ? `留空保留 ${gitCredentialForm.token_hint}` : '输入 Git Token'" /></label>
+          </div>
+          <footer><p>Token 只写入本应用的加密密钥库，事件和日志仅记录凭据 ID。</p><button class="jh-primary" :disabled="gitDeliveryBusy || !gitCredentialForm.name || (!gitCredentialForm.id && !gitCredentialForm.token)" @click="saveGitCredential">安全保存凭据</button></footer>
+        </section>
+        <section class="git-delivery-settings project-repository-settings">
+          <header><div><small>PROJECT REPOSITORIES</small><h2>项目代码仓库</h2><p>每个项目可登记多个仓库；具体事件再选择仓库、分支和交付方式。</p></div><button class="jh-secondary" @click="beginNewProjectRepository"><Plus />新建仓库</button></header>
+          <div v-if="projectGitRepositories.length" class="git-config-pills"><button v-for="repository in projectGitRepositories" :key="repository.id" :class="{ active: projectRepositoryForm.id === repository.id }" @click="selectProjectRepository(repository)"><b>{{ repository.name }}</b><small>{{ repository.project_id }} · {{ repository.default_branch }}</small></button></div>
+          <div class="git-delivery-grid">
+            <label>所属项目<select v-model="projectRepositoryForm.project_id"><option v-for="project in projects" :key="project.id" :value="project.id">{{ project.name }}</option></select></label>
+            <label>仓库名称<input v-model="projectRepositoryForm.name" placeholder="例如：agent-arena" /></label>
+            <label class="wide">仓库地址<input v-model="projectRepositoryForm.repository_url" placeholder="https://github.com/org/repository.git" /></label>
+            <label>默认目标分支<input v-model="projectRepositoryForm.default_branch" placeholder="main" /></label>
+            <label>使用凭据<select v-model="projectRepositoryForm.credential_id"><option value="">公开仓库 / 不需凭据</option><option v-for="credential in gitCredentials" :key="credential.id" :value="credential.id">{{ credential.name }}</option></select></label>
+            <label class="wide">默认交付方式<select v-model="projectRepositoryForm.default_delivery_mode"><option value="local_commit">仅本地 Commit</option><option value="push_branch">推送隔离分支</option><option value="create_merge_request">推送并创建 MR</option></select></label>
+          </div>
+          <div class="git-delivery-rules"><span>✓ 凭据与仓库分离</span><span>✓ 事件单独选择</span><span>✓ 不直接推默认分支</span><span>✓ 禁止 Force Push</span></div>
+          <footer><p>{{ gitDeliveryMessage || '仓库只是项目可选交付目标，不会自动套用到所有事件。' }}</p><button class="jh-secondary" :disabled="gitDeliveryBusy || !projectRepositoryForm.id" @click="testProjectRepository"><Zap />测试仓库与凭据</button><button class="jh-primary" :disabled="gitDeliveryBusy || !projectRepositoryForm.name || !projectRepositoryForm.repository_url" @click="saveProjectRepository">保存项目仓库</button></footer>
         </section>
       </main>
     </div>
