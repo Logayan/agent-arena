@@ -45,6 +45,12 @@ function publicError(error) {
   };
 }
 
+export function applyOptionalMaxTurns(options, configuredValue) {
+  const value = Number(configuredValue);
+  if (Number.isFinite(value) && value > 0) options.maxTurns = Math.floor(value);
+  return options;
+}
+
 function normalizeToolName(name) {
   const value = String(name || 'unknown');
   const suffix = value.split('__').at(-1)?.toLowerCase();
@@ -415,7 +421,6 @@ async function main() {
     cwd: workspace,
     env: cliEnv,
     includePartialMessages: false,
-    maxTurns: Number(input.max_turns || 20),
     model: String(input.model || ''),
     permissionMode: 'dontAsk',
     permissionPrompts: 'none',
@@ -424,6 +429,7 @@ async function main() {
     skills: skillIds,
     tools: [],
   };
+  applyOptionalMaxTurns(options, input.max_turns);
   if (engineering) {
     options.mcpServers = { jianghu_workspace: workspaceServer(workspace, delivery, Number(input.command_timeout_seconds || 600)) };
     options.strictMcpConfig = true;

@@ -3,7 +3,7 @@ param(
   [int]$AgentTimeoutSeconds = 1800,
   [int]$AgentTimeoutMaxSeconds = 14400,
   [int]$AgentTimeoutRetryMultiplier = 2,
-  [int]$ClaudeMaxTurns = 100,
+  [int]$ClaudeMaxTurns = 0,
   [int]$MaxRunMinutes = 720,
   [string]$LogDirectory = '.data\logs'
 )
@@ -37,7 +37,11 @@ $env:JIANGHU_AGENT_RUNTIME = 'claude_code'
 $env:JIANGHU_AGENT_TIMEOUT_SECONDS = [string]$AgentTimeoutSeconds
 $env:JIANGHU_AGENT_TIMEOUT_MAX_SECONDS = [string]$AgentTimeoutMaxSeconds
 $env:JIANGHU_AGENT_TIMEOUT_RETRY_MULTIPLIER = [string]$AgentTimeoutRetryMultiplier
-$env:JIANGHU_CLAUDE_MAX_TURNS = [string]$ClaudeMaxTurns
+if ($ClaudeMaxTurns -gt 0) {
+  $env:JIANGHU_CLAUDE_MAX_TURNS = [string]$ClaudeMaxTurns
+} else {
+  Remove-Item Env:JIANGHU_CLAUDE_MAX_TURNS -ErrorAction SilentlyContinue
+}
 $env:JIANGHU_MAX_RUN_MINUTES = [string]$MaxRunMinutes
 $env:PYTHONUNBUFFERED = '1'
 
@@ -56,7 +60,7 @@ $process = Start-Process -FilePath $pythonPath `
   AgentTimeoutSeconds = $AgentTimeoutSeconds
   AgentTimeoutMaxSeconds = $AgentTimeoutMaxSeconds
   AgentTimeoutRetryMultiplier = $AgentTimeoutRetryMultiplier
-  ClaudeMaxTurns = $ClaudeMaxTurns
+  ClaudeMaxTurns = if ($ClaudeMaxTurns -gt 0) { $ClaudeMaxTurns } else { $null }
   MaxRunMinutes = $MaxRunMinutes
   StdoutLog = $stdoutPath
   StderrLog = $stderrPath

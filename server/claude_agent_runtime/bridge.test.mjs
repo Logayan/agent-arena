@@ -2,12 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyOptionalMaxTurns,
   commandHasPathEscape,
   commandShell,
   heartbeatIntervalMs,
   normalizedToolResult,
   workspaceToolEnvironment,
 } from './bridge.mjs';
+
+
+test('does not impose an SDK turn limit unless explicitly configured', () => {
+  assert.deepEqual(applyOptionalMaxTurns({ model: 'gpt-test' }, undefined), { model: 'gpt-test' });
+  assert.deepEqual(applyOptionalMaxTurns({ model: 'gpt-test' }, 0), { model: 'gpt-test' });
+  assert.deepEqual(applyOptionalMaxTurns({ model: 'gpt-test' }, 'invalid'), { model: 'gpt-test' });
+  assert.deepEqual(applyOptionalMaxTurns({ model: 'gpt-test' }, 250), {
+    model: 'gpt-test',
+    maxTurns: 250,
+  });
+});
 
 
 test('bounds the internal bridge heartbeat without imposing a turn deadline', () => {

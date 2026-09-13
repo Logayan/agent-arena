@@ -104,15 +104,19 @@ async def test_attempt_evidence_bundle_keeps_distinct_attempt_snapshots(
     assert build_count == 2
 
 
-def test_complex_claude_turn_budget_is_configurable_and_bounded(monkeypatch) -> None:
+def test_claude_turn_limit_is_opt_in_and_not_silently_bounded(monkeypatch) -> None:
     monkeypatch.delenv("JIANGHU_CLAUDE_MAX_TURNS", raising=False)
-    assert _configured_max_turns(False) == 24
-    assert _configured_max_turns(True) == 80
+    assert _configured_max_turns(False) is None
+    assert _configured_max_turns(True) is None
 
     monkeypatch.setenv("JIANGHU_CLAUDE_MAX_TURNS", "64")
     assert _configured_max_turns(True) == 64
     monkeypatch.setenv("JIANGHU_CLAUDE_MAX_TURNS", "999")
-    assert _configured_max_turns(True) == 100
+    assert _configured_max_turns(True) == 999
+    monkeypatch.setenv("JIANGHU_CLAUDE_MAX_TURNS", "0")
+    assert _configured_max_turns(True) is None
+    monkeypatch.setenv("JIANGHU_CLAUDE_MAX_TURNS", "invalid")
+    assert _configured_max_turns(True) is None
 
 
 def test_claude_bridge_stream_limit_supports_large_ndjson_events(monkeypatch) -> None:

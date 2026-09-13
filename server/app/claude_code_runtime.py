@@ -20,13 +20,25 @@ def _safe_name(value: object, fallback: str) -> str:
     return normalized[:64] or fallback
 
 
-def _configured_max_turns(engineering: bool) -> int:
-    default = 80 if engineering else 24
+def _configured_max_turns(_engineering: bool) -> int | None:
+    """Return an explicitly configured SDK turn limit.
+
+    Claude Agent SDK ``maxTurns`` is a hard terminal limit, not an inactivity
+    or cost guard.  Mature audit and E2E roles routinely need more than one
+    hundred tool turns, so imposing a default silently truncates healthy work.
+    Token/cost budgets and the heartbeat inactivity watchdog remain the
+    platform safety controls.  A deployment may still opt in to a positive
+    hard turn limit when it deliberately wants one.
+    """
+
+    raw = os.getenv("JIANGHU_CLAUDE_MAX_TURNS", "").strip()
+    if not raw:
+        return None
     try:
-        value = int(os.getenv("JIANGHU_CLAUDE_MAX_TURNS", str(default)))
+        value = int(raw)
     except ValueError:
-        value = default
-    return max(8, min(value, 100))
+        return None
+    return value if value > 0 else None
 
 
 def _bridge_stream_limit_bytes() -> int:
@@ -510,8 +522,10 @@ class ClaudeCodeRuntime:
             # limit. Long-running Agent turns may continue for days as long as
             # the bridge remains responsive.
             "heartbeat_interval_seconds": min(15, max(1, int(timeout_seconds) // 4)),
-            "max_turns": _configured_max_turns(bool(policy.get("engineering"))),
         }
+        max_turns = _configured_max_turns(bool(policy.get("engineering")))
+        if max_turns is not None:
+            payload["max_turns"] = max_turns
         creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
         process = await asyncio.create_subprocess_exec(
             *self._base_command(),
