@@ -571,8 +571,11 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
     ]
     used_agent_names = {str(item.get("name") or "") for item in platform_store.list_agents()}
     if request.world_type == "large":
-        now_name = title if title and not title.startswith("例如") else "新江湖共同体"
-        organization = platform_store.create_organization(name=now_name, description=source_context)
+        now_name = requested_name or (title if title and not title.startswith("例如") else "新江湖共同体")
+        organization = platform_store.create_organization(
+            name=now_name,
+            description=requested_purpose or source_context,
+        )
         organization_id = str(organization["id"])
         generated_agents = []
         for index, (role, description, cognitive, authority) in enumerate(roster):
@@ -853,7 +856,9 @@ async def add_platform_agent_memory(agent_id: str, request: AgentMemoryRequest) 
 
 @app.post("/api/platform/agents/generate")
 async def generate_platform_agent(request: AgentGenerateRequest) -> dict[str, object]:
-    existing = platform_store.list_agents()
+    if not any(item["id"] == request.organization_id for item in platform_store.list_organizations()):
+        raise HTTPException(status_code=404, detail="organization_not_found")
+    existing = platform_store.list_agents(request.organization_id)
     if request.preferred_role:
         requested = {item.strip() for item in request.required_capabilities if item.strip()}
         for existing_agent in existing:
@@ -2360,6 +2365,9 @@ async def start_platform_run(run_id: str, organization_id: str | None = None) ->
 async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None, organization_id: str | None = None) -> dict[str, object]:
     scoped_platform_run(run_id, organization_id)
     try:
+        source_run, _ = platform_store.validate_retry(run_id, from_task_id=request.from_task_id if request else None)
+        # Runtime/model readiness must be proven before a new Run version is persisted.
+        runtime_snapshot = prepare_agent_runtime_run(source_run)
         retry = platform_store.retry_run(run_id, from_task_id=request.from_task_id if request else None)
     except ValueError as exc:
         status = 404 if str(exc) in {"run_not_found", "workflow_not_found"} else 409
@@ -2370,7 +2378,6 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
         if commission.get("run_id") == run_id:
             platform_store.link_company_task(commission["id"], workflow_id=retry["workflow_id"], run_id=retry["id"])
             break
-    runtime_snapshot = prepare_agent_runtime_run(retry)
     schedule_platform_execution(str(retry["id"]))
     return {
         "run": public_platform_run(platform_store.get_run(retry["id"]) or retry),

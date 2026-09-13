@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from server.app.main import app
-from server.app.openclaw_runtime import OpenClawRuntimeError
+from server.app.agent_runtime import AgentRuntimeError
 from server.app.platform_store import PlatformStore
 
 
@@ -98,9 +98,16 @@ def failed_run(platform):
 @pytest.mark.parametrize("failure", ["runtime", "model", "sync"])
 async def test_failed_retry_preparation_has_no_persistent_side_effects(platform, failed_run, monkeypatch, failure):
     run, commission = failed_run
-    runtime = SimpleNamespace(health=lambda: {"available": failure != "runtime", "error": "test unavailable"},
-                              sync=Mock(side_effect=OpenClawRuntimeError("test sync failure")))
-    monkeypatch.setattr("server.app.main.openclaw_runtime", runtime)
+    runtime = SimpleNamespace(
+        runtime_name="claude_code",
+        health=lambda: {
+            "available": failure != "runtime",
+            "error": "test unavailable",
+            "runtime": "claude_code",
+        },
+        sync=Mock(side_effect=AgentRuntimeError("test sync failure", runtime="claude_code")),
+    )
+    monkeypatch.setattr("server.app.main.agent_runtime", runtime)
     monkeypatch.setattr(platform, "get_active_model_config", lambda **kwargs: None if failure == "model" else {"model": "test"})
     schedule = Mock(side_effect=AssertionError("must not schedule failed preparation"))
     monkeypatch.setattr("server.app.main.schedule_platform_execution", schedule)
@@ -135,7 +142,7 @@ async def test_successful_retry_prepares_then_creates_and_links(platform, failed
         assert platform.get_run(run_id)["run_version"] == 2
         order.append("scheduled")
 
-    monkeypatch.setattr("server.app.main.prepare_openclaw_run", prepare)
+    monkeypatch.setattr("server.app.main.prepare_agent_runtime_run", prepare)
     monkeypatch.setattr("server.app.main.schedule_platform_execution", schedule)
     payload = {"from_task_id": run["tasks"][0]["id"]} if targeted else {}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
@@ -151,7 +158,7 @@ async def test_successful_retry_prepares_then_creates_and_links(platform, failed
 async def test_invalid_retry_rejected_before_runtime_preparation(platform, failed_run, monkeypatch):
     run, _ = failed_run
     prepare = Mock(side_effect=AssertionError("must validate before runtime preparation"))
-    monkeypatch.setattr("server.app.main.prepare_openclaw_run", prepare)
+    monkeypatch.setattr("server.app.main.prepare_agent_runtime_run", prepare)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         bad_task = await client.post(f"/api/platform/runs/{run['id']}/retry", json={"from_task_id": "missing"})
         assert bad_task.status_code == 409

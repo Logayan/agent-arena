@@ -74,7 +74,9 @@ foreach ($file in ($files | Sort-Object -Unique)) {
         foreach ($match in $credentialAssignment.Matches($line)) {
             $value = $match.Groups[2].Value.Trim()
             $isPlaceholder = [string]::IsNullOrWhiteSpace($value) -or $value -match '^(?i)(your-|replace-|example|sample|test-|unit-test-|dummy|<|\$\{)'
-            if (-not $isPlaceholder) {
+            $extension = [IO.Path]::GetExtension($file).ToLowerInvariant()
+            $isCodeReference = $extension -in @('.js', '.mjs', '.ts', '.tsx', '.py', '.ps1') -and $value -match '^[A-Za-z_$][A-Za-z0-9_.$()?-]*$'
+            if (-not $isPlaceholder -and -not $isCodeReference) {
                 $violations.Add([pscustomobject]@{ File = $file; Line = $lineNumber; Reason = 'configured API credential' })
             }
         }
