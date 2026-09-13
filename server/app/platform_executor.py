@@ -1172,7 +1172,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
 
         async def wait_for_control_boundary(*, settle_pause: bool = False) -> None:
             while True:
-                current = store.get_run(run_id)
+                current = store.get_run_state(run_id)
                 if not current or current["status"] == "cancelled":
                     raise asyncio.CancelledError
                 if current["status"] == "pause_requested":
@@ -1183,6 +1183,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         # after the public pause boundary.
                         return
                     async with event_lock:
+                        # Full checkpoint materialization is only needed after a
+                        # real pause request. Normal control checks stay light.
                         latest = store.get_run(run_id)
                         if latest and latest["status"] == "pause_requested":
                             latest_sequence = max(
@@ -2202,7 +2204,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "approval_credential_id": f"approval:{run_id}:{node_key}:{actor['id']}",
                         }
                         async with event_lock:
-                            latest_run = store.get_run(run_id)
+                            latest_run = store.get_run_state(run_id)
                             if not latest_run or latest_run.get("status") in {"failed", "cancelled", "completed"}:
                                 return
                             if kind == "progress" and action.get("content"):
@@ -3884,7 +3886,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         while pending:
             await wait_for_control_boundary(settle_pause=True)
             await process_rework_interventions()
-            current = store.get_run(run_id)
+            current = store.get_run_state(run_id)
             if not current or current["status"] == "cancelled":
                 return
             if enforce_run_time_limit and elapsed_before_invocation + (time.monotonic() - started_at) > max_run_minutes * 60:
@@ -4145,7 +4147,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             },
         )
     except asyncio.CancelledError:
-        current = store.get_run(run_id)
+        current = store.get_run_state(run_id)
         if current and current.get("status") != "cancelled":
             if current.get("status") == "pause_requested":
                 store.update_run(run_id, status="paused", stage="paused")
@@ -4169,7 +4171,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             status, stage = "revision_exhausted", "revision_exhausted"
         else:
             status, stage = "failed", "execution_failed"
-        latest = store.get_run(run_id) or {}
+        latest = store.get_run_live_snapshot(run_id, event_limit=20) or {}
         latest_tasks = latest.get("tasks") or []
         completed_count = sum(1 for item in latest_tasks if item.get("status") == "completed")
         terminal_progress = int((completed_count / max(len(latest_tasks), 1)) * 100)

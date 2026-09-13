@@ -2293,7 +2293,12 @@ async def download_platform_artifact(
     artifact = platform_store.get_artifact(artifact_id)
     if not artifact:
         raise HTTPException(status_code=404, detail="artifact_not_found")
-    run = scoped_platform_run(str(artifact["run_id"]), organization_id)
+    run = platform_store.get_run_state(str(artifact["run_id"]), organization_id)
+    if not run:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization" if organization_id else "run_not_found",
+        )
     try:
         path = platform_store.artifact_file_path(artifact_id)
     except ValueError as exc:
