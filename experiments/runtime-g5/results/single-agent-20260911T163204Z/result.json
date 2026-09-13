@@ -1,0 +1,286 @@
+{
+  "schema_version": "jianghu.runtime-g5-single-agent-comparison.v1",
+  "captured_at": "2026-09-11T16:34:38.824455+00:00",
+  "environment": {
+    "platform": "win32",
+    "os_name": "nt"
+  },
+  "model_config": {
+    "source": "active_encrypted_platform_config",
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "status": "passed",
+  "parity_checks": {
+    "both_passed": true,
+    "same_file_sha256": true,
+    "same_file_size": true,
+    "both_report_usage": true
+  },
+  "runtimes": {
+    "openclaw": {
+      "runtime": "openclaw",
+      "status": "passed",
+      "checks": {
+        "health_available": true,
+        "file_exact": true,
+        "file_change_reported": true,
+        "tool_action_streamed_before_return": false,
+        "tool_call_observed": true,
+        "tool_result_observed": true,
+        "command_succeeded": true,
+        "final_marker": true,
+        "session_id_present": true,
+        "resume_exact": true,
+        "usage_present": true,
+        "token_not_public": true
+      },
+      "blocking_checks": {
+        "health_available": true,
+        "file_exact": true,
+        "file_change_reported": true,
+        "tool_call_observed": true,
+        "tool_result_observed": true,
+        "command_succeeded": true,
+        "final_marker": true,
+        "session_id_present": true,
+        "resume_exact": true,
+        "usage_present": true,
+        "token_not_public": true
+      },
+      "sync": {
+        "runtime": "openclaw",
+        "agent_count": 1,
+        "models": [
+          "jianghu/gpt-5.6-sol"
+        ]
+      },
+      "health": {
+        "available": true,
+        "runtime": "openclaw",
+        "mode": "embedded-local",
+        "version": "OpenClaw 2026.7.1-2 (0790d9f)",
+        "error": "",
+        "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+        "entry_path": "C:\\Users\\User\\AppData\\Roaming\\npm\\node_modules\\openclaw\\openclaw.mjs",
+        "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\experiments\\runtime-g5\\results\\single-agent-20260911T163204Z\\openclaw\\state",
+        "config_ready": true
+      },
+      "result": {
+        "session_id_present": true,
+        "model": "gpt-5.6-sol",
+        "usage": {
+          "input_tokens": 16662,
+          "output_tokens": 401
+        },
+        "duration_seconds": 67.45,
+        "resume_duration_seconds": 54.017,
+        "file_sha256": "1add64d677cdb0a095f73a631bc9d05903384e8b3d4380cc198944293a59a675",
+        "file_size_bytes": 18,
+        "file_changes": [
+          {
+            "path": "runtime-parity.txt",
+            "action": "created",
+            "sha256": "1add64d677cdb0a095f73a631bc9d05903384e8b3d4380cc198944293a59a675",
+            "size_bytes": 18,
+            "previous_sha256": ""
+          }
+        ],
+        "actions": [
+          {
+            "kind": "tool_call",
+            "tool_name": "read",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "read",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": null,
+            "output": "---\r\nname: g5-parity-delivery\r\ndescription: 创建确定性文件并执行普通命令复验。\r\n---\r\n\r\n# G5 同题交付\r\n\r\n必须实际使用文件和命令工具，不以文字声明代替执行。\r\n"
+          },
+          {
+            "kind": "tool_call",
+            "tool_name": "write",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "write",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": null,
+            "output": "Successfully wrote 18 bytes to D:\\Users\\User\\My Document\\多agent协作与对抗实践\\experiments\\runtime-g5\\results\\single-agent-20260911T163204Z\\openclaw\\workspaces\\g5_parity_engineer\\delivery\\runtime-parity.txt"
+          },
+          {
+            "kind": "tool_call",
+            "tool_name": "exec",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "exec",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": 0,
+            "output": "RUNTIME_PARITY_OK"
+          },
+          {
+            "kind": "progress",
+            "tool_name": "",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          }
+        ],
+        "streamed_action_kinds": []
+      }
+    },
+    "claude_code": {
+      "runtime": "claude_code",
+      "status": "passed",
+      "checks": {
+        "health_available": true,
+        "file_exact": true,
+        "file_change_reported": true,
+        "tool_action_streamed_before_return": true,
+        "tool_call_observed": true,
+        "tool_result_observed": true,
+        "command_succeeded": true,
+        "final_marker": true,
+        "session_id_present": true,
+        "resume_exact": true,
+        "usage_present": true,
+        "token_not_public": true
+      },
+      "blocking_checks": {
+        "health_available": true,
+        "file_exact": true,
+        "file_change_reported": true,
+        "tool_call_observed": true,
+        "tool_result_observed": true,
+        "command_succeeded": true,
+        "final_marker": true,
+        "session_id_present": true,
+        "resume_exact": true,
+        "usage_present": true,
+        "token_not_public": true
+      },
+      "sync": {
+        "runtime": "claude_code",
+        "agent_count": 1,
+        "models": [
+          "gpt-5.6-sol"
+        ]
+      },
+      "health": {
+        "available": true,
+        "runtime": "claude_code",
+        "mode": "agent-sdk-bridge",
+        "version": "0.3.268",
+        "claude_code_version": "2.1.268",
+        "error": "",
+        "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+        "entry_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\server\\claude_agent_runtime\\bridge.mjs",
+        "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\experiments\\runtime-g5\\results\\single-agent-20260911T163204Z\\claude_code\\state",
+        "config_ready": true
+      },
+      "result": {
+        "session_id_present": true,
+        "model": "gpt-5.6-sol",
+        "usage": {
+          "input_tokens": 1946,
+          "output_tokens": 272,
+          "cache_read_input_tokens": 3456,
+          "cache_creation_input_tokens": 0
+        },
+        "duration_seconds": 27.628,
+        "resume_duration_seconds": 4.004,
+        "file_sha256": "1add64d677cdb0a095f73a631bc9d05903384e8b3d4380cc198944293a59a675",
+        "file_size_bytes": 18,
+        "file_changes": [
+          {
+            "path": "runtime-parity.txt",
+            "action": "created",
+            "sha256": "1add64d677cdb0a095f73a631bc9d05903384e8b3d4380cc198944293a59a675",
+            "size_bytes": 18,
+            "previous_sha256": ""
+          }
+        ],
+        "actions": [
+          {
+            "kind": "tool_call",
+            "tool_name": "Write",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "Write",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": null,
+            "output": "{\"path\":\"runtime-parity.txt\",\"bytes\":18}"
+          },
+          {
+            "kind": "tool_call",
+            "tool_name": "Bash",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "Bash",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": 0,
+            "output": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"RUNTIME_PARITY_OK\\n\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"environment\":\"credential-isolated\"}"
+          },
+          {
+            "kind": "tool_call",
+            "tool_name": "Read",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          },
+          {
+            "kind": "tool_result",
+            "tool_name": "Read",
+            "status": "completed",
+            "is_error": false,
+            "exit_code": null,
+            "output": "{\"path\":\"delivery/runtime-parity.txt\",\"content\":\"RUNTIME_PARITY_OK\\n\"}"
+          },
+          {
+            "kind": "progress",
+            "tool_name": "",
+            "status": "",
+            "is_error": null,
+            "exit_code": null
+          }
+        ],
+        "streamed_action_kinds": [
+          "tool_call",
+          "tool_result",
+          "tool_call",
+          "tool_result",
+          "tool_call",
+          "tool_result",
+          "progress"
+        ]
+      }
+    }
+  }
+}

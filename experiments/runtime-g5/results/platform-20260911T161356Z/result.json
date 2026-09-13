@@ -1,0 +1,31 @@
+{
+  "schema_version": "jianghu.runtime-g5-platform-comparison.v1",
+  "captured_at": "2026-09-11T16:23:34.932350+00:00",
+  "environment": {
+    "platform": "win32",
+    "os_name": "nt"
+  },
+  "model_config": {
+    "source": "active_encrypted_platform_config",
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "status": "passed",
+  "pair_checks": {
+    "engineering_collaboration": true
+  },
+  "results": [
+    {
+      "runtime": "claude_code",
+      "scenario": "engineering_collaboration",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 578.682,
+      "stdout_tail": "{'phase': 'started', 'runtime': 'claude_code', 'db': 'D:\\\\Users\\\\User\\\\My Document\\\\��agentЭ����Կ�ʵ��\\\\.data\\\\verification\\\\real-engineering-team-e2e-ce633494b4.db', 'run_id': 'run_c632a5710385', 'workflow_id': 'workflow_df5c5b1bda12', 'agents': 2}\n{'phase': 'completed', 'runtime': 'claude_code', 'run_id': 'run_c632a5710385', 'status': 'completed', 'progress': 100, 'token_count': 137515, 'workspace': 'D:\\\\Users\\\\User\\\\My Document\\\\��agentЭ����Կ�ʵ��\\\\.data\\\\verification\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_c632a5710385', 'zip': 'D:\\\\Users\\\\User\\\\My Document\\\\��agentЭ����Կ�ʵ��\\\\.data\\\\verification\\\\real-engineering-team-e2e-ce633494b4.zip', 'files': ['MANIFEST.json', 'README.md', 'calculator/__init__.py', 'calculator/core.py', 'tests/__init__.py', 'tests/test_core.py'], 'portable_test_exit_code': 0, 'portable_test_output': 'test_adds_decimals (test_core.AddTests.test_adds_decimals) ... ok\\ntest_adds_fractions (test_core.AddTests.test_adds_fractions) ... ok\\ntest_adds_integers (test_core.AddTests.test_adds_integers) ... ok\\ntest_adds_negative_and_float (test_core.AddTests.test_adds_negative_and_float) ... ok\\ntest_incompatible_operands_keep_native_type_error (test_core.AddTests.test_incompatible_operands_keep_native_type_error) ... ok\\ntest_accepts_negative_divisor (test_core.SafeDivideTests.test_accepts_negative_divisor) ... ok\\ntest_decimal_zero_raises_value_error (test_core.SafeDivideTests.test_decimal_zero_raises_value_error) ... ok\\ntest_divides_decimals (test_core.SafeDivideTests.test_divides_decimals) ... ok\\ntest_divides_floats (test_core.SafeDivideTests.test_divides_floats) ... ok\\ntest_divides_fractions (test_core.SafeDivideTests.test_divides_fractions) ... ok\\ntest_divides_integers (test_core.SafeDivideTests.test_divides_integers) ... ok\\ntest_incompatible_operands_keep_native_type_error (test_core.SafeDivideTests.test_incompatible_operands_keep_native_type_error) ... ok\\ntest_integer_zero_raises_value_error_with_stable_message (test_core.SafeDivideTests.test_integer_zero_raises_value_error_with_stable_message) ... ok\\ntest_negative_float_zero_raises_value_error (test_core.SafeDivideTests.test_negative_float_zero_raises_value_error) ... ok\\ntest_preserves_fractional_result (test_core.SafeDivideTests.test_preserves_fractional_result) ... ok\\n\\n----------------------------------------------------------------------\\nRan 15 tests in 0.001s\\n\\nOK\\n', 'validation': {'passed': True, 'file_count': 6, 'command_count': 51, 'successful_test_count': 13, 'portable_successful_test_count': 4}, 'event_counts': {'team.member.completed': 2, 'team.dossier.published': 1, 'engineering.submission.published': 2, 'team.communication.round.started': 1, 'agent.message.sent': 2, 'team.synthesis.started': 1, 'agent.file.created': 17, 'agent.file.modified': 4, 'agent.command.completed': 51, 'agent.test.completed': 14, 'artifact.validation.passed': 1, 'run.completed': 1, 'run.failed': 0}}\n",
+      "stderr_tail": "C:\\Users\\User\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages\\openpyxl\\styles\\stylesheet.py:237: UserWarning: Workbook contains no default style, apply openpyxl's default\n  warn(\"Workbook contains no default style, apply openpyxl's default\")\n"
+    }
+  ]
+}

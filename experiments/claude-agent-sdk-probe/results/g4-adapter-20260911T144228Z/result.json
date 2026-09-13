@@ -1,0 +1,86 @@
+{
+  "schema_version": "jianghu.claude-code-runtime-g4-evidence.v1",
+  "captured_at": "2026-09-11T14:43:01.167298+00:00",
+  "status": "passed",
+  "environment": {
+    "os_name": "nt",
+    "platform": "win32"
+  },
+  "model_config": {
+    "source": "active_encrypted_platform_config",
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "health": {
+    "available": true,
+    "runtime": "claude_code",
+    "mode": "agent-sdk-bridge",
+    "version": "0.3.268",
+    "claude_code_version": "2.1.268",
+    "error": "",
+    "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+    "entry_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\server\\claude_agent_runtime\\bridge.mjs",
+    "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\experiments\\claude-agent-sdk-probe\\results\\g4-adapter-20260911T144228Z\\state",
+    "config_ready": true
+  },
+  "checks": {
+    "health_available": true,
+    "sdk_version_pinned": true,
+    "claude_code_version_pinned": true,
+    "normal_final_marker": true,
+    "delivery_file_exact": true,
+    "streamed_tool_call_and_result": true,
+    "read_write_bash_observed": true,
+    "powershell_command_succeeded": true,
+    "provider_environment_hidden": true,
+    "provider_token_not_in_actions": true,
+    "session_resume_exact": true,
+    "cancel_task_cancelled": true,
+    "cancel_child_started": true,
+    "cancel_child_terminated": true,
+    "cancel_no_surviving_output": true
+  },
+  "normal": {
+    "session_id_present": true,
+    "action_kinds": [
+      "tool_call",
+      "tool_result",
+      "tool_call",
+      "tool_result",
+      "tool_call",
+      "tool_result",
+      "progress"
+    ],
+    "tool_names": [
+      "Write",
+      "Bash",
+      "Read"
+    ],
+    "file_changes": [
+      {
+        "path": "g4-adapter.txt",
+        "action": "created",
+        "sha256": "bca23000c0bcbe8086aef7b2fab5eaad26bbb5f6ee7f9777a8fea2fbc2ae37ca",
+        "size_bytes": 19,
+        "previous_sha256": ""
+      }
+    ],
+    "usage": {
+      "input_tokens": 3634,
+      "output_tokens": 363,
+      "cache_read_input_tokens": 2432,
+      "cache_creation_input_tokens": 0
+    }
+  },
+  "cancellation": {
+    "action_kinds": [
+      "tool_call"
+    ],
+    "child_pid_recorded": true,
+    "child_alive_after_cancel": false,
+    "survived_file_present": false
+  }
+}

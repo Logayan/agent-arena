@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import subprocess
 import sys
@@ -13,10 +14,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from server.app.platform_executor import execute_platform_run
+from server.app.agent_runtime_registry import agent_runtime
 from server.app.platform_store import PlatformStore, platform_store
 
 
 async def main() -> None:
+    runtime_name = os.getenv("JIANGHU_G5_TEST_RUNTIME", "openclaw").strip() or "openclaw"
+    agent_runtime.register(agent_runtime.get(runtime_name), default=True)
     verification_root = Path(".data/verification").resolve()
     verification_root.mkdir(parents=True, exist_ok=True)
     verification_id = uuid4().hex[:10]
@@ -61,7 +65,7 @@ async def main() -> None:
         ],
     )
     workflow = store.create_workflow(
-        "OpenClaw 真实多人编码验收流",
+        f"{runtime_name} 真实多人编码验收流",
         "两位人物各自在隔离工作区写代码，再通过公共提交区协作形成可运行交付。",
         "real_engineering_acceptance",
         {
@@ -106,6 +110,7 @@ async def main() -> None:
     print(
         {
             "phase": "started",
+            "runtime": runtime_name,
             "db": str(db_path),
             "run_id": run["id"],
             "workflow_id": workflow["id"],
@@ -146,6 +151,7 @@ async def main() -> None:
 
     summary = {
         "phase": "completed",
+        "runtime": runtime_name,
         "run_id": result["id"],
         "status": result["status"],
         "progress": result["progress"],

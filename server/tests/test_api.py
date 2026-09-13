@@ -13,7 +13,13 @@ import httpx
 import pytest
 
 from server.app.agent_runtime import AgentRuntimeError
-from server.app.main import app, bounded_score, capability_overlap_ratio, public_platform_run
+from server.app.main import (
+    app,
+    bounded_score,
+    capability_overlap_ratio,
+    public_platform_run,
+    recover_durable_platform_runs,
+)
 from server.app.models import RunStatus
 from server.app.simulator import run_demo
 from server.app.store import RunStore
@@ -21,6 +27,7 @@ from server.app.platform_store import PlatformStore, STARTER_STRATEGIST
 from server.app.platform_executor import (
     _continues_after_expected_rejection,
     _extract_initiator_note,
+    _judge_decision_from_delivery,
     _resolve_gate_targets,
     _team_knowledge,
     execute_platform_run,
@@ -44,6 +51,62 @@ async def test_health() -> None:
         response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.anyio
+async def test_startup_restart_recovery_hydrates_paused_run_events(monkeypatch) -> None:
+    appended: list[tuple[str, str, dict[str, object]]] = []
+    get_run_calls: list[tuple[str, dict[str, object]]] = []
+
+    class RecoveryStore:
+        def list_runs_by_status(self, statuses: set[str]) -> list[dict[str, object]]:
+            if statuses == {"paused"}:
+                return [{"id": "run_paused", "status": "paused"}]
+            return []
+
+        def get_run(self, run_id: str, **kwargs: object) -> dict[str, object]:
+            get_run_calls.append((run_id, kwargs))
+            return {
+                "id": run_id,
+                "status": "paused",
+                "events": [
+                    {
+                        "id": "evt_restart",
+                        "sequence": 42,
+                        "type": "run.restart.requested",
+                    }
+                ],
+                "tasks": [
+                    {"node_key": "done", "status": "completed"},
+                    {"node_key": "judge", "status": "pending"},
+                ],
+            }
+
+        def append_run_event(
+            self,
+            run_id: str,
+            type_: str,
+            _category: str,
+            _title: str,
+            _summary: str,
+            payload: dict[str, object],
+        ) -> None:
+            appended.append((run_id, type_, payload))
+
+    monkeypatch.setattr("server.app.main.platform_store", RecoveryStore())
+
+    await recover_durable_platform_runs()
+
+    assert get_run_calls == [
+        (
+            "run_paused",
+            {"event_limit": 200, "include_artifact_content": False},
+        )
+    ]
+    assert [item[1] for item in appended] == ["run.interrupted", "run.restart.completed"]
+    assert appended[0][2]["source_event_sequence"] == 42
+    assert appended[0][2]["completed_node_keys"] == ["done"]
+    assert appended[0][2]["interrupted_node_keys"] == ["judge"]
 
 
 @pytest.mark.anyio
@@ -105,6 +168,34 @@ def test_list_organizations_is_read_only_during_active_writer(tmp_path) -> None:
         organizations = platform.list_organizations()
 
     assert any(item["id"] == "org_jianghu" for item in organizations)
+
+
+def test_run_operational_projection_can_skip_large_artifact_content(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "compact-run.db"))
+    agent = platform.create_agent(
+        name="边界工程师",
+        role="运行工程师",
+        description="验证控制接口的轻量投影",
+        persona="只核验机器边界",
+        capabilities=["运行控制"],
+    )
+    workflow = platform.create_workflow(
+        "轻量控制投影",
+        "大 Run 的暂停与恢复不读取全部 Artifact 正文",
+        "test",
+        {"nodes": [{"key": "control", "name": "控制", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证大 Artifact 不阻塞控制接口")
+    task = run["tasks"][0]
+    platform.create_artifact(
+        run["id"], task["id"], "workflow_output", "大产物", "x" * 100_000
+    )
+
+    compact = platform.get_run(run["id"], event_limit=1, include_artifact_content=False)
+    full = platform.get_run(run["id"], event_limit=1)
+
+    assert compact is not None and compact["artifacts"][0]["content"] == ""
+    assert full is not None and len(full["artifacts"][0]["content"]) == 100_000
 
 
 def test_public_platform_run_redacts_legacy_runtime_trace_without_mutating_evidence() -> None:
@@ -1054,6 +1145,38 @@ def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, 
     metadata = json.loads(artifact["content"])
     assert metadata["change_action"] == "created"
     assert metadata["file_category"] == "other"
+
+
+def test_register_workspace_file_artifact_accepts_isolated_agent_delivery_root(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "isolated-file-artifact.db"))
+    agent = platform.create_agent(
+        name="顾审计", role="质量工程师", description="交付独立审计报告", persona="只写隔离交付区",
+        capabilities=["审计归档"],
+    )
+    workflow = platform.create_workflow(
+        "隔离交付章法", "登记非工程人物文件", "test",
+        {
+            "nodes": [{"key": "audit", "name": "独立审计", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "交付隔离审计文件")
+    task = run["tasks"][0]
+    delivery_root = Path(run["workspace"]["root"]) / "agents" / agent["id"] / "delivery"
+    source = delivery_root / "final-audit.md"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("# 独立审计\n\n结论：通过。\n", encoding="utf-8")
+
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "final-audit.md",
+        change_action="created", source_root=delivery_root,
+    )
+
+    assert artifact["title"] == "final-audit.md"
+    assert artifact["media_type"] == "text/markdown"
+    materialized = Path(run["workspace"]["root"]) / artifact["relative_path"]
+    assert materialized.read_bytes() == source.read_bytes()
+    assert platform.verify_artifact_bytes(run["id"], artifact["id"])["matched"] is True
 
 
 def test_register_deleted_workspace_file_as_change_receipt(tmp_path) -> None:
@@ -2109,6 +2232,98 @@ async def test_judge_rejection_reopens_responsible_dag_subgraph(monkeypatch, tmp
 
 
 @pytest.mark.anyio
+async def test_judge_markdown_final_uses_valid_isolated_verdict_file(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "judge-delivery-fallback.db"))
+    judge = platform.create_agent(
+        name="顾复核",
+        role="独立裁判",
+        description="独立复核机器裁决与公开报告",
+        persona="只依据可验证证据裁决",
+        capabilities=["独立验收"],
+    )
+    platform.save_model_config(
+        config_id=None,
+        name="judge-delivery-fallback-test",
+        provider="openai-responses",
+        base_url="https://example.invalid",
+        model="test-model",
+        token="unit-test-secret",
+        active=True,
+    )
+    workflow = platform.create_workflow(
+        "机器裁决恢复章法",
+        "公开正文非 JSON 时使用同一隔离回合的机器裁决",
+        "test",
+        {
+            "nodes": [
+                {
+                    "key": "judge",
+                    "name": "独立裁决",
+                    "type": "judge",
+                    "agent_id": judge["id"],
+                    "agent_role": judge["role"],
+                }
+            ],
+            "edges": [],
+        },
+    )
+    run = platform.create_run(workflow["id"], "复核正式候选并作出机器可判裁决")
+
+    class JudgeDeliveryRuntime:
+        runtime_name = "claude_code"
+
+        def __init__(self) -> None:
+            self.root = tmp_path / "judge-runtime"
+
+        def workspace_path(self, agent):
+            path = self.root / agent["id"]
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+
+        def health(self):
+            return {"available": True, "runtime": "claude_code", "mode": "test"}
+
+        def sync(self, agents, memories, model_config):
+            return {"agent_count": len(agents), "config_path": "isolated-test", "model": "test/test-model"}
+
+        async def message(self, *, agent, prompt, session_key, model_config, timeout_seconds, **kwargs):
+            verdict_path = self.workspace_path(agent) / "delivery" / "judge" / "verdict.json"
+            verdict_path.parent.mkdir(parents=True, exist_ok=True)
+            verdict_path.write_text(
+                json.dumps(
+                    {
+                        "verdict": "pass",
+                        "score": 96,
+                        "summary": "机器裁决通过",
+                        "feedback": "",
+                        "target_node_keys": [],
+                        "acceptance_evidence": ["隔离交付中的 verdict.json"],
+                        "remaining_risks": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            return {
+                "id": session_key,
+                "content": [{"type": "text", "text": "# 独立裁判结论\n\n候选通过。"}],
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "claude_code": {"runtime": "test", "session_id": f"sdk-{session_key}"},
+            }
+
+    runtime = JudgeDeliveryRuntime()
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
+    await execute_platform_run(platform, run["id"])
+
+    completed = platform.get_run(run["id"])
+    assert completed["status"] == "completed"
+    event_types = [event["type"] for event in completed["events"]]
+    assert "judge.output.contract.recovered" in event_types
+    assert "gate.passed" in event_types
+    assert "run.completed" in event_types
+
+
+@pytest.mark.anyio
 async def test_expected_initial_rejection_records_gate_and_executes_remediation(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "expected-rejection.db"))
     worker = platform.create_agent(
@@ -2318,10 +2533,10 @@ async def test_timeout_retries_keep_increasing_across_agent_and_node_attempts(mo
     platform = PlatformStore(str(tmp_path / "agent-retry.db"))
     agent = platform.create_agent(
         name="陆行舟",
-        role="全栈工程师",
-        description="独立实现并验证真实交付",
+        role="独立质量审计员",
+        description="使用工具独立核验真实证据",
         persona="遇到瞬时故障时重新建立隔离回合",
-        capabilities=["软件开发", "自动化测试"],
+        capabilities=["证据核验", "自动化测试"],
     )
     platform.save_model_config(
         config_id=None,
@@ -2345,6 +2560,7 @@ async def test_timeout_retries_keep_increasing_across_agent_and_node_attempts(mo
                     "agent_id": agent["id"],
                     "agent_role": agent["role"],
                     "execution_mode": "document",
+                    "requires_runtime_tools": True,
                 }
             ],
             "edges": [],
@@ -2381,7 +2597,7 @@ async def test_timeout_retries_keep_increasing_across_agent_and_node_attempts(mo
 
     monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: RetryRuntime())
     monkeypatch.setattr("server.app.platform_executor.asyncio.sleep", no_wait)
-    monkeypatch.setenv("JIANGHU_AGENT_TIMEOUT_SECONDS", "1800")
+    monkeypatch.delenv("JIANGHU_AGENT_TIMEOUT_SECONDS", raising=False)
     monkeypatch.setenv("JIANGHU_AGENT_TIMEOUT_MAX_SECONDS", "14400")
     monkeypatch.setenv("JIANGHU_MAX_RUN_MINUTES", "720")
     await execute_platform_run(platform, run["id"])
@@ -2526,6 +2742,35 @@ def test_extract_initiator_note_removes_private_summary_from_public_contribution
     unchanged, empty = _extract_initiator_note("只有公开结论。")
     assert unchanged == "只有公开结论。"
     assert empty == ""
+
+
+def test_judge_decision_recovers_machine_verdict_from_isolated_delivery(tmp_path) -> None:
+    delivery_root = tmp_path / "delivery"
+    verdict_path = delivery_root / "judge" / "final-round" / "verdict.json"
+    verdict_path.parent.mkdir(parents=True)
+    verdict_path.write_text(
+        json.dumps(
+            {
+                "verdict": "revise",
+                "score": 74,
+                "summary": "仍有阻断项",
+                "feedback": "继续整改",
+                "target_node_keys": ["final_report_and_gap_list"],
+                "acceptance_evidence": ["真实复验"],
+                "remaining_risks": ["发布门禁未闭合"],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    decision, relative_path = _judge_decision_from_delivery(
+        {"delivery_root": str(delivery_root)}
+    )
+
+    assert decision is not None
+    assert decision["verdict"] == "revise"
+    assert relative_path == "judge/final-round/verdict.json"
 
 
 def test_openclaw_public_action_parser_hides_thinking_and_keeps_tool_evidence(tmp_path) -> None:

@@ -1,0 +1,146 @@
+{
+  "schema_version": "jianghu.runtime-g5-text-comparison.v1",
+  "captured_at": "2026-09-11T15:46:36.242204+00:00",
+  "source": "recovered_from_completed_runs_after_summary_script_bug",
+  "status": "passed",
+  "runtimes": [
+    {
+      "runtime": "openclaw",
+      "database": "real-openclaw-e2e-a57f75736e.db",
+      "run_id": "run_472a905cc787",
+      "status": "passed",
+      "checks": {
+        "run_completed": true,
+        "independent_contributions": true,
+        "public_messages": true,
+        "team_synthesis": true,
+        "judge_rejected": true,
+        "revision_loop": true,
+        "judge_passed": true,
+        "memory_persisted": true,
+        "artifact_versions_preserved": true,
+        "final_run_artifact": true
+      },
+      "run": {
+        "status": "completed",
+        "progress": 100,
+        "token_count": 59453,
+        "task_count": 2,
+        "artifact_count": 5,
+        "event_count": 129
+      },
+      "event_counts": {
+        "team.member.completed": 4,
+        "agent.message.sent": 5,
+        "team.synthesis.completed": 2,
+        "gate.rejected": 1,
+        "workflow.loop.created": 1,
+        "gate.passed": 1,
+        "agent.memory.persisted": 4,
+        "run.completed": 1
+      },
+      "artifact_versions": {
+        "proposal": [
+          {
+            "version": 1,
+            "status": "superseded",
+            "path": "artifacts/proposal/artifact_93d26ffbd885.md"
+          },
+          {
+            "version": 2,
+            "status": "candidate",
+            "path": "artifacts/proposal/artifact_57e5813ab568.md"
+          }
+        ],
+        "judge": [
+          {
+            "version": 1,
+            "status": "superseded",
+            "path": "artifacts/judge/artifact_bec99210aa0c.md"
+          },
+          {
+            "version": 2,
+            "status": "candidate",
+            "path": "artifacts/judge/artifact_f5884e4ddf8c.md"
+          }
+        ],
+        "run": [
+          {
+            "version": 1,
+            "status": "final",
+            "path": "artifacts/run/artifact_856a4291e413.md"
+          }
+        ]
+      }
+    },
+    {
+      "runtime": "claude_code",
+      "database": "real-openclaw-e2e-33296d655b.db",
+      "run_id": "run_54e3bc89b11d",
+      "status": "passed",
+      "checks": {
+        "run_completed": true,
+        "independent_contributions": true,
+        "public_messages": true,
+        "team_synthesis": true,
+        "judge_rejected": true,
+        "revision_loop": true,
+        "judge_passed": true,
+        "memory_persisted": true,
+        "artifact_versions_preserved": true,
+        "final_run_artifact": true
+      },
+      "run": {
+        "status": "completed",
+        "progress": 100,
+        "token_count": 23948,
+        "task_count": 2,
+        "artifact_count": 5,
+        "event_count": 129
+      },
+      "event_counts": {
+        "team.member.completed": 4,
+        "agent.message.sent": 5,
+        "team.synthesis.completed": 2,
+        "gate.rejected": 1,
+        "workflow.loop.created": 1,
+        "gate.passed": 1,
+        "agent.memory.persisted": 4,
+        "run.completed": 1
+      },
+      "artifact_versions": {
+        "proposal": [
+          {
+            "version": 1,
+            "status": "superseded",
+            "path": "artifacts/proposal/artifact_bbf4b56ed288.md"
+          },
+          {
+            "version": 2,
+            "status": "candidate",
+            "path": "artifacts/proposal/artifact_51200b7a977c.md"
+          }
+        ],
+        "judge": [
+          {
+            "version": 1,
+            "status": "superseded",
+            "path": "artifacts/judge/artifact_96f0f0e4b5d4.md"
+          },
+          {
+            "version": 2,
+            "status": "candidate",
+            "path": "artifacts/judge/artifact_71b272eaaefc.md"
+          }
+        ],
+        "run": [
+          {
+            "version": 1,
+            "status": "final",
+            "path": "artifacts/run/artifact_1c4cc2fe9ca5.md"
+          }
+        ]
+      }
+    }
+  ]
+}

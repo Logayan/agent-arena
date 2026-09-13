@@ -1,0 +1,37 @@
+{
+  "schema_version": "jianghu.claude-agent-sdk-g3-docker-environment.v1",
+  "date": "2026-09-11",
+  "status": "environment_blocked",
+  "docker_client": {
+    "version": "28.3.2",
+    "context": "default",
+    "os": "windows",
+    "arch": "amd64"
+  },
+  "docker_server": null,
+  "daemon_pipe_available": false,
+  "desktop_executable_present": true,
+  "desktop_service": {
+    "name": "com.docker.service",
+    "status": "Stopped",
+    "start_type": "Manual"
+  },
+  "start_attempts": [
+    {
+      "method": "Docker Desktop executable",
+      "status": "denied",
+      "reason": "Windows administrator policy restricted process launch"
+    },
+    {
+      "method": "Start-Service com.docker.service",
+      "status": "denied",
+      "reason": "Current process cannot open the service for start"
+    }
+  ],
+  "wsl_fallback": {
+    "status": "unavailable",
+    "reason": "No installed Linux distribution"
+  },
+  "production_files_changed": false,
+  "required_user_action": "Start Docker Desktop with sufficient Windows privileges and wait for the engine to report running"
+}

@@ -11,9 +11,12 @@ import tempfile
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from .agent_runtime import AgentRuntimeError
 
-class OpenClawRuntimeError(RuntimeError):
-    pass
+
+class OpenClawRuntimeError(AgentRuntimeError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message, runtime="openclaw")
 
 
 def _safe_name(value: object, fallback: str) -> str:
@@ -30,6 +33,7 @@ class OpenClawRuntime:
     environment and are never persisted into the generated configuration.
     """
 
+    runtime_name = "openclaw"
     supports_live_actions = True
 
     def __init__(
@@ -120,6 +124,7 @@ class OpenClawRuntime:
             output = (completed.stdout or completed.stderr).strip()
             return {
                 "available": completed.returncode == 0,
+                "runtime": self.runtime_name,
                 "mode": "embedded-local",
                 "version": output if completed.returncode == 0 else "",
                 "error": "" if completed.returncode == 0 else output[:1200],
@@ -131,6 +136,7 @@ class OpenClawRuntime:
         except Exception as exc:
             return {
                 "available": False,
+                "runtime": self.runtime_name,
                 "mode": "embedded-local",
                 "version": "",
                 "error": str(exc),
@@ -327,6 +333,7 @@ class OpenClawRuntime:
         }
         self._write_if_changed(self.config_path, json.dumps(config, ensure_ascii=False, indent=2))
         return {
+            "runtime": self.runtime_name,
             "agent_count": len(config_agents),
             "config_path": str(self.config_path),
             "model": f"{provider_id}/{model_id}",
@@ -755,6 +762,7 @@ class OpenClawRuntime:
         file_changes = self._workspace_changes(before_snapshot, after_snapshot) if capture_workspace else []
         return {
             "id": payload.get("runId") or payload.get("id") or payload.get("sessionId") or agent_meta.get("sessionId"),
+            "session_id": session_id,
             "model": str(model_config.get("model") or ""),
             "content": [{"type": "text", "text": response_text}],
             "usage": usage,

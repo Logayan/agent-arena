@@ -175,7 +175,7 @@ def _ensure_agent(store: PlatformStore, spec: dict[str, Any]) -> tuple[dict[str,
         capabilities=list(spec["capabilities"]),
         visibility="private",
         skills=[],
-        runtime="openclaw",
+        runtime="claude_code",
         memory_policy={"enabled": True, "max_prompt_items": 8, "write_after_task": True},
     ), True
 

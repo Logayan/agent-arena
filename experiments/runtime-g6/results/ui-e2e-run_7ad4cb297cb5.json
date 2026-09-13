@@ -1,0 +1,890 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-12T10:15:22.563322+08:00",
+  "source": {
+    "base_url": "http://127.0.0.1:8003",
+    "organization_id": "org_jianghu",
+    "run_id": "run_7ad4cb297cb5",
+    "driver": "real-browser-created-product-run"
+  },
+  "status": "in_progress",
+  "run": {
+    "id": "run_7ad4cb297cb5",
+    "family_id": "run_0886dd109c15",
+    "version": 7,
+    "parent_run_id": "run_d913ce06c52f",
+    "ancestor_run_ids": [
+      "run_d913ce06c52f",
+      "run_8c28440fc56b",
+      "run_90149860afbc",
+      "run_20eebaca7cc5",
+      "run_59b0be82be5b",
+      "run_0886dd109c15"
+    ],
+    "status": "running",
+    "stage": "退回缺陷整改与全链路重跑",
+    "progress": 70,
+    "workflow_id": "workflow_f39b9f67783b",
+    "workflow_name": "Claude Agent SDK 全链路迁移实证验收流",
+    "team_ids": [
+      "team_4e36a8a4a812"
+    ],
+    "team_names": [
+      "深信服"
+    ],
+    "commission_ids": [
+      "company_task_f7b67ac6febc"
+    ],
+    "task_counts": {
+      "completed": 7,
+      "running": 1,
+      "pending": 2
+    },
+    "artifact_count": 9,
+    "event_count": 1983
+  },
+  "runtime": {
+    "available": true,
+    "runtime": "claude_code",
+    "mode": "agent-sdk-bridge",
+    "version": "0.3.268",
+    "claude_code_version": "2.1.268",
+    "error": "",
+    "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+    "entry_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\server\\claude_agent_runtime\\bridge.mjs",
+    "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\claude-code",
+    "config_ready": true,
+    "model_configured": true,
+    "synced": {
+      "runtime": "claude_code",
+      "agent_count": 17,
+      "config_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\claude-code\\agent-policies.json",
+      "model": "gpt-5.6-sol",
+      "models": [
+        "gpt-5.6-sol"
+      ],
+      "tool_enabled_agent_ids": []
+    }
+  },
+  "checks": {
+    "runtime_is_claude_code": {
+      "status": "passed",
+      "summary": "runtime=claude_code",
+      "evidence": []
+    },
+    "sdk_bridge_available": {
+      "status": "passed",
+      "summary": "mode=agent-sdk-bridge, sdk=0.3.268, claude_code=2.1.268",
+      "evidence": []
+    },
+    "model_configured": {
+      "status": "passed",
+      "summary": "model=gpt-5.6-sol",
+      "evidence": []
+    },
+    "product_goal_team_workflow_run": {
+      "status": "passed",
+      "summary": "workflow=True, teams=1, tasks=10, linked_commissions=1",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1,
+          "type": "run.retry_created",
+          "title": "已创建新的重试现场",
+          "summary": "原失败现场保持不变；本次保留 5 个已完成节点，从“运行证据独立质量与风险审计”及未完成节点继续执行。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 2,
+          "type": "run.started",
+          "title": "真实执行已经开始",
+          "summary": "工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。"
+        }
+      ]
+    },
+    "run_runtime_snapshot": {
+      "status": "passed",
+      "summary": "runtime=claude_code, run_mode=agent-sdk-bridge, adapter_mode=agent-sdk-bridge, model=gpt-5.6-sol",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 2,
+          "type": "run.started",
+          "title": "真实执行已经开始",
+          "summary": "工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 3,
+          "type": "agent.runtime.ready",
+          "title": "执行底座已接管本次人物运行",
+          "summary": "已为 9 位人物装载隔离工作区、身份、长期 Memory 与启用的 Skills。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1736,
+          "type": "run.recovered",
+          "title": "真实执行已从持久化现场恢复",
+          "summary": "已保留 6 个完成节点及其最新产物；1 个中断节点将在新隔离回合中重新行动，不会覆盖旧事件和产物。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1737,
+          "type": "agent.runtime.recovered",
+          "title": "执行底座已恢复人物运行现场",
+          "summary": "已为 9 位人物重新装载隔离工作区、身份、长期 Memory 与启用的 Skills。"
+        }
+      ]
+    },
+    "runtime_tool_policy": {
+      "status": "passed",
+      "summary": "judge_agents=['agent_fcea42f7c8e7'], tool_enabled=['agent_445e5f7e8189', 'agent_708110b6a225', 'agent_b072a8cdac81', 'agent_bcde21fdede6', 'agent_cb495a9bea1e', 'agent_eac0b56ad320', 'agent_fcea42f7c8e7']",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 3,
+          "type": "agent.runtime.ready",
+          "title": "执行底座已接管本次人物运行",
+          "summary": "已为 9 位人物装载隔离工作区、身份、长期 Memory 与启用的 Skills。"
+        }
+      ]
+    },
+    "model_tier_controlled_fallback": {
+      "status": "passed",
+      "summary": "版本链中的 high 档位失败证据已保留；当前第 7 版使用 gpt-5.6-sol。",
+      "evidence": [
+        {
+          "run_id": "run_0886dd109c15",
+          "sequence": 4,
+          "type": "task.retrying",
+          "title": "“OpenClaw 能力基线与迁移映射”将整体重试",
+          "summary": "节点内的模型调用已经连续失败，平台将在 2 秒后从本节点重新开始。这是第 2/2 次节点尝试。失败原因：model_config_missing_for_tier:high"
+        },
+        {
+          "run_id": "run_0886dd109c15",
+          "sequence": 5,
+          "type": "task.retrying",
+          "title": "“迁移范围与验收证据契约”将整体重试",
+          "summary": "节点内的模型调用已经连续失败，平台将在 2 秒后从本节点重新开始。这是第 2/2 次节点尝试。失败原因：model_config_missing_for_tier:high"
+        },
+        {
+          "run_id": "run_0886dd109c15",
+          "sequence": 6,
+          "type": "task.failed",
+          "title": "“OpenClaw 能力基线与迁移映射”在自动重试后仍然失败",
+          "summary": "平台已完成模型请求级重试和节点级重试，仍未成功。最终原因：model_config_missing_for_tier:high"
+        },
+        {
+          "run_id": "run_0886dd109c15",
+          "sequence": 7,
+          "type": "task.failed",
+          "title": "“迁移范围与验收证据契约”在自动重试后仍然失败",
+          "summary": "平台已完成模型请求级重试和节点级重试，仍未成功。最终原因：model_config_missing_for_tier:high"
+        },
+        {
+          "run_id": "run_0886dd109c15",
+          "sequence": 8,
+          "type": "run.failed",
+          "title": "真实执行失败",
+          "summary": "执行已停止。平台保留全部重试记录、已完成节点和已有产物。最终原因：model_config_missing_for_tier:high"
+        }
+      ]
+    },
+    "pause_resume": {
+      "status": "pending",
+      "summary": "pause=0, resume=0",
+      "evidence": []
+    },
+    "api_restart_recovery": {
+      "status": "passed",
+      "summary": "interrupted=1, recovered=1, runtime_recovered=1",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1735,
+          "type": "run.interrupted",
+          "title": "执行器已中断，现场等待恢复",
+          "summary": "本次不是发起人取消。任务、事件、产物和人物工作区均已保留，后端恢复后将从未完成节点继续。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1736,
+          "type": "run.recovered",
+          "title": "真实执行已从持久化现场恢复",
+          "summary": "已保留 6 个完成节点及其最新产物；1 个中断节点将在新隔离回合中重新行动，不会覆盖旧事件和产物。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1737,
+          "type": "agent.runtime.recovered",
+          "title": "执行底座已恢复人物运行现场",
+          "summary": "已为 9 位人物重新装载隔离工作区、身份、长期 Memory 与启用的 Skills。"
+        }
+      ]
+    },
+    "windows_real_bash": {
+      "status": "passed",
+      "summary": "bash-evidenced commands=266",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1947,
+          "type": "agent.command.completed",
+          "title": "谢临川的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n## 1 evt_07216dcdff65 run.retry_created\\r\\ncreated=2026-09-12T00:04:20.917247+00:00\\r\\ntitle=已创建新的重试现场\\r\\nsummary=原失败现场保持不变；本次保留 5 个已完成节点，从“运行证据独立质量与风险审计”及未完成节点继续执行。\\r\\nsource_sha=7269712801d75d979ae38c743425bc04c98e566f8d63bc23c9368279024d95ae\\r\\nprojection= \\\"public_agent_safe\\\"\\r\\npayload= {}\\r\\n\\r\\n## 2 evt_0b4c7cf77a7d run.started\\r\\ncreated=2026-09-12T00:04:24.268815+00:00\\r\\ntitle=真实执行已经开始\\r\\nsummary=工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。\\r\\nsour"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1963,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n### agent.tool.started seq 15\\r\\ncategory = tool\\r\\ncreated_at = 2026-09-12T00:04:40.918799+00:00\\r\\nevent_id = evt_eb702f9bd034\\r\\norganization_id = org_jianghu\\r\\npayload.agent_id = agent_b072a8cdac81\\r\\npayload.node_key = independent_quality_audit\\r\\npayload.phase = 隔离独立贡献\\r\\npayload.session_key = agent:agent_b072a8cdac81:run_7ad4cb297cb5-independent_quality_audit-epoch1-loop1-attempt1-independent-agent-attempt1\\r\\npayload.task_id = task_666cf"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1969,
+          "type": "agent.command.completed",
+          "title": "谢临川的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\nSAMPLE agent.tool.started 15\\r\\nkeys ['agent_id', 'node_key', 'phase', 'session_key', 'task_id', 'tool_call_id', 'tool_name']\\r\\n{\\r\\n  \\\"agent_id\\\": \\\"agent_b072a8cdac81\\\",\\r\\n  \\\"node_key\\\": \\\"independent_quality_audit\\\",\\r\\n  \\\"phase\\\": \\\"隔离独立贡献\\\",\\r\\n  \\\"session_key\\\": \\\"agent:agent_b072a8cdac81:run_7ad4cb297cb5-independent_quality_audit-epoch1-loop1-attempt1-independent-agent-attempt1\\\",\\r\\n  \\\"task_id\\\": \\\"task_666cf66ed296\\\",\\r\\n  \\\"tool_c"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1973,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n agent.tool.started count 499\\r\\nseq 15 topkeys ['category', 'created_at', 'event_id', 'organization_id', 'payload', 'projection', 'run_id', 'sequence', 'source_event_sha256', 'summary', 'title', 'type'] payloadkeys ['agent_id', 'node_key', 'phase', 'session_key', 'task_id', 'tool_call_id', 'tool_name']\\r\\npayload {\\\"agent_id\\\": \\\"agent_b072a8cdac81\\\", \\\"node_key\\\": \\\"independent_quality_audit\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"session_key\\\": \\\"agent:ag"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1977,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"--- acceptance contract CAM headings ---\\n9:# 《Claude Runtime 迁移验收矩阵》\\n19:## 当前结论\\n25:- **CAM-00～CAM-12 当前均未认定为 `PASS`。**\\n29:# 0. 合议输入、实质分歧及最终决定\\n31:## 0.1 实际采用的输入【事实】\\n35:1. 产品负责人沈知微提交的迁移范围、完整迁移定义、CAM-00～CAM-12 控制矩阵和缺口清单；\\n48:## 0.2 分歧一：动态证据目录是否可以使用顶层通用路径\\n50:### 原始分歧\\n63:### 最终决定【决定】\\n92:### 未采用方案\\n96:## 0.3 分歧二：是否只要求工程、质量和 Judge 身份互斥\\n98:### 原始分歧\\n107:### 最终决定【决定】\\n119:9. 任一跨角色身份或 Session 复用直接判定 CAM-01 为 `FAIL`。\\n123:### 未采用方案\\n127:## 0.4 Judge 受"
+        }
+      ]
+    },
+    "credential_isolation": {
+      "status": "passed",
+      "summary": "isolated=266, shell_commands=266",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1947,
+          "type": "agent.command.completed",
+          "title": "谢临川的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n## 1 evt_07216dcdff65 run.retry_created\\r\\ncreated=2026-09-12T00:04:20.917247+00:00\\r\\ntitle=已创建新的重试现场\\r\\nsummary=原失败现场保持不变；本次保留 5 个已完成节点，从“运行证据独立质量与风险审计”及未完成节点继续执行。\\r\\nsource_sha=7269712801d75d979ae38c743425bc04c98e566f8d63bc23c9368279024d95ae\\r\\nprojection= \\\"public_agent_safe\\\"\\r\\npayload= {}\\r\\n\\r\\n## 2 evt_0b4c7cf77a7d run.started\\r\\ncreated=2026-09-12T00:04:24.268815+00:00\\r\\ntitle=真实执行已经开始\\r\\nsummary=工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。\\r\\nsour"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1963,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n### agent.tool.started seq 15\\r\\ncategory = tool\\r\\ncreated_at = 2026-09-12T00:04:40.918799+00:00\\r\\nevent_id = evt_eb702f9bd034\\r\\norganization_id = org_jianghu\\r\\npayload.agent_id = agent_b072a8cdac81\\r\\npayload.node_key = independent_quality_audit\\r\\npayload.phase = 隔离独立贡献\\r\\npayload.session_key = agent:agent_b072a8cdac81:run_7ad4cb297cb5-independent_quality_audit-epoch1-loop1-attempt1-independent-agent-attempt1\\r\\npayload.task_id = task_666cf"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1969,
+          "type": "agent.command.completed",
+          "title": "谢临川的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\nSAMPLE agent.tool.started 15\\r\\nkeys ['agent_id', 'node_key', 'phase', 'session_key', 'task_id', 'tool_call_id', 'tool_name']\\r\\n{\\r\\n  \\\"agent_id\\\": \\\"agent_b072a8cdac81\\\",\\r\\n  \\\"node_key\\\": \\\"independent_quality_audit\\\",\\r\\n  \\\"phase\\\": \\\"隔离独立贡献\\\",\\r\\n  \\\"session_key\\\": \\\"agent:agent_b072a8cdac81:run_7ad4cb297cb5-independent_quality_audit-epoch1-loop1-attempt1-independent-agent-attempt1\\\",\\r\\n  \\\"task_id\\\": \\\"task_666cf66ed296\\\",\\r\\n  \\\"tool_c"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1973,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"\\r\\n agent.tool.started count 499\\r\\nseq 15 topkeys ['category', 'created_at', 'event_id', 'organization_id', 'payload', 'projection', 'run_id', 'sequence', 'source_event_sha256', 'summary', 'title', 'type'] payloadkeys ['agent_id', 'node_key', 'phase', 'session_key', 'task_id', 'tool_call_id', 'tool_name']\\r\\npayload {\\\"agent_id\\\": \\\"agent_b072a8cdac81\\\", \\\"node_key\\\": \\\"independent_quality_audit\\\", \\\"phase\\\": \\\"隔离独立贡献\\\", \\\"session_key\\\": \\\"agent:ag"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1977,
+          "type": "agent.command.completed",
+          "title": "林砚的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"--- acceptance contract CAM headings ---\\n9:# 《Claude Runtime 迁移验收矩阵》\\n19:## 当前结论\\n25:- **CAM-00～CAM-12 当前均未认定为 `PASS`。**\\n29:# 0. 合议输入、实质分歧及最终决定\\n31:## 0.1 实际采用的输入【事实】\\n35:1. 产品负责人沈知微提交的迁移范围、完整迁移定义、CAM-00～CAM-12 控制矩阵和缺口清单；\\n48:## 0.2 分歧一：动态证据目录是否可以使用顶层通用路径\\n50:### 原始分歧\\n63:### 最终决定【决定】\\n92:### 未采用方案\\n96:## 0.3 分歧二：是否只要求工程、质量和 Judge 身份互斥\\n98:### 原始分歧\\n107:### 最终决定【决定】\\n119:9. 任一跨角色身份或 Session 复用直接判定 CAM-01 为 `FAIL`。\\n123:### 未采用方案\\n127:## 0.4 Judge 受"
+        }
+      ]
+    },
+    "generic_runtime_events": {
+      "status": "passed",
+      "summary": "agent.runtime.ready=1, agent.turn.started=19, legacy_openclaw_events=0",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1360,
+          "type": "agent.turn.started",
+          "title": "梁见微 的执行回合已启动",
+          "summary": "正在装载独立身份、长期 Memory、Skills 与获准知识，执行阶段：团队合议与正式提交。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1608,
+          "type": "agent.turn.started",
+          "title": "顾衡 的执行回合已启动",
+          "summary": "正在装载独立身份、长期 Memory、Skills 与获准知识，执行阶段：独立裁决。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1741,
+          "type": "agent.turn.started",
+          "title": "顾衡 的执行回合已启动",
+          "summary": "正在装载独立身份、长期 Memory、Skills 与获准知识，执行阶段：独立裁决。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1886,
+          "type": "agent.turn.started",
+          "title": "林砚 的执行回合已启动",
+          "summary": "正在装载独立身份、长期 Memory、Skills 与获准知识，执行阶段：隔离独立贡献。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1891,
+          "type": "agent.turn.started",
+          "title": "谢临川 的执行回合已启动",
+          "summary": "正在装载独立身份、长期 Memory、Skills 与获准知识，执行阶段：隔离独立贡献。"
+        }
+      ]
+    },
+    "tools_files_tests": {
+      "status": "passed",
+      "summary": "Read=181, Write=43, Edit=31, tests=26",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1964,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Read 已返回",
+          "summary": "{\"path\":\"delivery/.jianghu-platform-evidence/artifacts/artifact_9cd17295f7f5.md\",\"content\":\"# 《Runtime 恢复演练证据包》正式交付\\n\\n**Run：** `run_d913ce06c52f`  \\n**节点负责人：** 谢临川｜平台运维与站点可靠性工程师\\n\\n## 一、正式结论\\n\\n| 判定对象 | 结论 |\\n|---|---|\\n| 本地隔离进程级暂停、续跑、强制中断及依赖恢复 | **PASS** |\\n| 本地检查点、文件型 Memory、幂等副作用账本 | **PASS_LOCAL_SCOPE** |\\n| 江湖 Online 原生暂停恢复与跨 Worker 接管 | **BLOCKED_NOT_OBSERVED** |\\n| Claude Agent SDK Session checkpoint/resume | **BLOCKED_NOT_OBSERVED** |\\n| 江湖 Memory 跨 Session 一致性 | **BLOCKED_NOT_OBSERVED*"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1965,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Read 已返回",
+          "summary": "{\"path\":\"delivery/.jianghu-platform-evidence/artifacts/artifact_43156ec087a8.md\",\"content\":\"# Runtime 取证与故障注入执行环境交付\\n\\n## 一、正式结论\\n\\n### 【决定】\\n\\n- **本节点工程执行环境：有条件通过**\\n- **本地隔离 Harness：`PASS`**\\n- **Claude Agent SDK 全链路迁移：`NOT_EVALUATED / NO-GO`**\\n- **OpenClaw 能力基线实质状态：`BLOCKED`**\\n- **OpenClaw 下线：不批准**\\n\\n`python run_acceptance.py` 返回 `0`，只表示取证工具、故障注入、测试和失败关闭逻辑运行正常，**不代表 Claude Runtime 迁移验收通过**。\\n\\n机器结果保持三个状态相互独立：\\n\\n```text\\nartifact_integrity=PASS\\nopenclaw_capability_baseline=BLOCKED\\nruntim"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1979,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Write 已返回",
+          "summary": "{\"path\":\"remediation/evidence.py\",\"bytes\":17069}"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1981,
+          "type": "agent.tool.completed",
+          "title": "林砚的 Write 已返回",
+          "summary": "{\"path\":\"src/probe_worker.py\",\"bytes\":16805}"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1983,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Write 已返回",
+          "summary": "{\"path\":\"remediation/probes.py\",\"bytes\":18412}"
+        }
+      ]
+    },
+    "command_failure_recovery": {
+      "status": "passed",
+      "summary": "failed=20, successful=252, recovered_pairs=20",
+      "evidence": []
+    },
+    "public_team_collaboration": {
+      "status": "passed",
+      "summary": "messages=9, completed_rounds=4",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1243,
+          "type": "agent.message.sent",
+          "title": "梁见微向陆谨言发出challenge",
+          "summary": "我按平台证据复核后发现两份 V2 的冻结窗口不同：你的公开摘要为 574 条、sequence 1..577；我的候选为 579 条、sequence 1..582。请在合议前明确你所用 events.ndjson 的 SHA-256、generated_at、最大 sequence，并确认 seq 578–582 仅为 loop 2 的成员启动、上下文准备和 turn 启动事件，不足以改变 CAM 0/13、V2 尚无平台 Artifact ID、Judge 二审缺失等结论。同时请将 all_hard_checks_pass=true 严格限定为“本地 V2 包结构与哈希校验通过”，不得上调为平台迁移验收通过。你是否同意最终报告并列保存两份不可变快照、禁止拼接或累加计数，并在本轮通信结束后另建统一截止点的封存索引？发起人本轮无新增意见，我方不扩展验收范围。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1244,
+          "type": "team.communication.round.completed",
+          "title": "团队公开议事第 1/2 轮完成",
+          "summary": "本轮新增 2 条定向公开消息，现有公共消息共 2 条。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1354,
+          "type": "agent.message.sent",
+          "title": "陆谨言向梁见微发出reply",
+          "summary": "同意，并已逐字节复核。我的不可变冻结文件为 `qa-risk-audit/revision-v2/evidence-snapshot/platform/events.ndjson`：generated_at=`2026-09-12T00:43:37.167148+00:00`、1,692,391 bytes、SHA-256=`9ce728cdd03e5f4d0a3031aea652a6cab9260e3e82787fcdfbded1fe14902460`，574行、sequence `1..577`，公开缺口 `144/180/431`。当前平台副本证明其后新增的五行恰为：seq578 `evt_d7788580e36c`/陆谨言 `agent.context.prepared`，seq579 `evt_8e74186f8766`/陆谨言 `agent.action.started`，seq580 `evt_ec1ddf33b831`/陆谨言 `agent.turn.started`，seq581 `evt_8af1d80b0453`/梁见微 `team.member.started`"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1355,
+          "type": "agent.message.sent",
+          "title": "梁见微向陆谨言发出reply",
+          "summary": "我已使用隔离 Runtime 工具复读平台投影及正式候选字节。我的冻结文件为 `delivery/claude-runtime-migration/run_7ad4cb297cb5/qa-audit/v2/evidence-snapshot/events.ndjson`：1,696,110 字节，SHA-256=`4f94477a85db58b60034e335b9a0501323e29eed21b01b6fa89bfe79146fdda2`；配套 `run-metadata.json` 的 `generated_at=2026-09-12T00:43:42.007284+00:00`，事件579行、sequence 1..582，公开过滤缺口144/180/431。相对你方声明的574行、最大sequence 577，新增恰为5行：seq578/`evt_d7788580e36c`=`agent.context.prepared`、579/`evt_8e74186f8766`=`agent.action.started`、580/`evt_ec1ddf33b831`=`agent.t"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1356,
+          "type": "team.communication.round.completed",
+          "title": "团队公开议事第 2/2 轮完成",
+          "summary": "本轮新增 2 条定向公开消息，现有公共消息共 4 条。"
+        }
+      ]
+    },
+    "team_synthesis": {
+      "status": "passed",
+      "summary": "started=2, completed=2",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 336,
+          "type": "team.synthesis.started",
+          "title": "梁见微开始整合团队正式交付",
+          "summary": "负责人将依据独立贡献与公开议事记录形成正式产物，并保留分歧和风险。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 466,
+          "type": "team.synthesis.completed",
+          "title": "深信服已完成团队合议",
+          "summary": "团队已形成正式意见：# 运行证据独立质量与风险审计｜正式交付 ## 一、审计裁决 ```text frozen_public_projection_limited_integrity=PASS artifact_registry_materialized_bytes=PASS_5_OF_5 runtime_agent_sdk_bridge_attested=YES current_audit_node_sdk_binding=PASS_2_AGENTS_6_SESSIONS current_audit_node_tool_telemetry=PASS_LIMITED_88_PAIRED_CALLS qa_risk_two_round_public_co…"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1357,
+          "type": "team.synthesis.started",
+          "title": "梁见微开始整合团队正式交付",
+          "summary": "负责人将依据独立贡献与公开议事记录形成正式产物，并保留分歧和风险。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1600,
+          "type": "team.synthesis.completed",
+          "title": "深信服已完成团队合议",
+          "summary": "团队已形成正式意见：## 正式交付 已完成并封存当前 Run 的“运行证据独立质量与风险审计”合议 V2： ```text run_7ad4cb297cb5 retry_of run_d913ce06c52f claude_agent_sdk_full_runtime_migration=NO_GO openclaw_retirement=REJECTED cam_pass=0 cam_fail=10 cam_blocked=3 open_defects=27 open_p0=24 open_p1=3 ``` V2 仅在验收判断范围内 supersede 旧判断，不修改父 Run 事件、事实或 V1 字节。 ### 1. 正式报告 `delivery/…"
+        }
+      ]
+    },
+    "judge_reject_revision": {
+      "status": "passed",
+      "summary": "rejected=2, loops=1",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 572,
+          "type": "gate.rejected",
+          "title": "裁判第 1 次退回修订",
+          "summary": "1. 以不可变修订件解决 Run 身份冲突：明确 run_7ad4cb297cb5 retry_of/supersedes run_d913ce06c52f，逐项标明继承证据和当前 Run 新证据，禁止静默沿用只允许 run_d913ce06c52f 的旧契约。2. 将验收契约、OpenClaw 基线、核心 Runtime、恢复演练、质量审计报告、逐项缺陷、原始事件、源码、测试日志、Memory、checkpoint、ZIP 和 Manifest 原始字节逐项登记，保留 Artifact ID、路径、字节数、SHA-256、来源 sequence 与下载复读回执；当前 artifact_75034ebd1923 仅为 4495 字节摘要，不能替代完整审计包。3. 补齐产品负责人、系统架构师、工程实现者、质量审计者、独立 Judge 五个两两不同的 actor、role instance、平台 Session、SDK Session 和审批凭据，并执行 Judge 候选写权限拒绝探针。4. 本裁决被平台处理后，独立回查真实 Judge verdict/revise/rejected、节点"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 573,
+          "type": "workflow.loop.created",
+          "title": "生产流已自动回到责任节点",
+          "summary": "责任节点将携带裁判意见重做；其下游节点随后基于新版本产物重新执行，原产物继续保留为历史版本。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1879,
+          "type": "gate.rejected",
+          "title": "“首轮独立裁判退回裁决”按预期退回",
+          "summary": "1. 为当前 Run 单独登记不可变验收契约修订件，明确 run_7ad4cb297cb5 retry_of/supersedes run_d913ce06c52f，并按 CAM-00 至 CAM-12 逐项列出可继承的父 Run 证据、必须在当前 Run 重做的动态证据及来源 event/artifact；不得继续仅以审计摘要声明继承。2. 将 V2 完整审计报告 26511 字节、缺陷清单 28516 字节、ZIP 653083 字节、Manifest 5974 字节，以及源码、原始事件、测试/验证日志、Memory 和 checkpoint 原字节逐项进入 Artifact Registry，记录 expected/observed SHA-256、来源 sequence、采集及下载回执，并由新隔离 Judge 副本复读复算；file_created 遥测和 4813 字节摘要不能替代完整包。3. 在平台数据模型中创建稳定且不可变的新 rework Attempt，暴露 platform attempt_id，并以 rework_of/supersedes 关联 V1、首轮裁决和"
+        }
+      ]
+    },
+    "judge_final_pass": {
+      "status": "pending",
+      "summary": "passed=0",
+      "evidence": []
+    },
+    "memory_persisted": {
+      "status": "passed",
+      "summary": "memory_events=4",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 470,
+          "type": "agent.memory.persisted",
+          "title": "人物长期 Memory 已沉淀",
+          "summary": "本节点为 2 位参与人物分别保存了私有经历；不会写入其他人物的记忆。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 571,
+          "type": "agent.memory.persisted",
+          "title": "人物长期 Memory 已沉淀",
+          "summary": "本节点为 1 位参与人物分别保存了私有经历；不会写入其他人物的记忆。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1604,
+          "type": "agent.memory.persisted",
+          "title": "人物长期 Memory 已沉淀",
+          "summary": "本节点为 2 位参与人物分别保存了私有经历；不会写入其他人物的记忆。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1878,
+          "type": "agent.memory.persisted",
+          "title": "人物长期 Memory 已沉淀",
+          "summary": "本节点为 1 位参与人物分别保存了私有经历；不会写入其他人物的记忆。"
+        }
+      ]
+    },
+    "engineering_submissions": {
+      "status": "pending",
+      "summary": "published=0",
+      "evidence": []
+    },
+    "artifact_byte_integrity": {
+      "status": "passed",
+      "summary": "matched=9, artifacts=9",
+      "evidence": []
+    },
+    "artifacts_and_terminal_result": {
+      "status": "pending",
+      "summary": "status=running, artifacts=9, run.completed=0",
+      "evidence": [
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 469,
+          "type": "artifact.created",
+          "title": "“运行证据独立质量与风险审计”产物已经形成",
+          "summary": "真实模型返回内容已持久化为可查看、可追溯的节点产物。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 570,
+          "type": "artifact.created",
+          "title": "“首轮独立裁判退回裁决”产物已经形成",
+          "summary": "真实模型返回内容已持久化为可查看、可追溯的节点产物。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1603,
+          "type": "artifact.created",
+          "title": "“运行证据独立质量与风险审计”产物已经形成",
+          "summary": "真实模型返回内容已持久化为可查看、可追溯的节点产物。"
+        },
+        {
+          "run_id": "run_7ad4cb297cb5",
+          "sequence": 1877,
+          "type": "artifact.created",
+          "title": "“首轮独立裁判退回裁决”产物已经形成",
+          "summary": "真实模型返回内容已持久化为可查看、可追溯的节点产物。"
+        }
+      ]
+    }
+  },
+  "blocking_checks": [
+    "pause_resume",
+    "judge_final_pass",
+    "engineering_submissions",
+    "artifacts_and_terminal_result"
+  ],
+  "event_counts": {
+    "agent.action.progress": 19,
+    "agent.action.started": 19,
+    "agent.action.submitted": 16,
+    "agent.command.completed": 272,
+    "agent.command.started": 272,
+    "agent.context.prepared": 19,
+    "agent.file.created": 137,
+    "agent.file.deleted": 3,
+    "agent.file.modified": 6,
+    "agent.memory.persisted": 4,
+    "agent.message.sent": 9,
+    "agent.rationale.submitted": 6,
+    "agent.runtime.ready": 1,
+    "agent.runtime.recovered": 1,
+    "agent.test.completed": 26,
+    "agent.test.started": 26,
+    "agent.tool.completed": 527,
+    "agent.tool.started": 527,
+    "agent.turn.completed": 16,
+    "agent.turn.started": 19,
+    "artifact.created": 4,
+    "artifact.validation.passed": 4,
+    "artifact.validation.started": 4,
+    "gate.expected_rejection.recorded": 1,
+    "gate.rejected": 2,
+    "knowledge.retrieved": 8,
+    "run.interrupted": 1,
+    "run.recovered": 1,
+    "run.retry_created": 1,
+    "run.started": 1,
+    "task.started": 6,
+    "team.communication.round.completed": 4,
+    "team.communication.round.started": 4,
+    "team.dossier.published": 2,
+    "team.member.completed": 4,
+    "team.member.started": 6,
+    "team.synthesis.completed": 2,
+    "team.synthesis.started": 2,
+    "workflow.loop.created": 1
+  },
+  "command_recovery_pairs": [
+    {
+      "failed_sequence": 107,
+      "recovered_sequence": 142,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 222,
+      "recovered_sequence": 224,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 347,
+      "recovered_sequence": 351,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 777,
+      "recovered_sequence": 783,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 799,
+      "recovered_sequence": 805,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 811,
+      "recovered_sequence": 815,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 823,
+      "recovered_sequence": 853,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 827,
+      "recovered_sequence": 853,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 845,
+      "recovered_sequence": 853,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 942,
+      "recovered_sequence": 958,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 948,
+      "recovered_sequence": 958,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1023,
+      "recovered_sequence": 1042,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1119,
+      "recovered_sequence": 1121,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 1259,
+      "recovered_sequence": 1279,
+      "agent_id": "agent_b072a8cdac81"
+    },
+    {
+      "failed_sequence": 1265,
+      "recovered_sequence": 1267,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1443,
+      "recovered_sequence": 1447,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1451,
+      "recovered_sequence": 1455,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1548,
+      "recovered_sequence": 1554,
+      "agent_id": "agent_445e5f7e8189"
+    },
+    {
+      "failed_sequence": 1849,
+      "recovered_sequence": 1853,
+      "agent_id": "agent_fcea42f7c8e7"
+    },
+    {
+      "failed_sequence": 1915,
+      "recovered_sequence": 1925,
+      "agent_id": "agent_eac0b56ad320"
+    }
+  ],
+  "compatibility_observation": {
+    "legacy_openclaw_event_alias_count": 0,
+    "note": "新事件已使用通用命名。"
+  },
+  "artifacts": [
+    {
+      "id": "artifact_163c0170bf3d",
+      "task_id": "task_6d02f534c6ac",
+      "title": "迁移范围与验收证据契约",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 1,
+      "relative_path": "artifacts/acceptance_evidence_contract/artifact_163c0170bf3d.md",
+      "sha256": "f10a69f521c4d322f57acff259de3f4e09e2c9b3ea941daaaefd930ff6d436d4"
+    },
+    {
+      "id": "artifact_992310899032",
+      "task_id": "task_5e2a3ff16f28",
+      "title": "核心 Runtime 全链路真实执行",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 1,
+      "relative_path": "artifacts/core_runtime_execution/artifact_992310899032.md",
+      "sha256": "999e19f5b29d8d7cc16c7d57265ab69b71dc54b3de9cfca085f7afe7b27250a6"
+    },
+    {
+      "id": "artifact_f4c6f34f0fd8",
+      "task_id": "task_a115b32fc190",
+      "title": "OpenClaw 能力基线与迁移映射",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 1,
+      "relative_path": "artifacts/openclaw_baseline_mapping/artifact_f4c6f34f0fd8.md",
+      "sha256": "d6a385c5ee5907924e35ec2550141cfcf73ebc279802abfe0d1bee698f7bc1e6"
+    },
+    {
+      "id": "artifact_9cd17295f7f5",
+      "task_id": "task_2916821cdfbe",
+      "title": "暂停恢复与失败恢复实测",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 1,
+      "relative_path": "artifacts/recovery_execution/artifact_9cd17295f7f5.md",
+      "sha256": "75de4304f82f7a660874b222dc7c3c214c62d4d1ba3bb38076cf1b16629164fe"
+    },
+    {
+      "id": "artifact_43156ec087a8",
+      "task_id": "task_58047d64875b",
+      "title": "Runtime 取证与故障注入执行环境",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 1,
+      "relative_path": "artifacts/runtime_probe_harness/artifact_43156ec087a8.md",
+      "sha256": "04f364c8dbf02fdcf0815e1991e518f8d6f7cc0a95dbb60cfcaa8d659fead6ab"
+    },
+    {
+      "id": "artifact_75034ebd1923",
+      "task_id": "task_666cf66ed296",
+      "title": "运行证据独立质量与风险审计",
+      "kind": "workflow_output",
+      "status": "superseded",
+      "version": 1,
+      "relative_path": "artifacts/independent_quality_audit/artifact_75034ebd1923.md",
+      "sha256": "11599fef604b8c2c32dc28969fbfe5ba6dd126553324f468bb862543f3bbb9ba"
+    },
+    {
+      "id": "artifact_9f2ac502d489",
+      "task_id": "task_9bfe594017a0",
+      "title": "首轮独立裁判退回裁决",
+      "kind": "workflow_output",
+      "status": "superseded",
+      "version": 1,
+      "relative_path": "artifacts/initial_judge_rejection/artifact_9f2ac502d489.md",
+      "sha256": "eb18933351be80ceea209acfdb0eca44e9df0bf2aa88f8ccceb2f2b9aa7c8582"
+    },
+    {
+      "id": "artifact_15d866e0937c",
+      "task_id": "task_666cf66ed296",
+      "title": "运行证据独立质量与风险审计",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 2,
+      "relative_path": "artifacts/independent_quality_audit/artifact_15d866e0937c.md",
+      "sha256": "37625e3961a951b21d2c88917064a3e8475d285df3187b99f7500601309c32c0"
+    },
+    {
+      "id": "artifact_1ae16ec7b1a0",
+      "task_id": "task_9bfe594017a0",
+      "title": "首轮独立裁判退回裁决",
+      "kind": "workflow_output",
+      "status": "candidate",
+      "version": 2,
+      "relative_path": "artifacts/initial_judge_rejection/artifact_1ae16ec7b1a0.md",
+      "sha256": "2778a66518049aaf869e4790a7523daa99ed7a6e759661791b21103ec3c3d9d5"
+    }
+  ],
+  "artifact_byte_results": [
+    {
+      "id": "artifact_163c0170bf3d",
+      "relative_path": "artifacts/acceptance_evidence_contract/artifact_163c0170bf3d.md",
+      "registered_sha256": "f10a69f521c4d322f57acff259de3f4e09e2c9b3ea941daaaefd930ff6d436d4",
+      "observed_sha256": "f10a69f521c4d322f57acff259de3f4e09e2c9b3ea941daaaefd930ff6d436d4",
+      "matched": true
+    },
+    {
+      "id": "artifact_992310899032",
+      "relative_path": "artifacts/core_runtime_execution/artifact_992310899032.md",
+      "registered_sha256": "999e19f5b29d8d7cc16c7d57265ab69b71dc54b3de9cfca085f7afe7b27250a6",
+      "observed_sha256": "999e19f5b29d8d7cc16c7d57265ab69b71dc54b3de9cfca085f7afe7b27250a6",
+      "matched": true
+    },
+    {
+      "id": "artifact_f4c6f34f0fd8",
+      "relative_path": "artifacts/openclaw_baseline_mapping/artifact_f4c6f34f0fd8.md",
+      "registered_sha256": "d6a385c5ee5907924e35ec2550141cfcf73ebc279802abfe0d1bee698f7bc1e6",
+      "observed_sha256": "d6a385c5ee5907924e35ec2550141cfcf73ebc279802abfe0d1bee698f7bc1e6",
+      "matched": true
+    },
+    {
+      "id": "artifact_9cd17295f7f5",
+      "relative_path": "artifacts/recovery_execution/artifact_9cd17295f7f5.md",
+      "registered_sha256": "75de4304f82f7a660874b222dc7c3c214c62d4d1ba3bb38076cf1b16629164fe",
+      "observed_sha256": "75de4304f82f7a660874b222dc7c3c214c62d4d1ba3bb38076cf1b16629164fe",
+      "matched": true
+    },
+    {
+      "id": "artifact_43156ec087a8",
+      "relative_path": "artifacts/runtime_probe_harness/artifact_43156ec087a8.md",
+      "registered_sha256": "04f364c8dbf02fdcf0815e1991e518f8d6f7cc0a95dbb60cfcaa8d659fead6ab",
+      "observed_sha256": "04f364c8dbf02fdcf0815e1991e518f8d6f7cc0a95dbb60cfcaa8d659fead6ab",
+      "matched": true
+    },
+    {
+      "id": "artifact_75034ebd1923",
+      "relative_path": "artifacts/independent_quality_audit/artifact_75034ebd1923.md",
+      "registered_sha256": "11599fef604b8c2c32dc28969fbfe5ba6dd126553324f468bb862543f3bbb9ba",
+      "observed_sha256": "11599fef604b8c2c32dc28969fbfe5ba6dd126553324f468bb862543f3bbb9ba",
+      "matched": true
+    },
+    {
+      "id": "artifact_9f2ac502d489",
+      "relative_path": "artifacts/initial_judge_rejection/artifact_9f2ac502d489.md",
+      "registered_sha256": "eb18933351be80ceea209acfdb0eca44e9df0bf2aa88f8ccceb2f2b9aa7c8582",
+      "observed_sha256": "eb18933351be80ceea209acfdb0eca44e9df0bf2aa88f8ccceb2f2b9aa7c8582",
+      "matched": true
+    },
+    {
+      "id": "artifact_15d866e0937c",
+      "relative_path": "artifacts/independent_quality_audit/artifact_15d866e0937c.md",
+      "registered_sha256": "37625e3961a951b21d2c88917064a3e8475d285df3187b99f7500601309c32c0",
+      "observed_sha256": "37625e3961a951b21d2c88917064a3e8475d285df3187b99f7500601309c32c0",
+      "matched": true
+    },
+    {
+      "id": "artifact_1ae16ec7b1a0",
+      "relative_path": "artifacts/initial_judge_rejection/artifact_1ae16ec7b1a0.md",
+      "registered_sha256": "2778a66518049aaf869e4790a7523daa99ed7a6e759661791b21103ec3c3d9d5",
+      "observed_sha256": "2778a66518049aaf869e4790a7523daa99ed7a6e759661791b21103ec3c3d9d5",
+      "matched": true
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "probe_id": "20260911T094313Z",
+  "created_at": "2026-09-11T09:43:43.597238+00:00",
+  "production_runtime_changed": false,
+  "model_config": {
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "static": {
+    "schema_version": 1,
+    "probe": "static",
+    "status": "passed",
+    "runtime": {
+      "node": "v22.18.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "sdk": {
+      "package": "@anthropic-ai/claude-agent-sdk",
+      "version": "0.3.268",
+      "claude_code_version": "2.1.268",
+      "node_requirement": ">=18.0.0",
+      "license": "SEE LICENSE IN README.md",
+      "query_exported": true,
+      "resolve_settings_exported": true,
+      "export_count": 31,
+      "exports_sha256": "1710688de473a404201ee2c4665928dac868595684905e7c853e5528999183dd"
+    },
+    "platform_binary": {
+      "path_kind": "bundled-win32-x64",
+      "exists": true
+    }
+  },
+  "anthropic_messages_protocol": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_protocol_evidence"
+  },
+  "sdk_live_minimal": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_minimal_sdk_evidence"
+  },
+  "sdk_features_and_resume": {
+    "schema_version": 1,
+    "probe": "features-and-resume",
+    "status": "passed",
+    "feature": {
+      "init": {
+        "model": "gpt-5.6-sol",
+        "tools": [
+          "Bash",
+          "Edit",
+          "Read",
+          "Write"
+        ],
+        "skills": [
+          "probe-skill",
+          "deep-research",
+          "dataviz",
+          "update-config",
+          "verify",
+          "debug",
+          "code-review",
+          "simplify",
+          "batch",
+          "fewer-permission-prompts",
+          "doctor",
+          "loop",
+          "claude-api",
+          "workflow-authoring",
+          "run",
+          "run-skill-generator"
+        ],
+        "permission_mode": "dontAsk"
+      },
+      "event_count": 313,
+      "tool_event_count": 10,
+      "tool_names": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Bash"
+      ],
+      "tool_results_before_result": true,
+      "output_file_exact": true,
+      "bash_marker_seen": true,
+      "api_key_visible_to_bash": true,
+      "api_key_hidden_from_bash": false,
+      "final_markers_present": true,
+      "usage": {
+        "input_tokens": 9860,
+        "output_tokens": 453
+      }
+    },
+    "resume": {
+      "session_id_reused": true,
+      "nonce_exact": true,
+      "terminal_reason": "completed",
+      "usage": {
+        "input_tokens": 1594,
+        "output_tokens": 12
+      }
+    },
+    "error": null
+  },
+  "sdk_cancel_and_cleanup": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  }
+}

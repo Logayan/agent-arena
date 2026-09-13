@@ -1,0 +1,431 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-12T01:10:20.164120+08:00",
+  "source": {
+    "base_url": "http://127.0.0.1:8003",
+    "organization_id": "org_jianghu",
+    "run_id": "run_59b0be82be5b",
+    "driver": "real-browser-created-product-run"
+  },
+  "status": "in_progress",
+  "run": {
+    "id": "run_59b0be82be5b",
+    "family_id": "run_0886dd109c15",
+    "version": 2,
+    "parent_run_id": "run_0886dd109c15",
+    "status": "running",
+    "stage": "OpenClaw 能力基线与迁移映射",
+    "progress": 1,
+    "workflow_id": "workflow_f39b9f67783b",
+    "workflow_name": "Claude Agent SDK 全链路迁移实证验收流",
+    "team_ids": [
+      "team_4e36a8a4a812"
+    ],
+    "team_names": [
+      "深信服"
+    ],
+    "commission_ids": [
+      "company_task_f7b67ac6febc"
+    ],
+    "task_counts": {
+      "running": 2,
+      "pending": 8
+    },
+    "artifact_count": 0,
+    "event_count": 539
+  },
+  "runtime": {
+    "available": true,
+    "runtime": "claude_code",
+    "mode": "agent-sdk-bridge",
+    "version": "0.3.268",
+    "claude_code_version": "2.1.268",
+    "error": "",
+    "node_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\runtime\\node-v24.15.0-win-x64\\node.exe",
+    "entry_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\server\\claude_agent_runtime\\bridge.mjs",
+    "state_root": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\claude-code",
+    "config_ready": true,
+    "model_configured": true,
+    "synced": {
+      "runtime": "claude_code",
+      "agent_count": 17,
+      "config_path": "D:\\Users\\User\\My Document\\多agent协作与对抗实践\\.data\\claude-code\\agent-policies.json",
+      "model": "gpt-5.6-sol",
+      "models": [
+        "gpt-5.6-sol"
+      ],
+      "tool_enabled_agent_ids": []
+    }
+  },
+  "checks": {
+    "runtime_is_claude_code": {
+      "status": "passed",
+      "summary": "runtime=claude_code",
+      "evidence": []
+    },
+    "sdk_bridge_available": {
+      "status": "passed",
+      "summary": "mode=agent-sdk-bridge, sdk=0.3.268, claude_code=2.1.268",
+      "evidence": []
+    },
+    "model_configured": {
+      "status": "passed",
+      "summary": "model=gpt-5.6-sol",
+      "evidence": []
+    },
+    "product_goal_team_workflow_run": {
+      "status": "passed",
+      "summary": "workflow=True, teams=1, tasks=10, linked_commissions=1",
+      "evidence": [
+        {
+          "sequence": 1,
+          "type": "run.retry_created",
+          "title": "已创建新的重试现场",
+          "summary": "原失败现场保持不变；本次将使用同一工作流版本和任务输入重新执行。"
+        },
+        {
+          "sequence": 2,
+          "type": "run.started",
+          "title": "真实执行已经开始",
+          "summary": "工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。"
+        }
+      ]
+    },
+    "run_runtime_snapshot": {
+      "status": "passed",
+      "summary": "runtime=claude_code, model=gpt-5.6-sol",
+      "evidence": [
+        {
+          "sequence": 2,
+          "type": "run.started",
+          "title": "真实执行已经开始",
+          "summary": "工作流已启动，人物将使用独立身份与上下文调用真实模型完成节点。"
+        }
+      ]
+    },
+    "model_tier_controlled_fallback": {
+      "status": "passed",
+      "summary": "原 high 档位失败证据已保留，重试使用当前启用模型。",
+      "evidence": [
+        {
+          "sequence": 6,
+          "type": "task.failed",
+          "title": "“OpenClaw 能力基线与迁移映射”在自动重试后仍然失败",
+          "summary": "平台已完成模型请求级重试和节点级重试，仍未成功。最终原因：model_config_missing_for_tier:high"
+        },
+        {
+          "sequence": 7,
+          "type": "task.failed",
+          "title": "“迁移范围与验收证据契约”在自动重试后仍然失败",
+          "summary": "平台已完成模型请求级重试和节点级重试，仍未成功。最终原因：model_config_missing_for_tier:high"
+        },
+        {
+          "sequence": 8,
+          "type": "run.failed",
+          "title": "真实执行失败",
+          "summary": "执行已停止。平台保留全部重试记录、已完成节点和已有产物。最终原因：model_config_missing_for_tier:high"
+        }
+      ]
+    },
+    "pause_resume": {
+      "status": "passed",
+      "summary": "pause=1, resume=1",
+      "evidence": [
+        {
+          "sequence": 62,
+          "type": "run.pause_requested",
+          "title": "发起人要求现场停手",
+          "summary": "当前已经发出的模型回合允许完成；下一个受控边界开始前，所有人物必须暂停并等待恢复。"
+        },
+        {
+          "sequence": 65,
+          "type": "run.resumed",
+          "title": "发起人允许继续行动",
+          "summary": "现场沿用原 Run、原 WorkflowVersion 和已有产物，从暂停边界继续执行。"
+        }
+      ]
+    },
+    "windows_real_bash": {
+      "status": "passed",
+      "summary": "bash-evidenced commands=29",
+      "evidence": [
+        {
+          "sequence": 497,
+          "type": "agent.command.completed",
+          "title": "程观澜的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"D:\\\\Users\\\\User\\\\My Document\\\\多agent协作与对抗实践\\\\.data\\\\workspaces\\\\project_jianghu\\\\runs\\\\run_59b0be82be5b\\\\tmp\\\\claude-agents\\\\agent_cb495a9bea1e\\\\delivery\\n└── (empty)\\n\\nscoped_npm_query_exit=1\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}"
+        },
+        {
+          "sequence": 499,
+          "type": "agent.command.completed",
+          "title": "程观澜的命令结束",
+          "summary": "Error: {\"status\":\"failed\",\"exit_code\":17,\"stdout\":\"intentional deterministic failure for recovery evidence\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}"
+        },
+        {
+          "sequence": 504,
+          "type": "agent.command.completed",
+          "title": "谢临川的命令结束",
+          "summary": "Error: {\"status\":\"failed\",\"exit_code\":1,\"stdout\":\"=== PRE-REPAIR: compile ===\\ncompile_exit=0\\n=== PRE-REPAIR: unittest ===\\nunittest_exit=1\\n=== PRE-REPAIR: acceptance gate ===\\n{\\r\\n  \\\"capability_count\\\": 9,\\r\\n  \\\"claude_current_counts\\\": {\\r\\n    \\\"blocked\\\": 4,\\r\\n    \\\"not_observed\\\": 1,\\r\\n    \\\"partial\\\": 4\\r\\n  },\\r\\n  \\\"claude_gap_capability_ids\\\": [\\r\\n    \\\"CAP-01\\\",\\r\\n    \\\"CAP-02\\\",\\r\\n    \\\"CAP-03\\\",\\r\\n    \\\"CAP-04\\\",\\r\\n    \\\"CAP-05\\\",\\r\\n    \\\"CAP-06\\\",\\r\\n    \\\"CAP-07\\\",\\r\\n"
+        },
+        {
+          "sequence": 517,
+          "type": "agent.command.completed",
+          "title": "程观澜的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"recovery-probe-success-after-exit-17\\r\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}"
+        },
+        {
+          "sequence": 519,
+          "type": "agent.command.completed",
+          "title": "程观澜的命令成功",
+          "summary": "{\"status\":\"completed\",\"exit_code\":0,\"stdout\":\"./docs/OpenClaw-Claude-Agent-SDK能力映射与架构边界.md\\n\",\"stderr\":\"\",\"cwd\":\".\",\"shell\":\"git-bash\",\"environment\":\"credential-isolated\"}"
+        }
+      ]
+    },
+    "tools_files_tests": {
+      "status": "passed",
+      "summary": "Read=61, Write=36, Edit=26, tests=9",
+      "evidence": [
+        {
+          "sequence": 531,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Edit 已返回",
+          "summary": "{\"path\":\"tests/test_acceptance_gate.py\",\"replacements\":1}"
+        },
+        {
+          "sequence": 533,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Edit 已返回",
+          "summary": "{\"path\":\"tests/test_acceptance_gate.py\",\"replacements\":1}"
+        },
+        {
+          "sequence": 535,
+          "type": "agent.tool.completed",
+          "title": "程观澜的 Write 已返回",
+          "summary": "{\"path\":\"src/validate_delivery.py\",\"bytes\":16976}"
+        },
+        {
+          "sequence": 537,
+          "type": "agent.tool.completed",
+          "title": "谢临川的 Write 已返回",
+          "summary": "{\"path\":\"evidence/previous-attempt-failure.json\",\"bytes\":1174}"
+        },
+        {
+          "sequence": 539,
+          "type": "agent.tool.completed",
+          "title": "程观澜的 Write 已返回",
+          "summary": "{\"path\":\"tests/test_validate_delivery.py\",\"bytes\":5439}"
+        }
+      ]
+    },
+    "command_failure_recovery": {
+      "status": "passed",
+      "summary": "failed=13, successful=33, recovered_pairs=12",
+      "evidence": [
+        {
+          "sequence": 244,
+          "type": "agent.action.retrying",
+          "title": "谢临川将重新尝试隔离独立贡献",
+          "summary": "本次隔离回合失败，平台将在 1 秒后为该人物建立新的独立回合。这是第 2/2 次人物尝试。原因：claude_timeout:600s"
+        },
+        {
+          "sequence": 245,
+          "type": "agent.action.retrying",
+          "title": "梁见微将重新尝试隔离独立贡献",
+          "summary": "本次隔离回合失败，平台将在 1 秒后为该人物建立新的独立回合。这是第 2/2 次人物尝试。原因：claude_timeout:600s"
+        },
+        {
+          "sequence": 386,
+          "type": "agent.action.failed",
+          "title": "谢临川自动重试后仍未完成隔离独立贡献",
+          "summary": "人物级自动重试已达到 2 次上限；最终原因：claude_agent_failed:Claude Code returned an error result: Reached maximum number of turns (20)。"
+        },
+        {
+          "sequence": 387,
+          "type": "task.retrying",
+          "title": "“OpenClaw 能力基线与迁移映射”将整体重试",
+          "summary": "节点内的模型调用已经连续失败，平台将在 2 秒后从本节点重新开始。这是第 2/2 次节点尝试。失败原因：claude_agent_failed:Claude Code returned an error result: Reached maximum number of turns (20)"
+        },
+        {
+          "sequence": 447,
+          "type": "agent.action.failed",
+          "title": "程观澜自动重试后仍未完成隔离独立贡献",
+          "summary": "人物级自动重试已达到 2 次上限；最终原因：claude_timeout:600s。"
+        }
+      ]
+    },
+    "public_team_collaboration": {
+      "status": "passed",
+      "summary": "messages=4, completed_rounds=2",
+      "evidence": [
+        {
+          "sequence": 348,
+          "type": "agent.message.sent",
+          "title": "梁见微向沈知微发出challenge",
+          "summary": "质量挑战：你在 5.1 将 `payload_sha256` 定义为“事件有效载荷原始字节或规范化载荷哈希”，两种算法可任选会导致同一事件无法稳定复算，也给事后重序列化留下空间。建议冻结为单一规则：原始事件导出记录必须保存逐条 `event_record_sha256`；若另需语义载荷哈希，则明确规范化算法及版本（字段排序、编码、换行、时间格式、空值处理），并在 `event_type_mapping.json` 或独立 schema 中登记。CAM-11 应增加逐条事件记录哈希复算率 100%、原始事件包封存前后哈希一致率 100%，否则即使 event_id 可回查，也不能充分证明证据未被改写。另请统一候选文件路径：文首为 `delivery/Claude_Runtime_迁移验收矩阵.md`，目录契约中为 `delivery/claude-runtime-migration/01-Claude_Runtime_迁移验收矩阵.md`；应指定唯一正式路径或明确二者的复制/登记关系及哈希一致要求。"
+        },
+        {
+          "sequence": 349,
+          "type": "team.communication.round.completed",
+          "title": "团队公开议事第 1/2 轮完成",
+          "summary": "本轮新增 2 条定向公开消息，现有公共消息共 2 条。"
+        },
+        {
+          "sequence": 367,
+          "type": "agent.message.sent",
+          "title": "沈知微向梁见微发出reply",
+          "summary": "接受你的质量挑战，并按以下规则冻结修订：1）`raw_events.ndjson`保存平台原始导出字节且封存后不可改写；逐条记录哈希写入旁车文件`delivery/claude-runtime-migration/evidence/events/raw_events.record_hashes.ndjson`，记录`event_id、byte_offset、byte_length、sha256、hash_profile`，其中`raw-ndjson-record-v1`按偏移范围内原始字节计算、不含行分隔符，行分隔符及文件其余字节由整个`raw_events.ndjson`的文件SHA-256覆盖，避免在被哈希记录内自含哈希造成循环。2）`payload_sha256`不再二选一，统一采用`rfc8785-jcs-v1`：对事件`payload`执行RFC 8785 JSON Canonicalization Scheme，以UTF-8无BOM编码计算；空值保留，时间字符串不另行改写。原始记录哈希与语义载荷哈希分别使用，不能相互替代。3）在`event_type_mapping.jso"
+        },
+        {
+          "sequence": 368,
+          "type": "agent.message.sent",
+          "title": "梁见微向沈知微发出reply",
+          "summary": "接受该挑战，M-06 将与 CAM-07 对齐：不再要求正式生产候选必须自然出现缺陷，也不得为凑退回链而人为植入或篡改缺陷。若正式候选首次满足冻结契约，可使用明确标记为 `NEGATIVE_ACCEPTANCE_FIXTURE` 的受控负向夹具验证退回协议；夹具必须触发真实且独立的 Judge Claude SDK 会话、`REVIEWING→WAITING_REWORK` 等平台原生状态变化、新的返工 Attempt、不可变 V1 与新建 V2（不同 SHA-256）、缺口定向修复及二次裁决，并完整保留失败事件。夹具结果只能证明 Judge 退回—返工机制可运行，不能证明正式迁移产物合格，也不能替代 Judge 对冻结 Manifest 和正式迁移报告的最终审核。正式候选若首次通过，应保留其直接通过记录，同时单独引用夹具链作为协议能力证据。当前没有发起人新增意见需要另行处理。"
+        },
+        {
+          "sequence": 369,
+          "type": "team.communication.round.completed",
+          "title": "团队公开议事第 2/2 轮完成",
+          "summary": "本轮新增 2 条定向公开消息，现有公共消息共 4 条。"
+        }
+      ]
+    },
+    "team_synthesis": {
+      "status": "pending",
+      "summary": "started=1, completed=0",
+      "evidence": [
+        {
+          "sequence": 370,
+          "type": "team.synthesis.started",
+          "title": "沈知微开始整合团队正式交付",
+          "summary": "负责人将依据独立贡献与公开议事记录形成正式产物，并保留分歧和风险。"
+        }
+      ]
+    },
+    "judge_reject_revision": {
+      "status": "pending",
+      "summary": "rejected=0, loops=0",
+      "evidence": []
+    },
+    "judge_final_pass": {
+      "status": "pending",
+      "summary": "passed=0",
+      "evidence": []
+    },
+    "memory_persisted": {
+      "status": "pending",
+      "summary": "memory_events=0",
+      "evidence": []
+    },
+    "artifacts_and_terminal_result": {
+      "status": "pending",
+      "summary": "status=running, artifacts=0, run.completed=0",
+      "evidence": []
+    }
+  },
+  "blocking_checks": [
+    "team_synthesis",
+    "judge_reject_revision",
+    "judge_final_pass",
+    "memory_persisted",
+    "artifacts_and_terminal_result"
+  ],
+  "event_counts": {
+    "agent.action.failed": 2,
+    "agent.action.progress": 6,
+    "agent.action.retrying": 3,
+    "agent.action.started": 11,
+    "agent.action.submitted": 6,
+    "agent.command.completed": 46,
+    "agent.command.started": 46,
+    "agent.context.prepared": 11,
+    "agent.message.sent": 4,
+    "agent.rationale.submitted": 2,
+    "agent.test.completed": 9,
+    "agent.test.started": 9,
+    "agent.tool.completed": 169,
+    "agent.tool.started": 169,
+    "knowledge.retrieved": 6,
+    "openclaw.runtime.ready": 1,
+    "openclaw.turn.completed": 6,
+    "openclaw.turn.started": 11,
+    "run.pause_requested": 1,
+    "run.resumed": 1,
+    "run.retry_created": 1,
+    "run.started": 1,
+    "task.retrying": 1,
+    "task.started": 3,
+    "team.communication.round.completed": 2,
+    "team.communication.round.started": 2,
+    "team.dossier.published": 1,
+    "team.member.completed": 2,
+    "team.member.started": 6,
+    "team.synthesis.started": 1
+  },
+  "command_recovery_pairs": [
+    {
+      "failed_sequence": 33,
+      "recovered_sequence": 41,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 35,
+      "recovered_sequence": 47,
+      "agent_id": "agent_bcde21fdede6"
+    },
+    {
+      "failed_sequence": 37,
+      "recovered_sequence": 47,
+      "agent_id": "agent_bcde21fdede6"
+    },
+    {
+      "failed_sequence": 111,
+      "recovered_sequence": 121,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 152,
+      "recovered_sequence": 163,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 229,
+      "recovered_sequence": 235,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 293,
+      "recovered_sequence": 297,
+      "agent_id": "agent_bcde21fdede6"
+    },
+    {
+      "failed_sequence": 485,
+      "recovered_sequence": 495,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 488,
+      "recovered_sequence": 495,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 490,
+      "recovered_sequence": 495,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 493,
+      "recovered_sequence": 495,
+      "agent_id": "agent_cb495a9bea1e"
+    },
+    {
+      "failed_sequence": 499,
+      "recovered_sequence": 517,
+      "agent_id": "agent_cb495a9bea1e"
+    }
+  ],
+  "compatibility_observation": {
+    "legacy_openclaw_event_alias_count": 18,
+    "note": "本 Run 在通用 agent.* 事件名切换前启动；历史事件名仅作读取兼容，不代表实际 Runtime。"
+  },
+  "artifacts": []
+}

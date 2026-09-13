@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "probe_id": "20260911T095025Z",
+  "created_at": "2026-09-11T09:50:37.998752+00:00",
+  "production_runtime_changed": false,
+  "model_config": {
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "static": {
+    "schema_version": 1,
+    "probe": "static",
+    "status": "passed",
+    "runtime": {
+      "node": "v22.18.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "sdk": {
+      "package": "@anthropic-ai/claude-agent-sdk",
+      "version": "0.3.268",
+      "claude_code_version": "2.1.268",
+      "node_requirement": ">=18.0.0",
+      "license": "SEE LICENSE IN README.md",
+      "query_exported": true,
+      "resolve_settings_exported": true,
+      "export_count": 31,
+      "exports_sha256": "1710688de473a404201ee2c4665928dac868595684905e7c853e5528999183dd"
+    },
+    "platform_binary": {
+      "path_kind": "bundled-win32-x64",
+      "exists": true
+    }
+  },
+  "anthropic_messages_protocol": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_protocol_evidence"
+  },
+  "sdk_live_minimal": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_minimal_sdk_evidence"
+  },
+  "sdk_features_and_resume": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  },
+  "sdk_cancel_and_cleanup": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  },
+  "sdk_workspace_permission_boundary": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  },
+  "sdk_mcp_and_controlled_subagent": {
+    "schema_version": 1,
+    "probe": "mcp-and-controlled-subagent",
+    "status": "passed",
+    "init_has_mcp_tool": true,
+    "init_has_agent_tool": false,
+    "mcp_handler_calls": 1,
+    "tool_names": [
+      "mcp__probe__marker",
+      "Agent"
+    ],
+    "child_frame_count": 1,
+    "child_marker_seen": true,
+    "final_markers_present": true,
+    "terminal_reason": "completed",
+    "usage": {
+      "input_tokens": 3313,
+      "output_tokens": 118
+    },
+    "error": null
+  }
+}

@@ -298,6 +298,73 @@ def schedule_platform_execution(run_id: str) -> asyncio.Task[None]:
 
 
 async def recover_durable_platform_runs() -> None:
+    for run_row in platform_store.list_runs_by_status({"paused"}):
+        # list_runs_by_status intentionally returns only the durable run row.
+        # Restart recovery needs the recent immutable events plus task states,
+        # but must not hydrate large Artifact bodies during application startup.
+        run = platform_store.get_run(
+            str(run_row["id"]),
+            event_limit=200,
+            include_artifact_content=False,
+        )
+        if not run:
+            continue
+        restart_request = next(
+            (
+                event for event in reversed(run.get("events", []))
+                if event.get("type") == "run.restart.requested"
+            ),
+            None,
+        )
+        latest_interruption_sequence = max(
+            (
+                int(event.get("sequence", 0) or 0)
+                for event in run.get("events", [])
+                if event.get("type") == "run.interrupted"
+            ),
+            default=0,
+        )
+        if not restart_request or int(restart_request.get("sequence", 0) or 0) <= latest_interruption_sequence:
+            continue
+        platform_store.append_run_event(
+            str(run["id"]),
+            "run.interrupted",
+            "recovery",
+            "后端进程在有效暂停边界完成重启",
+            "Run 保持 paused，未派发新人物回合；事件用于证明真实进程更换后仍可从同一 Checkpoint 继续。",
+            {
+                "recoverable": True,
+                "safe_boundary": True,
+                "interruption_kind": "service_restart_at_pause_boundary",
+                "previous_status": "paused",
+                "source_event_id": restart_request.get("id"),
+                "source_event_sequence": restart_request.get("sequence"),
+                "completed_node_keys": sorted(
+                    str(task.get("node_key"))
+                    for task in run.get("tasks", [])
+                    if task.get("status") == "completed"
+                ),
+                "interrupted_node_keys": sorted(
+                    str(task.get("node_key"))
+                    for task in run.get("tasks", [])
+                    if task.get("status") != "completed"
+                ),
+            },
+        )
+        platform_store.append_run_event(
+            str(run["id"]),
+            "run.restart.completed",
+            "recovery",
+            "新后端进程已接管暂停现场",
+            "Run 仍保持 paused；原事件、Artifact 与 Checkpoint 可读，等待显式 resume。",
+            {
+                "safe_boundary": True,
+                "previous_status": "paused",
+                "status": "completed",
+                "source_event_id": restart_request.get("id"),
+                "source_event_sequence": restart_request.get("sequence"),
+            },
+        )
     for run in platform_store.list_runs_by_status({"pause_requested"}):
         platform_store.update_run(str(run["id"]), status="paused", stage="paused")
         platform_store.append_run_event(
@@ -546,8 +613,14 @@ def scoped_platform_run(
     organization_id: str | None = None,
     *,
     event_limit: int | None = None,
+    include_artifact_content: bool = True,
 ) -> dict[str, object]:
-    run = platform_store.get_run(run_id, organization_id=organization_id, event_limit=event_limit)
+    run = platform_store.get_run(
+        run_id,
+        organization_id=organization_id,
+        event_limit=event_limit,
+        include_artifact_content=include_artifact_content,
+    )
     if not run:
         raise HTTPException(status_code=404, detail="run_not_found_in_organization" if organization_id else "run_not_found")
     return run
@@ -2294,7 +2367,9 @@ async def cancel_platform_run(run_id: str, organization_id: str | None = None) -
 
 @app.post("/api/platform/runs/{run_id}/pause")
 async def pause_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(run_id, organization_id)
+    run = scoped_platform_run(
+        run_id, organization_id, event_limit=200, include_artifact_content=False
+    )
     if run["status"] in {"pause_requested", "paused"}:
         return {"run": public_platform_run(run)}
     if run["status"] != "running":
@@ -2309,7 +2384,9 @@ async def pause_platform_run(run_id: str, organization_id: str | None = None) ->
     )
 
 
-    checkpoint_state = platform_store.get_run(run_id) or run
+    checkpoint_state = platform_store.get_run(
+        run_id, event_limit=200, include_artifact_content=False
+    ) or run
     checkpoint = platform_store.create_artifact(
         run_id,
         None,
@@ -2380,7 +2457,9 @@ async def pause_platform_run(run_id: str, organization_id: str | None = None) ->
             "size_bytes": checkpoint["size_bytes"], "status": "persisted",
         },
     )
-    current_run = platform_store.get_run(run_id)
+    current_run = platform_store.get_run(
+        run_id, event_limit=200, include_artifact_content=False
+    )
     return {"run": public_platform_run(current_run) if current_run else None}
 
 
@@ -2410,7 +2489,9 @@ async def download_platform_git_commit_patch(
 
 @app.post("/api/platform/runs/{run_id}/resume")
 async def resume_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(run_id, organization_id)
+    run = scoped_platform_run(
+        run_id, organization_id, event_limit=200, include_artifact_content=False
+    )
     if run["status"] == "running":
         return {"run": public_platform_run(run)}
     if run["status"] not in {"pause_requested", "paused"}:
@@ -2426,7 +2507,9 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
     )
     latest_checkpoint = next(
         (
-            item for item in reversed((platform_store.get_run(run_id) or run).get("artifacts", []))
+            item for item in reversed((platform_store.get_run(
+                run_id, event_limit=1, include_artifact_content=False
+            ) or run).get("artifacts", []))
             if item.get("kind") == "run_checkpoint"
         ),
         None,
@@ -2444,9 +2527,11 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
         },
     )
     if not active or active.done():
-        prepare_agent_runtime_run(platform_store.get_run(run_id) or run)
+        prepare_agent_runtime_run(run)
         schedule_platform_execution(run_id)
-    current_run = platform_store.get_run(run_id)
+    current_run = platform_store.get_run(
+        run_id, event_limit=200, include_artifact_content=False
+    )
     return {"run": public_platform_run(current_run) if current_run else None}
 
 

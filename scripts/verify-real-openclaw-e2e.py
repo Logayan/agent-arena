@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 import sys
 from uuid import uuid4
@@ -10,10 +11,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from server.app.platform_executor import execute_platform_run
+from server.app.agent_runtime_registry import agent_runtime
 from server.app.platform_store import PlatformStore, platform_store
 
 
 async def main() -> None:
+    runtime_name = os.getenv("JIANGHU_G5_TEST_RUNTIME", "openclaw").strip() or "openclaw"
+    agent_runtime.register(agent_runtime.get(runtime_name), default=True)
     verification_root = Path(".data/verification").resolve()
     verification_root.mkdir(parents=True, exist_ok=True)
     db_path = verification_root / f"real-openclaw-e2e-{uuid4().hex[:10]}.db"
@@ -90,7 +94,7 @@ async def main() -> None:
         ],
     )
     workflow = store.create_workflow(
-        "OpenClaw真实多人物闭环验收流",
+        f"{runtime_name} 真实多人物闭环验收流",
         "两位人物独立贡献、公开通信与合议，独立裁判不通过则自动返工。",
         "real_acceptance",
         {
@@ -132,6 +136,7 @@ async def main() -> None:
     print(
         {
             "phase": "started",
+            "runtime": runtime_name,
             "db": str(db_path),
             "run_id": run["id"],
             "workflow_id": workflow["id"],
@@ -149,8 +154,9 @@ async def main() -> None:
         event_counts[event["type"]] = event_counts.get(event["type"], 0) + 1
     artifact_versions: dict[str, list[dict[str, object]]] = {}
     for artifact in result["artifacts"]:
-        task = next(item for item in result["tasks"] if item["id"] == artifact["task_id"])
-        artifact_versions.setdefault(task["node_key"], []).append(
+        task = next((item for item in result["tasks"] if item["id"] == artifact["task_id"]), None)
+        node_key = str(task["node_key"]) if task else "run"
+        artifact_versions.setdefault(node_key, []).append(
             {
                 "version": artifact["version"],
                 "status": artifact["status"],
@@ -159,6 +165,7 @@ async def main() -> None:
         )
     summary = {
         "phase": "completed",
+        "runtime": runtime_name,
         "run_id": result["id"],
         "status": result["status"],
         "progress": result["progress"],
@@ -167,6 +174,8 @@ async def main() -> None:
         "event_counts": {
             key: event_counts.get(key, 0)
             for key in [
+                "agent.turn.started",
+                "agent.turn.completed",
                 "openclaw.turn.started",
                 "openclaw.turn.completed",
                 "team.member.completed",

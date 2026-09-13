@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "probe_id": "20260911T094755Z",
+  "created_at": "2026-09-11T09:48:03.986744+00:00",
+  "production_runtime_changed": false,
+  "model_config": {
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "static": {
+    "schema_version": 1,
+    "probe": "static",
+    "status": "passed",
+    "runtime": {
+      "node": "v22.18.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "sdk": {
+      "package": "@anthropic-ai/claude-agent-sdk",
+      "version": "0.3.268",
+      "claude_code_version": "2.1.268",
+      "node_requirement": ">=18.0.0",
+      "license": "SEE LICENSE IN README.md",
+      "query_exported": true,
+      "resolve_settings_exported": true,
+      "export_count": 31,
+      "exports_sha256": "1710688de473a404201ee2c4665928dac868595684905e7c853e5528999183dd"
+    },
+    "platform_binary": {
+      "path_kind": "bundled-win32-x64",
+      "exists": true
+    }
+  },
+  "anthropic_messages_protocol": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_protocol_evidence"
+  },
+  "sdk_live_minimal": {
+    "status": "not_rerun",
+    "reason": "reuse_prior_minimal_sdk_evidence"
+  },
+  "sdk_features_and_resume": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  },
+  "sdk_cancel_and_cleanup": {
+    "status": "not_run",
+    "reason": "full_probe_not_requested"
+  },
+  "sdk_workspace_permission_boundary": {
+    "schema_version": 1,
+    "probe": "workspace-permission-boundary",
+    "status": "passed",
+    "permission_handler_calls": 1,
+    "outside_path_denied": true,
+    "sentinel_leaked_to_model_or_result": false,
+    "permission_denial_count": 1,
+    "result_is_error": false
+  }
+}

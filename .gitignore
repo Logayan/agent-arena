@@ -23,3 +23,8 @@ coverage/
 playwright-report/
 test-results/
 dist/
+
+# Runtime probe sandboxes contain private sessions and generated agent state.
+# Commit probe sources and reproducible result summaries, not live workspaces.
+experiments/**/state/
+experiments/**/workspaces/

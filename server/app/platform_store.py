@@ -632,6 +632,15 @@ class PlatformStore:
                 db.execute("ALTER TABLE runs ADD COLUMN run_version INTEGER NOT NULL DEFAULT 1")
             if "parent_run_id" not in run_columns:
                 db.execute("ALTER TABLE runs ADD COLUMN parent_run_id TEXT")
+            memory_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(agent_memories)").fetchall()}
+            if "status" not in memory_columns:
+                db.execute("ALTER TABLE agent_memories ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+            if "version" not in memory_columns:
+                db.execute("ALTER TABLE agent_memories ADD COLUMN version INTEGER NOT NULL DEFAULT 1")
+            if "supersedes_id" not in memory_columns:
+                db.execute("ALTER TABLE agent_memories ADD COLUMN supersedes_id TEXT")
+            if "tombstoned_at" not in memory_columns:
+                db.execute("ALTER TABLE agent_memories ADD COLUMN tombstoned_at TEXT")
             db.execute("UPDATE runs SET run_family_id=id WHERE run_family_id IS NULL OR run_family_id='' ")
             db.execute("UPDATE runs SET run_version=1 WHERE run_version IS NULL OR run_version < 1")
             retry_events = db.execute(
@@ -1469,20 +1478,42 @@ class PlatformStore:
         source_task_id: str | None = None,
         visibility: str = "private",
     ) -> dict[str, Any]:
-        if not self.get_agent(agent_id):
+        agent = self.get_agent(agent_id)
+        if not agent:
             raise ValueError("agent_not_found")
         memory_id = new_id("memory")
         now = utc_now()
+        family_id = str(agent.get("family_id") or agent["id"])
+        superseded_records: list[dict[str, Any]] = []
         with self._connect() as db:
+            if source_task_id:
+                previous_rows = db.execute(
+                    """SELECT m.* FROM agent_memories m
+                    JOIN agent_blueprints a ON a.id=m.agent_id
+                    WHERE a.family_id=? AND m.source_task_id=? AND m.kind=? AND COALESCE(m.status,'active')='active'
+                    ORDER BY m.version DESC,m.created_at DESC""",
+                    (family_id, source_task_id, kind),
+                ).fetchall()
+                superseded_records = [dict(row) for row in previous_rows]
+                if superseded_records:
+                    placeholders = ",".join("?" for _ in superseded_records)
+                    db.execute(
+                        f"UPDATE agent_memories SET status='superseded',tombstoned_at=? WHERE id IN ({placeholders})",
+                        [now, *[item["id"] for item in superseded_records]],
+                    )
+            version = 1 + max((int(item.get("version", 1) or 1) for item in superseded_records), default=0)
+            supersedes_id = str(superseded_records[0]["id"]) if superseded_records else None
             db.execute(
                 """INSERT INTO agent_memories
-                (id,agent_id,kind,title,content,source_run_id,source_task_id,visibility,created_at)
-                VALUES(?,?,?,?,?,?,?,?,?)""",
-                (memory_id, agent_id, kind, title, content, source_run_id, source_task_id, visibility, now),
+                (id,agent_id,kind,title,content,source_run_id,source_task_id,visibility,created_at,status,version,supersedes_id,tombstoned_at)
+                VALUES(?,?,?,?,?,?,?,?,?,'active',?,?,NULL)""",
+                (memory_id, agent_id, kind, title, content, source_run_id, source_task_id, visibility, now, version, supersedes_id),
             )
         return {
             "id": memory_id, "agent_id": agent_id, "kind": kind, "title": title, "content": content,
             "source_run_id": source_run_id, "source_task_id": source_task_id, "visibility": visibility, "created_at": now,
+            "status": "active", "version": version, "supersedes_id": supersedes_id,
+            "superseded_records": superseded_records,
         }
 
     def list_agent_memories(self, agent_id: str, limit: int = 50) -> list[dict[str, Any]]:
@@ -1493,10 +1524,32 @@ class PlatformStore:
         with self._connect() as db:
             rows = db.execute(
                 """SELECT m.* FROM agent_memories m JOIN agent_blueprints a ON a.id=m.agent_id
-                WHERE a.family_id=? ORDER BY m.created_at DESC LIMIT ?""",
+                WHERE a.family_id=? AND COALESCE(m.status,'active')='active'
+                ORDER BY m.created_at DESC LIMIT ?""",
                 (family_id, max(1, min(limit, 200))),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def read_agent_memory_for(self, reader_agent_id: str, memory_id: str) -> dict[str, Any]:
+        """Read one active Memory through the same-family namespace boundary."""
+        reader = self.get_agent(reader_agent_id)
+        if not reader:
+            raise ValueError("agent_not_found")
+        with self._connect() as db:
+            row = db.execute(
+                """SELECT m.*,a.family_id AS owner_family_id FROM agent_memories m
+                JOIN agent_blueprints a ON a.id=m.agent_id WHERE m.id=?""",
+                (memory_id,),
+            ).fetchone()
+        if not row:
+            raise ValueError("memory_not_found")
+        record = dict(row)
+        if str(record.get("owner_family_id") or record.get("agent_id") or "") != str(reader.get("family_id") or reader["id"]):
+            raise ValueError("memory_namespace_denied")
+        if str(record.get("status") or "active") != "active":
+            raise ValueError("memory_not_active")
+        record.pop("owner_family_id", None)
+        return record
 
     def list_organizations(self) -> list[dict[str, Any]]:
         with self._connect() as db:
@@ -3771,6 +3824,23 @@ class PlatformStore:
                     "preserved_node_keys": sorted(preserved_node_keys),
                 },
             )
+            source_delivery = db.execute(
+                "SELECT * FROM run_git_deliveries WHERE run_id=?",
+                (run_id,),
+            ).fetchone()
+            if source_delivery:
+                db.execute(
+                    """INSERT INTO run_git_deliveries
+                       (run_id,project_id,repository_id,repository_name,repository_url,target_branch,delivery_mode,
+                        credential_id,provider,api_base_url,username,created_at,updated_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        retry_id, source_delivery["project_id"], source_delivery["repository_id"],
+                        source_delivery["repository_name"], source_delivery["repository_url"], source_delivery["target_branch"],
+                        source_delivery["delivery_mode"], source_delivery["credential_id"], source_delivery["provider"],
+                        source_delivery["api_base_url"], source_delivery["username"], now, now,
+                    ),
+                )
         retry_record = {
             "id": retry_id,
             "run_family_id": run_family_id,
@@ -3880,6 +3950,7 @@ class PlatformStore:
         organization_id: str | None = None,
         *,
         event_limit: int | None = None,
+        include_artifact_content: bool = True,
     ) -> dict[str, Any] | None:
         with self._connect() as db:
             if organization_id:
@@ -3890,7 +3961,14 @@ class PlatformStore:
                 return None
             run_organization_id = str(row["organization_id"] or "org_jianghu")
             tasks = db.execute("SELECT * FROM tasks WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
-            artifacts = db.execute("SELECT * FROM artifacts WHERE run_id=? AND organization_id=? ORDER BY created_at", (run_id, run_organization_id)).fetchall()
+            artifact_columns = "*" if include_artifact_content else (
+                "id,run_id,organization_id,task_id,kind,title,'' AS content,version,status,created_at,"
+                "relative_path,sha256,media_type,size_bytes"
+            )
+            artifacts = db.execute(
+                f"SELECT {artifact_columns} FROM artifacts WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
+            ).fetchall()
             event_count_row = db.execute(
                 "SELECT COUNT(*) AS value FROM events WHERE run_id=? AND organization_id=?",
                 (run_id, run_organization_id),
@@ -4296,8 +4374,15 @@ class PlatformStore:
         change_action: str = "recorded",
         previous_sha256: str = "",
         file_category: str | None = None,
+        source_root: str | Path | None = None,
     ) -> dict[str, Any]:
-        """Register a promoted file, or a deletion receipt, as an immutable Artifact."""
+        """Register a delivered file, or a deletion receipt, as an immutable Artifact.
+
+        Engineering turns normally read from the promoted Run code root. Review,
+        audit, and reporting turns keep their files in an isolated Agent delivery
+        root; callers may pass that root explicitly. Both locations must remain
+        inside the durable Run workspace.
+        """
         # This is a hot path after an engineering turn. A mature run can have
         # tens of thousands of events, so hydrating the full run projection
         # once per delivered file causes severe quadratic amplification.
@@ -4318,9 +4403,12 @@ class PlatformStore:
         task = dict(task_row)
         workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
         code_root = (workspace_root / "code").resolve()
-        source = (code_root / relative_path).resolve()
+        resolved_source_root = Path(source_root).resolve() if source_root else code_root
+        if not resolved_source_root.is_relative_to(workspace_root):
+            raise ValueError("workspace_artifact_source_root_escape")
+        source = (resolved_source_root / relative_path).resolve()
         normalized_action = change_action if change_action in {"created", "modified", "deleted", "recorded"} else "recorded"
-        if not source.is_relative_to(code_root) or (normalized_action != "deleted" and not source.is_file()):
+        if not source.is_relative_to(resolved_source_root) or (normalized_action != "deleted" and not source.is_file()):
             raise ValueError("workspace_artifact_file_not_found")
         category = file_category or workspace_file_category(relative_path)
         source_data = b"" if normalized_action == "deleted" else source.read_bytes()
@@ -4395,20 +4483,6 @@ class PlatformStore:
                     artifact["created_at"], artifact["relative_path"], artifact["sha256"], artifact["media_type"], artifact["size_bytes"],
                 ),
             )
-            source_delivery = db.execute("SELECT * FROM run_git_deliveries WHERE run_id=?", (run_id,)).fetchone()
-            if source_delivery:
-                db.execute(
-                    """INSERT INTO run_git_deliveries
-                       (run_id,project_id,repository_id,repository_name,repository_url,target_branch,delivery_mode,
-                        credential_id,provider,api_base_url,username,created_at,updated_at)
-                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (
-                        retry_id, source_delivery["project_id"], source_delivery["repository_id"],
-                        source_delivery["repository_name"], source_delivery["repository_url"], source_delivery["target_branch"],
-                        source_delivery["delivery_mode"], source_delivery["credential_id"], source_delivery["provider"],
-                        source_delivery["api_base_url"], source_delivery["username"], now, now,
-                    ),
-                )
         manifest_path = workspace_root / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         entries = [item for item in manifest.get("artifacts", []) if item.get("id") != artifact_id]
@@ -4487,7 +4561,8 @@ class PlatformStore:
             result["memory_count"] = int(
                 _row_value(db.execute(
                     """SELECT COUNT(*) AS value FROM agent_memories m
-                    JOIN agent_blueprints a ON a.id=m.agent_id WHERE a.family_id=?""",
+                    JOIN agent_blueprints a ON a.id=m.agent_id
+                    WHERE a.family_id=? AND COALESCE(m.status,'active')='active'""",
                     (str(result.get("family_id") or result["id"]),),
                 ).fetchone(), "value")
             )
@@ -4506,7 +4581,8 @@ class PlatformStore:
             result["memory_count"] = int(
                 _row_value(db.execute(
                     """SELECT COUNT(*) AS value FROM agent_memories m
-                    JOIN agent_blueprints a ON a.id=m.agent_id WHERE a.family_id=?""",
+                    JOIN agent_blueprints a ON a.id=m.agent_id
+                    WHERE a.family_id=? AND COALESCE(m.status,'active')='active'""",
                     (str(result.get("family_id") or result["id"]),),
                 ).fetchone(), "value")
             )

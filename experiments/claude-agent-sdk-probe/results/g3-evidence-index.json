@@ -1,0 +1,50 @@
+{
+  "schema_version": "jianghu.claude-agent-sdk-g3-evidence.v1",
+  "date": "2026-09-11",
+  "status": "passed_for_current_windows_environment",
+  "production_runtime_changed": false,
+  "sdk": {
+    "package": "@anthropic-ai/claude-agent-sdk",
+    "version": "0.3.268",
+    "claude_code_version": "2.1.268"
+  },
+  "current_model_config": {
+    "provider_label": "openai-responses",
+    "model": "gpt-5.6-sol",
+    "anthropic_messages_compatible": true,
+    "claude_agent_sdk_query_compatible": true,
+    "credential_persisted": false
+  },
+  "evidence": {
+    "anthropic_messages_protocol": "g3-probe-20260911T093016Z.json",
+    "minimal_sdk_query": "g3-probe-20260911T093714Z.json",
+    "features_and_resume": "g3-probe-20260911T094313Z.json",
+    "cancel_and_cleanup": "g3-probe-20260911T094429Z.json",
+    "workspace_permission_boundary": "g3-probe-20260911T094755Z.json",
+    "mcp_and_controlled_subagent": "g3-probe-20260911T095025Z.json",
+    "docker_environment": "g3-docker-environment-20260911.json"
+  },
+  "probes": [
+    {"id": "P-001", "status": "passed", "summary": "SDK imports on Node 22 and exact versions are recorded."},
+    {"id": "P-002", "status": "passed", "summary": "Verified bundled CLI size, SHA-256 and executable version."},
+    {"id": "P-003", "status": "passed", "summary": "Current endpoint returned Anthropic Messages HTTP 200 and completed an SDK query."},
+    {"id": "P-004", "status": "passed", "summary": "SDK init reported gpt-5.6-sol as the active model."},
+    {"id": "P-005", "status": "passed", "summary": "Session ID persisted and resume returned the exact prior-turn nonce."},
+    {"id": "P-006", "status": "passed", "summary": "Read, Write, Edit and Bash completed in an isolated workspace."},
+    {"id": "P-007", "status": "passed", "summary": "Project CLAUDE.md and a projected skill both produced deterministic markers."},
+    {"id": "P-008", "status": "passed", "summary": "Tool calls/results were observable before the terminal result."},
+    {"id": "P-009", "status": "gap_requires_g4_fix", "summary": "Abort stops the SDK process but a Bash descendant ran to natural completion and retained the workspace handle."},
+    {"id": "P-010", "status": "not_applicable_to_current_execution_path", "summary": "The current environment is Windows and the verified path does not require Docker. Docker/Linux evidence remains required when that deployment environment is actually used."},
+    {"id": "P-011", "status": "conditional", "summary": "Nonessential traffic flags and an isolated CLAUDE_CONFIG_DIR were used; production still needs egress policy and legal review."},
+    {"id": "P-012", "status": "passed_with_gap", "summary": "canUseTool blocked an outside path, but built-in Bash inherited the model credential environment variable."},
+    {"id": "P-013", "status": "passed", "summary": "An in-process MCP tool was registered, authorized and invoked exactly once."},
+    {"id": "P-014", "status": "passed", "summary": "A named child Agent ran once with no tools and a one-turn limit."}
+  ],
+  "g4_required_controls": [
+    "Process-tree supervision and forced descendant cleanup on cancel/timeout",
+    "Credential isolation so Bash and Agent-authored commands cannot read provider secrets",
+    "Workspace path policy through canUseTool or a platform MCP tool gateway",
+    "Explicit model-protocol routing instead of assuming every OpenAI endpoint supports Anthropic Messages",
+    "Docker Linux cold-start verification before a Linux/container deployment is released"
+  ]
+}

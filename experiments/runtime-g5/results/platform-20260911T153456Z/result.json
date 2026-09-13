@@ -1,0 +1,40 @@
+{
+  "schema_version": "jianghu.runtime-g5-platform-comparison.v1",
+  "captured_at": "2026-09-11T15:44:31.360827+00:00",
+  "environment": {
+    "platform": "win32",
+    "os_name": "nt"
+  },
+  "model_config": {
+    "source": "active_encrypted_platform_config",
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "status": "failed",
+  "pair_checks": {
+    "text_collaboration": false
+  },
+  "results": [
+    {
+      "runtime": "openclaw",
+      "scenario": "text_collaboration",
+      "status": "failed",
+      "exit_code": 1,
+      "duration_seconds": 395.402,
+      "stdout_tail": "{'phase': 'started', 'runtime': 'openclaw', 'db': 'D:\\\\Users\\\\User\\\\My Document\\\\��agentЭ����Կ�ʵ��\\\\.data\\\\verification\\\\real-openclaw-e2e-a57f75736e.db', 'run_id': 'run_472a905cc787', 'workflow_id': 'workflow_2d7ff9146133', 'agents': 3}\n",
+      "stderr_tail": "C:\\Users\\User\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages\\openpyxl\\styles\\stylesheet.py:237: UserWarning: Workbook contains no default style, apply openpyxl's default\n  warn(\"Workbook contains no default style, apply openpyxl's default\")\nTraceback (most recent call last):\n  File \"D:\\Users\\User\\My Document\\��agentЭ����Կ�ʵ��\\scripts\\verify-real-openclaw-e2e.py\", line 157, in main\n    task = next(item for item in result[\"tasks\"] if item[\"id\"] == artifact[\"task_id\"])\nStopIteration\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"D:\\Users\\User\\My Document\\��agentЭ����Կ�ʵ��\\scripts\\verify-real-openclaw-e2e.py\", line 206, in <module>\n    asyncio.run(main())\n    ~~~~~~~~~~~^^^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 195, in run\n    return runner.run(main)\n           ~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 725, in run_until_complete\n    return future.result()\n           ~~~~~~~~~~~~~^^\nRuntimeError: coroutine raised StopIteration\n"
+    },
+    {
+      "runtime": "claude_code",
+      "scenario": "text_collaboration",
+      "status": "failed",
+      "exit_code": 1,
+      "duration_seconds": 179.43,
+      "stdout_tail": "{'phase': 'started', 'runtime': 'claude_code', 'db': 'D:\\\\Users\\\\User\\\\My Document\\\\��agentЭ����Կ�ʵ��\\\\.data\\\\verification\\\\real-openclaw-e2e-33296d655b.db', 'run_id': 'run_54e3bc89b11d', 'workflow_id': 'workflow_ada04dafc639', 'agents': 3}\n",
+      "stderr_tail": "C:\\Users\\User\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages\\openpyxl\\styles\\stylesheet.py:237: UserWarning: Workbook contains no default style, apply openpyxl's default\n  warn(\"Workbook contains no default style, apply openpyxl's default\")\nTraceback (most recent call last):\n  File \"D:\\Users\\User\\My Document\\��agentЭ����Կ�ʵ��\\scripts\\verify-real-openclaw-e2e.py\", line 157, in main\n    task = next(item for item in result[\"tasks\"] if item[\"id\"] == artifact[\"task_id\"])\nStopIteration\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"D:\\Users\\User\\My Document\\��agentЭ����Կ�ʵ��\\scripts\\verify-real-openclaw-e2e.py\", line 206, in <module>\n    asyncio.run(main())\n    ~~~~~~~~~~~^^^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 195, in run\n    return runner.run(main)\n           ~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\runners.py\", line 118, in run\n    return self._loop.run_until_complete(task)\n           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\asyncio\\base_events.py\", line 725, in run_until_complete\n    return future.result()\n           ~~~~~~~~~~~~~^^\nRuntimeError: coroutine raised StopIteration\n"
+    }
+  ]
+}

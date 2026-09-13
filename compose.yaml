@@ -1,16 +1,85 @@
 name: jianghu-online
 
 services:
+  matrix-secrets:
+    image: python:3.13-alpine
+    restart: "no"
+    command: ["python", "/config/generate_secrets.py"]
+    volumes:
+      - ./docker/synapse/generate_secrets.py:/config/generate_secrets.py:ro
+      - jianghu-matrix-secrets:/secrets
+
+  synapse-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      matrix-secrets:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: synapse
+      POSTGRES_USER: synapse
+      POSTGRES_PASSWORD_FILE: /run/jianghu-matrix/postgres-password
+    volumes:
+      - jianghu-synapse-postgres:/var/lib/postgresql/data
+      - jianghu-matrix-secrets:/run/jianghu-matrix:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  synapse-config:
+    image: matrixdotorg/synapse:v1.135.0
+    restart: "no"
+    user: "0:0"
+    depends_on:
+      matrix-secrets:
+        condition: service_completed_successfully
+    entrypoint: ["/bin/sh", "/config/bootstrap.sh"]
+    environment:
+      SYNAPSE_SERVER_NAME: ${MATRIX_SERVER_NAME:-localhost}
+      SYNAPSE_PUBLIC_BASEURL: http://localhost:${MATRIX_PORT:-8008}/
+    volumes:
+      - ./docker/synapse/bootstrap.sh:/config/bootstrap.sh:ro
+      - ./docker/synapse/configure.py:/config/configure.py:ro
+      - jianghu-synapse-data:/data
+      - jianghu-matrix-secrets:/secrets:ro
+
+  synapse:
+    image: matrixdotorg/synapse:v1.135.0
+    restart: unless-stopped
+    depends_on:
+      synapse-config:
+        condition: service_completed_successfully
+      synapse-db:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    ports:
+      - "${MATRIX_PORT:-8008}:8008"
+    volumes:
+      - jianghu-synapse-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/_matrix/client/versions', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 20
+
   jianghu-online:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         NODE_VERSION: ${NODE_VERSION:-24}
-        OPENCLAW_VERSION: ${OPENCLAW_VERSION:-2026.7.1-2}
     image: jianghu-online:${JIANGHU_IMAGE_TAG:-local}
     restart: unless-stopped
     init: true
+    depends_on:
+      matrix-secrets:
+        condition: service_completed_successfully
+      synapse:
+        condition: service_healthy
     ports:
       - "${JIANGHU_PORT:-8000}:8000"
     environment:
@@ -19,9 +88,14 @@ services:
       JIANGHU_SECRET_KEY_FILE: /app/.data/.jianghu-secret.key
       JIANGHU_WORKSPACE_ROOT: /app/.data/workspaces
       JIANGHU_KNOWLEDGE_ROOT: /app/.data/knowledge
-      JIANGHU_OPENCLAW_STATE_ROOT: /app/.data/openclaw
-      JIANGHU_OPENCLAW_NODE_PATH: /usr/local/bin/node
-      JIANGHU_OPENCLAW_ENTRY_PATH: /usr/local/lib/node_modules/openclaw/openclaw.mjs
+      JIANGHU_AGENT_RUNTIME: claude_code
+      JIANGHU_CLAUDE_STATE_ROOT: /app/.data/claude-code
+      JIANGHU_CLAUDE_NODE_PATH: /usr/local/bin/node
+      JIANGHU_CLAUDE_BRIDGE_PATH: /app/server/claude_agent_runtime/bridge.mjs
+      JIANGHU_MATRIX_ENABLED: "true"
+      JIANGHU_MATRIX_HOMESERVER: http://synapse:8008
+      JIANGHU_MATRIX_SERVER_NAME: ${MATRIX_SERVER_NAME:-localhost}
+      JIANGHU_MATRIX_AS_TOKEN_FILE: /run/jianghu-matrix/as-token
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
       ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
       ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL:-}
@@ -31,6 +105,7 @@ services:
       - type: bind
         source: ${JIANGHU_DATA_DIR:-./.data}
         target: /app/.data
+      - jianghu-matrix-secrets:/run/jianghu-matrix:ro
     stop_grace_period: 45s
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
@@ -38,3 +113,11 @@ services:
       timeout: 8s
       start_period: 25s
       retries: 6
+
+volumes:
+  jianghu-matrix-secrets:
+    name: jianghu-matrix-secrets
+  jianghu-synapse-data:
+    name: jianghu-synapse-data
+  jianghu-synapse-postgres:
+    name: jianghu-synapse-postgres

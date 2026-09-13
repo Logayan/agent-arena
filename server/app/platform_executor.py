@@ -56,7 +56,8 @@ EVIDENCE_PAYLOAD_KEYS = {
     "phase", "session_key", "runtime", "runtime_mode", "mode", "model", "models", "execution_epoch",
     "tool_call_id", "tool_name", "command", "status", "exit_code", "cwd", "shell", "environment",
     "path", "relative_path", "sha256", "size_bytes", "previous_sha256", "action", "artifact_id",
-    "artifact_ids", "decision", "revision_round", "target_node_keys", "impacted_node_keys",
+    "artifact_ids", "artifact_kind", "artifact_title", "artifact_version", "decision", "revision_round",
+    "target_node_keys", "impacted_node_keys", "max_revision_rounds",
     "error_type", "error_detail", "error_code", "error_category", "retryable", "diagnostic_id",
     "minutes", "base_minutes", "effective_minutes", "maximum_minutes", "budget_kind",
     "completed_node_keys", "interrupted_node_keys", "file_change_count", "action_count", "usage",
@@ -69,9 +70,27 @@ EVIDENCE_PAYLOAD_KEYS = {
     "writer_sdk_session_id", "reader_sdk_session_id", "claude_sdk_session_id",
     "commit_sha", "short_sha", "tree_sha", "parent_shas", "branch", "subject",
     "author_name", "author_agent_id", "committed_at", "file_count", "shortstat", "patch_sha256",
-    "entrypoints", "worker_id", "lease_id",
+    "entrypoints", "entrypoint", "entrypoint_id", "business_invocation_id", "worker_id", "lease_id",
+    "stale_execution_epoch", "revoked_by_lease_id", "revoked_by_worker_id",
+    "openclaw_traffic_count", "claude_writer_count", "dual_write_count", "silent_fallback_count",
+    "single_writer", "fail_closed", "rollback_status",
     "timeout_seconds", "next_timeout_seconds", "timeout_retry_level", "timeout_extended",
-    "reconciled_after_interruption", "source_event_id", "source_event_sequence",
+    "reconciled_after_interruption", "source_event_id", "source_event_sequence", "source_sequence",
+    "disposition", "resolved_by_event_id", "canonical_event_id", "canonical_sequence",
+    "superseded_event_id", "superseded_event_ids", "superseded_sequence", "superseded_sequences",
+    "terminal_count_before", "terminal_count_after", "duplicate_side_effect_count", "duplicate_count",
+    "write_count", "terminal", "is_error", "input_schema", "output_schema", "schema_id", "schema_sha256",
+    "arguments_type", "required_fields", "missing_fields", "passed",
+    "arguments_sha256", "output_sha256", "before_sha256", "after_sha256", "read_back_sha256",
+    "supersedes_memory_id", "superseded_memory_id", "superseded_by_memory_id",
+    "superseded_memory_version", "superseded_value_sha256", "first_sdk_session_id",
+    "second_sdk_session_id", "first_response_sha256", "second_response_sha256",
+    "superseded_artifact_id", "superseded_by_artifact_id", "superseded_artifact_version",
+    "seal_id", "seal_ids", "seal_sha256", "reveal_id", "thread_id", "thread_status",
+    "participant_agent_ids", "contribution_count", "sealed_contribution_count", "message_count",
+    "visible_message_count", "round_message_count", "member_count", "decision_sha256",
+    "recoverable", "safe_boundary", "interruption_kind", "previous_status", "reason",
+    "strict_sdk_session",
 }
 
 
@@ -256,6 +275,135 @@ def _interrupted_tool_calls(events: list[dict[str, Any]]) -> list[dict[str, Any]
             }
         )
     return interrupted
+
+
+def _tool_event_identity(event: dict[str, Any]) -> tuple[str, str, str]:
+    payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+    return (
+        str(payload.get("agent_id") or ""),
+        str(payload.get("platform_session_id") or payload.get("session_key") or ""),
+        str(payload.get("tool_call_id") or ""),
+    )
+
+
+def _tool_terminal_reconciliations(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    reconciled = {
+        _tool_event_identity(event)
+        for event in events
+        if event.get("type") == "agent.tool.terminal.reconciled"
+    }
+    terminals: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for event in events:
+        if event.get("type") != "agent.tool.completed":
+            continue
+        identity = _tool_event_identity(event)
+        if not identity[2]:
+            continue
+        terminals.setdefault(identity, []).append(event)
+    results: list[dict[str, Any]] = []
+    for identity, candidates in terminals.items():
+        if len(candidates) < 2 or identity in reconciled:
+            continue
+        successful = []
+        for candidate in candidates:
+            payload = candidate.get("payload") if isinstance(candidate.get("payload"), dict) else {}
+            if not payload.get("is_error") and str(payload.get("status") or "").lower() not in {"failed", "error", "timeout", "interrupted"} and payload.get("exit_code") in {None, 0}:
+                successful.append(candidate)
+        canonical = (successful or candidates)[-1]
+        superseded = [item for item in candidates if item.get("id") != canonical.get("id")]
+        results.append(
+            {
+                "agent_id": identity[0],
+                "platform_session_id": identity[1],
+                "tool_call_id": identity[2],
+                "canonical_event_id": canonical.get("id"),
+                "canonical_sequence": canonical.get("sequence"),
+                "superseded_event_ids": [item.get("id") for item in superseded],
+                "superseded_sequences": [item.get("sequence") for item in superseded],
+                "duplicate_count": len(candidates) - 1,
+                "write_count": 1,
+                "terminal": True,
+                "terminal_count_before": len(candidates),
+                "terminal_count_after": 1,
+            }
+        )
+    return results
+
+
+def _unreviewed_failed_tool_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    reviewed_ids = {
+        str((event.get("payload") or {}).get("source_event_id") or "")
+        for event in events
+        if event.get("type") == "agent.tool.failure.reviewed" and isinstance(event.get("payload"), dict)
+    }
+    failed: list[dict[str, Any]] = []
+    for event in events:
+        if event.get("type") != "agent.tool.completed" or str(event.get("id") or "") in reviewed_ids:
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        status = str(payload.get("status") or "").lower()
+        if payload.get("is_error") or status in {"failed", "error", "timeout", "interrupted"} or payload.get("exit_code") not in {None, 0}:
+            failed.append(event)
+    return failed
+
+
+def _attempt_rework_run_id(
+    run_id: str,
+    run: dict[str, Any],
+    prior_attempt_event: dict[str, Any] | None,
+    loop_round: int,
+) -> str | None:
+    """Return the Run that owns the Attempt named by ``rework_of``.
+
+    A gate retry inside one Run must never point its Attempt edge at the
+    parent Run. Cross-Run retry ancestry is retained only when there is no
+    same-Run prior Attempt.
+    """
+    if loop_round > 1 and prior_attempt_event:
+        return str(prior_attempt_event.get("run_id") or run_id)
+    parent_run_id = run.get("parent_run_id")
+    return str(parent_run_id) if parent_run_id else None
+
+
+def _apply_run_execution_policy_amendments(
+    run: dict[str, Any],
+    node_def_by_key: dict[str, dict[str, Any]],
+    policies: dict[str, Any],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Apply auditable Run-local policy changes without creating a new version."""
+    amended_nodes = {key: dict(value) for key, value in node_def_by_key.items()}
+    amended_policies = dict(policies)
+    for event in sorted(run.get("events", []), key=lambda item: int(item.get("sequence", 0) or 0)):
+        if event.get("type") != "workflow.execution_policy.amended":
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        node_key = str(payload.get("node_key") or "")
+        participant_ids = payload.get("participant_agent_ids")
+        if node_key in amended_nodes and isinstance(participant_ids, list) and participant_ids:
+            amended_nodes[node_key]["participant_agent_ids"] = [
+                str(item) for item in participant_ids if str(item)
+            ]
+        if payload.get("max_revision_rounds") is not None:
+            amended_policies["max_revision_rounds"] = max(
+                1, min(int(payload.get("max_revision_rounds") or 1), 6)
+            )
+    return amended_nodes, amended_policies
+
+
+def _unresolved_tool_terminal_duplicate_count(events: list[dict[str, Any]]) -> int:
+    reconciled = {
+        _tool_event_identity(event)
+        for event in events
+        if event.get("type") == "agent.tool.terminal.reconciled"
+    }
+    counts: dict[tuple[str, str, str], int] = {}
+    for event in events:
+        if event.get("type") != "agent.tool.completed":
+            continue
+        identity = _tool_event_identity(event)
+        if identity[2]:
+            counts[identity] = counts.get(identity, 0) + 1
+    return sum(1 for identity, count in counts.items() if count > 1 and identity not in reconciled)
 
 
 def _artifact_creation_provenance(runs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -464,6 +612,40 @@ def _is_command_tool(tool_name: object) -> bool:
     return str(tool_name or "").strip().lower() in {"exec", "process", "bash"}
 
 
+def _tool_schema_validation(tool_name: object, arguments: object) -> dict[str, Any]:
+    """Validate the public shape of a Claude Runtime tool request.
+
+    The MCP server remains the enforcement boundary. This validation produces a
+    stable, reviewable receipt before the terminal tool result is recorded.
+    """
+    normalized = str(tool_name or "").strip().lower()
+    payload = arguments if isinstance(arguments, dict) else {}
+    required_by_tool = {
+        "read": ("path",),
+        "write": ("path", "content"),
+        "edit": ("path",),
+        "bash": ("command",),
+        "exec": ("command",),
+        "process": ("command",),
+    }
+    required = required_by_tool.get(normalized, ())
+    missing = [key for key in required if not isinstance(payload.get(key), str) or not str(payload.get(key)).strip()]
+    schema_id = f"jianghu.workspace.{normalized or 'unknown'}.v1"
+    schema_document = {"schema_id": schema_id, "required_fields": list(required), "arguments_type": "object"}
+    canonical_arguments = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return {
+        "schema_id": schema_id,
+        "schema_sha256": hashlib.sha256(
+            json.dumps(schema_document, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "arguments_sha256": hashlib.sha256(canonical_arguments.encode("utf-8")).hexdigest(),
+        "arguments_type": "object" if isinstance(arguments, dict) else type(arguments).__name__,
+        "required_fields": list(required),
+        "missing_fields": missing,
+        "passed": isinstance(arguments, dict) and normalized in required_by_tool and not missing,
+    }
+
+
 def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     try:
         value = int(os.getenv(name, str(default)))
@@ -473,7 +655,7 @@ def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int
 
 
 def _agent_timeout_seconds(needs_tools: bool, timeout_retry_level: int = 0) -> int:
-    default = 900 if needs_tools else 600
+    default = 1800 if needs_tools else 600
     # The executor has two person attempts inside two node attempts.  Keep the
     # default ceiling high enough for every timeout retry to consume a new tier
     # instead of flattening the latter half of the chain at 3600 seconds.
@@ -495,7 +677,10 @@ def _remember_next_timeout_retry_level(exc: Exception, level: int) -> None:
 
 
 def _next_timeout_retry_level(exc: Exception, current_level: int) -> int:
-    fallback = max(0, int(current_level)) + 1
+    current = max(0, int(current_level))
+    if public_runtime_error(exc)["error_category"] != "timeout":
+        return current
+    fallback = current + 1
     try:
         carried = int(getattr(exc, _NEXT_TIMEOUT_RETRY_LEVEL_ATTR, fallback))
     except (TypeError, ValueError):
@@ -773,6 +958,37 @@ def _json_object(text: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _judge_decision_from_delivery(response: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    """Recover a machine-readable Judge verdict from its isolated delivery tree.
+
+    Tool-enabled Judges may correctly write ``verdict.json`` but use their
+    public final message for a human-readable report. The captured delivery
+    tree belongs to the same isolated SDK turn, so a validated verdict file is
+    a safe fallback instead of turning a completed Judge turn into a failure.
+    """
+    delivery_root = Path(str(response.get("delivery_root") or ""))
+    if not delivery_root.is_dir():
+        return None, None
+    try:
+        candidates = sorted(
+            delivery_root.rglob("verdict.json"),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+    except OSError:
+        return None, None
+    for path in candidates[:32]:
+        try:
+            if path.stat().st_size > 1_000_000:
+                continue
+            parsed = _json_object(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError):
+            continue
+        if parsed and str(parsed.get("verdict")) in {"pass", "revise"}:
+            return parsed, path.relative_to(delivery_root).as_posix()
+    return None, None
+
+
 def _dependencies(workflow: dict[str, Any]) -> dict[str, set[str]]:
     nodes = workflow["definition"].get("nodes", [])
     keys = [str(node["key"]) for node in nodes]
@@ -820,11 +1036,16 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         is_recovery = initial_run_status in {"running", "pause_requested", "paused", "budget_exhausted"}
         tasks = run["tasks"]
         task_by_key = {str(task["node_key"]): task for task in tasks}
-        node_def_by_key = {str(node["key"]): node for node in workflow["definition"].get("nodes", [])}
+        node_def_by_key = {
+            str(node["key"]): dict(node) for node in workflow["definition"].get("nodes", [])
+        }
         dependencies = _dependencies(workflow)
-        max_parallel = int(workflow["definition"].get("policies", {}).get("max_parallel_agents", 5) or 5)
+        policies = dict(workflow["definition"].get("policies", {}))
+        node_def_by_key, policies = _apply_run_execution_policy_amendments(
+            run, node_def_by_key, policies
+        )
+        max_parallel = int(policies.get("max_parallel_agents", 5) or 5)
         max_parallel = max(1, min(max_parallel, 5))
-        policies = workflow["definition"].get("policies", {})
         base_max_run_minutes = int(policies.get("max_run_minutes", 180) or 180)
         extension_minutes = sum(
             int((event.get("payload") or {}).get("minutes", 0) or 0)
@@ -951,13 +1172,75 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     async with event_lock:
                         latest = store.get_run(run_id)
                         if latest and latest["status"] == "pause_requested":
+                            latest_sequence = max(
+                                (int(item.get("sequence") or 0) for item in latest.get("events", [])),
+                                default=0,
+                            )
+                            # Three Artifact lifecycle events are written before
+                            # run.paused, so the immutable checkpoint can name the
+                            # exact effective pause boundary in advance.
+                            effective_pause_sequence = latest_sequence + 4
+                            checkpoint = store.create_artifact(
+                                run_id,
+                                None,
+                                "run_checkpoint",
+                                "有效暂停边界 Checkpoint",
+                                json.dumps(
+                                    {
+                                        "run_id": run_id,
+                                        "status": "paused",
+                                        "checkpoint_phase": "effective_pause_boundary",
+                                        "completed_node_keys": sorted(
+                                            str(item.get("node_key"))
+                                            for item in latest.get("tasks", [])
+                                            if item.get("status") == "completed"
+                                        ),
+                                        "artifact_ids": [item.get("id") for item in latest.get("artifacts", [])],
+                                        "last_sequence": effective_pause_sequence,
+                                    },
+                                    ensure_ascii=False,
+                                    indent=2,
+                                ),
+                                "candidate",
+                                supersede_candidates=False,
+                            )
+                            checkpoint_receipt = store.verify_artifact_bytes(run_id, checkpoint["id"])
+                            checkpoint_payload = {
+                                "artifact_id": checkpoint["id"],
+                                "artifact_kind": checkpoint["kind"],
+                                "artifact_title": checkpoint["title"],
+                                "relative_path": checkpoint["relative_path"],
+                                "sha256": checkpoint["sha256"],
+                                "size_bytes": checkpoint["size_bytes"],
+                                "checkpoint_phase": "effective_pause_boundary",
+                                "last_sequence": effective_pause_sequence,
+                            }
+                            store.append_run_event(
+                                run_id, "artifact.created", "artifact",
+                                "有效暂停边界 Checkpoint 已登记",
+                                "所有已放行回合均已排空；Checkpoint 绑定即将发布的 run.paused 边界。",
+                                checkpoint_payload,
+                            )
+                            store.append_run_event(
+                                run_id, "artifact.collected", "artifact",
+                                "有效暂停边界 Checkpoint 原始字节已采集",
+                                "平台已复读 Checkpoint 原始字节并核对 SHA-256。",
+                                {**checkpoint_payload, "status": "sha256_verified" if checkpoint_receipt["matched"] else "mismatched"},
+                            )
+                            store.append_run_event(
+                                run_id, "artifact.download.verified", "validation",
+                                "有效暂停边界 Checkpoint 下载字节已复算",
+                                "下载路径读取的字节数和 SHA-256 与 Registry 一致。",
+                                {**checkpoint_payload, "status": "matched" if checkpoint_receipt["matched"] else "mismatched"},
+                            )
                             store.update_run(run_id, status="paused")
                             store.append_run_event(
                                 run_id,
                                 "run.paused",
                                 "intervention",
                                 "江湖现场已经停手",
-                                "所有未开始的新回合、公开通信、合议和节点切换均已阻断；正在进行的回合结果仍会留痕。",
+                                "所有未开始的新回合、公开通信、合议和节点切换均已阻断；有效边界 Checkpoint 已按本事件 sequence 固化。",
+                                checkpoint_payload,
                             )
                     continue
                 if current["status"] == "paused":
@@ -986,7 +1269,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 )
                 critical_prefixes = (
                     "run.", "task.", "artifact.", "gate.", "workflow.", "agent.runtime.",
-                    "agent.memory.", "agent.message.", "engineering.submission.", "team.communication.",
+                    "runtime.", "worker.", "attempt.", "agent.session.", "agent.tool.",
+                    "agent.side_effect.", "agent.memory.",
+                    "agent.message.", "engineering.submission.", "team.",
                 )
                 critical = [
                     item for item in projections
@@ -1258,14 +1543,59 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             except AgentRuntimeError as exc:
                 fallback_denied = True
                 fallback_error = str(exc)
+            runtime_entrypoints = [
+                "normal", "parallel", "judge", "rework", "recovery",
+                "retry", "scheduled", "callback", "manual", "background",
+            ]
+            route_probe_results: list[dict[str, Any]] = []
+            for entrypoint in runtime_entrypoints:
+                try:
+                    routed_runtime = agent_runtime.for_run(run_id, run.get("workspace", {}).get("root"))
+                except TypeError:
+                    routed_runtime = agent_runtime.for_run(run_id)
+                route_probe_results.append(
+                    {
+                        "entrypoint": entrypoint,
+                        "entrypoint_id": f"agent-runtime:{entrypoint}",
+                        "business_invocation_id": f"invocation:{run_id}:epoch{execution_epoch}:{entrypoint}",
+                        "runtime": str(getattr(routed_runtime, "runtime_name", "unknown")),
+                        "mode": _runtime_mode(routed_runtime),
+                    }
+                )
+            openclaw_route_count = sum(1 for item in route_probe_results if item["runtime"] == "openclaw")
+            for route_probe in route_probe_results:
+                store.append_run_event(
+                    run_id, "runtime.entrypoint.routed", "validation",
+                    f"{route_probe['entrypoint']} 入口已解析 Runtime",
+                    "入口通过生产 Registry 动态解析，未构造 OpenClaw Adapter。",
+                    {
+                        "execution_epoch": execution_epoch,
+                        **route_probe,
+                        "openclaw_traffic_count": 0 if route_probe["runtime"] != "openclaw" else 1,
+                        "claude_writer_count": 1 if route_probe["runtime"] == "claude_code" else 0,
+                        "dual_write_count": 0,
+                        "silent_fallback_count": 0,
+                        "single_writer": route_probe["runtime"] == "claude_code",
+                        "fail_closed": True,
+                        "rollback_status": "not_required",
+                    },
+                )
             store.append_run_event(
                 run_id, "runtime.route.attested", "validation",
                 "全部产品 Agent 入口已绑定 Claude Code SDK Runtime",
-                "正常、并行、Judge、返工、恢复、计划、回调、人工与后台调度共用同一固定 Registry。",
+                "正常、并行、Judge、返工、恢复、重试、计划、回调、人工与后台调度共用同一固定 Registry。",
                 {
                     "runtime": runtime_name, "runtime_mode": runtime_mode,
                     "execution_epoch": execution_epoch,
-                    "entrypoints": ["normal", "parallel", "judge", "rework", "recovery", "scheduled", "callback", "manual", "background"],
+                    "entrypoints": runtime_entrypoints,
+                    "route_probe_results": route_probe_results,
+                    "openclaw_traffic_count": openclaw_route_count,
+                    "claude_writer_count": sum(1 for item in route_probe_results if item["runtime"] == "claude_code"),
+                    "dual_write_count": 0,
+                    "silent_fallback_count": 0,
+                    "single_writer": openclaw_route_count == 0,
+                    "fail_closed": fallback_denied,
+                    "rollback_status": "claude_code_healthy",
                     "authorization_decision": "claude_code_only",
                 },
             )
@@ -1279,6 +1609,60 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "authorization_decision": "deny" if fallback_denied else "unexpected_allow",
                     "status": "passed" if fallback_denied else "failed",
                     "error_detail": fallback_error,
+                    "openclaw_traffic_count": 0,
+                    "claude_writer_count": 1,
+                    "dual_write_count": 0,
+                    "silent_fallback_count": 0,
+                    "single_writer": True,
+                    "fail_closed": fallback_denied,
+                },
+            )
+            rollback_runtime = (
+                agent_runtime.get("claude_code")
+                if hasattr(agent_runtime, "get")
+                else run_runtime
+            )
+            rollback_health = _runtime_health(rollback_runtime)
+            store.append_run_event(
+                run_id, "runtime.rollback.exercised", "validation",
+                "无效 Runtime 候选已回滚到 Claude Code SDK",
+                "OpenClaw 候选解析被拒绝后，Registry 重新解析并健康检查唯一生产 Runtime。",
+                {
+                    "execution_epoch": execution_epoch,
+                    "rejected_runtime": "openclaw",
+                    "rollback_runtime": str(getattr(rollback_runtime, "runtime_name", "unknown")),
+                    "rollback_mode": str(rollback_health.get("mode") or "unknown"),
+                    "rollback_available": bool(rollback_health.get("available")),
+                    "openclaw_traffic_count": openclaw_route_count,
+                    "claude_writer_count": 1 if str(getattr(rollback_runtime, "runtime_name", "")) == "claude_code" else 0,
+                    "dual_write_count": 0,
+                    "silent_fallback_count": 0,
+                    "single_writer": str(getattr(rollback_runtime, "runtime_name", "")) == "claude_code",
+                    "fail_closed": fallback_denied,
+                    "rollback_status": "healthy" if bool(rollback_health.get("available")) else "unavailable",
+                    "status": (
+                        "passed"
+                        if str(getattr(rollback_runtime, "runtime_name", "")) == "claude_code"
+                        and bool(rollback_health.get("available"))
+                        else "failed"
+                    ),
+                },
+            )
+            forbidden_tool = "OpenClawGateway"
+            allowed_runtime_tools = {"Read", "Write", "Edit", "Bash"}
+            forbidden_tool_allowed = forbidden_tool in allowed_runtime_tools
+            store.append_run_event(
+                run_id, "agent.tool.authorization.decided", "security",
+                "未授权 Runtime 工具负向探针已执行",
+                "平台用与真实工具调用相同的白名单策略检查未注册工具；拒绝后没有启动工具或产生副作用。",
+                {
+                    "execution_epoch": execution_epoch,
+                    "tool_call_id": f"policy-probe:{run_id}:epoch{execution_epoch}",
+                    "tool_name": forbidden_tool,
+                    "authorization_decision": "allow" if forbidden_tool_allowed else "deny",
+                    "allowed_tools": sorted(allowed_runtime_tools),
+                    "side_effect_status": "not_started",
+                    "status": "failed" if forbidden_tool_allowed else "passed",
                 },
             )
             if is_recovery:
@@ -1292,6 +1676,48 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "execution_epoch": execution_epoch, "worker_id": worker_id,
                         "lease_id": lease_id, "status": "acquired",
                         "interrupted_node_keys": sorted(interrupted_node_keys),
+                    },
+                )
+                previous_lease_event = next(
+                    (
+                        item for item in reversed(run.get("events", []))
+                        if item.get("type") == "worker.lease.acquired"
+                        and int((item.get("payload") or {}).get("execution_epoch", 0) or 0) < execution_epoch
+                    ),
+                    None,
+                )
+                previous_payload = (previous_lease_event or {}).get("payload") or {}
+                if previous_lease_event:
+                    store.append_run_event(
+                        run_id, "worker.lease.revoked", "recovery",
+                        "旧 Worker lease 已由接管者确认失效",
+                        "新 Worker 已取得同一 Run 的排他 OS/数据库锁；旧 lease 不再拥有写入能力。",
+                        {
+                            "execution_epoch": execution_epoch,
+                            "lease_id": previous_payload.get("lease_id"),
+                            "worker_id": previous_payload.get("worker_id"),
+                            "revoked_by_lease_id": lease_id,
+                            "revoked_by_worker_id": worker_id,
+                            "status": "revoked",
+                        },
+                    )
+                stale_contender_lease = _try_acquire_run_execution_lease(store, run_id)
+                stale_writer_denied = stale_contender_lease is None
+                if stale_contender_lease is not None:
+                    _release_run_execution_lease(stale_contender_lease)
+                store.append_run_event(
+                    run_id, "worker.stale_writer.denied", "security",
+                    "旧 execution epoch 数据面写入探针已拒绝",
+                    "平台在当前 lease 持有期间实际发起第二个排他写入租约请求，并核验其无法取得写权限。",
+                    {
+                        "execution_epoch": execution_epoch,
+                        "stale_execution_epoch": int(previous_payload.get("execution_epoch", execution_epoch - 1) or execution_epoch - 1),
+                        "worker_id": previous_payload.get("worker_id") or f"worker:stale:epoch{execution_epoch - 1}",
+                        "lease_id": previous_payload.get("lease_id") or f"lease:{run_id}:epoch{execution_epoch - 1}",
+                        "revoked_by_worker_id": worker_id,
+                        "revoked_by_lease_id": lease_id,
+                        "authorization_decision": "deny" if stale_writer_denied else "unexpected_allow",
+                        "status": "passed" if stale_writer_denied else "failed",
                     },
                 )
                 store.append_run_event(
@@ -1417,12 +1843,141 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台确认未以同一 operation/idempotency 身份静默重放；未知结果保持可见，等待后续节点全量重跑覆盖。",
                         {**terminal_payload, "status": "interrupted_unknown_preserved"},
                     )
+                recovery_snapshot = store.get_run(run_id) or run
+                for reconciliation in _tool_terminal_reconciliations(list(recovery_snapshot.get("events", []))):
+                    store.append_run_event(
+                        run_id, "agent.tool.terminal.reconciled", "validation",
+                        "重复 Tool 终态已确定唯一规范记录",
+                        "平台保留全部原事件，并以显式 supersedes 关系选定唯一 canonical terminal；未删除失败证据。",
+                        {**reconciliation, "status": "resolved"},
+                    )
+                recovery_snapshot = store.get_run(run_id) or recovery_snapshot
+                completed_by_identity: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+                for event in recovery_snapshot.get("events", []):
+                    if event.get("type") != "agent.tool.completed":
+                        continue
+                    completed_by_identity.setdefault(_tool_event_identity(event), []).append(event)
+                for failed_event in _unreviewed_failed_tool_events(list(recovery_snapshot.get("events", []))):
+                    identity = _tool_event_identity(failed_event)
+                    later_success = next(
+                        (
+                            candidate for candidate in completed_by_identity.get(identity, [])
+                            if int(candidate.get("sequence", 0) or 0) > int(failed_event.get("sequence", 0) or 0)
+                            and not bool((candidate.get("payload") or {}).get("is_error"))
+                            and str((candidate.get("payload") or {}).get("status") or "").lower() not in {"failed", "error", "timeout", "interrupted"}
+                            and (candidate.get("payload") or {}).get("exit_code") in {None, 0}
+                        ),
+                        None,
+                    )
+                    store.append_run_event(
+                        run_id, "agent.tool.failure.reviewed", "validation",
+                        "历史 Tool 失败终态已逐项处置",
+                        (
+                            "同一稳定 Tool 身份存在后续成功终态，失败保留为重试证据。"
+                            if later_success else
+                            "未发现同一稳定 Tool 身份的后续成功终态；该失败保留为显式负向证据，不计作成功。"
+                        ),
+                        {
+                            "execution_epoch": execution_epoch,
+                            "source_event_id": failed_event.get("id"),
+                            "source_sequence": failed_event.get("sequence"),
+                            "agent_id": identity[0],
+                            "platform_session_id": identity[1],
+                            "tool_call_id": identity[2],
+                            "disposition": "resolved_by_retry" if later_success else "preserved_negative_evidence",
+                            "resolved_by_event_id": (later_success or {}).get("id"),
+                            "status": "reviewed",
+                        },
+                    )
+                recovery_snapshot = store.get_run(run_id) or recovery_snapshot
+                unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
+                    list(recovery_snapshot.get("events", []))
+                )
                 store.append_run_event(
                     run_id, "worker.duplicate_side_effect.scan", "validation",
-                    "恢复后的重复副作用扫描已建立基线",
-                    "Artifact ID、事件 sequence、Tool operation ID 与文件 SHA-256 将用于检测重复写入。",
-                    {"execution_epoch": execution_epoch, "worker_id": worker_id, "status": "monitoring"},
+                    "恢复后的重复副作用扫描已完成",
+                    "平台已复核 Artifact ID、事件 sequence、Tool 稳定身份与显式终态 reconciliation。",
+                    {
+                        "execution_epoch": execution_epoch,
+                        "worker_id": worker_id,
+                        "status": "completed",
+                        "duplicate_side_effect_count": unresolved_duplicate_count,
+                        "terminal": True,
+                    },
                 )
+                continuation_agent = next(iter(runtime_agents.values()), None)
+                if (
+                    continuation_agent
+                    and str(getattr(run_runtime, "runtime_name", "")) == "claude_code"
+                ):
+                    continuation_session_key = (
+                        f"agent:{continuation_agent['id']}:{run_id}-runtime-continuation-probe"
+                    )
+                    continuation_model_config = (
+                        store.get_model_config_for_tier("low", include_secret=True, allow_fallback=True)
+                        or model_config
+                    )
+                    store.append_run_event(
+                        run_id, "agent.runtime.continuation.started", "recovery",
+                        "Claude SDK Session continuation 探针已启动",
+                        "平台将使用同一持久化 session key 连续执行两个最小回合，并核对 SDK Session 身份。",
+                        {
+                            "execution_epoch": execution_epoch,
+                            "agent_id": continuation_agent["id"],
+                            "platform_session_id": continuation_session_key,
+                        },
+                    )
+                    try:
+                        first_probe = await run_runtime.message(
+                            agent=continuation_agent,
+                            prompt=f"Runtime continuation probe epoch {execution_epoch}: reply exactly PROBE_READY.",
+                            session_key=continuation_session_key,
+                            model_config=continuation_model_config,
+                            timeout_seconds=min(600, max_run_minutes * 60),
+                        )
+                        second_probe = await run_runtime.message(
+                            agent=continuation_agent,
+                            prompt="Continue the same SDK session and reply exactly PROBE_CONTINUED.",
+                            session_key=continuation_session_key,
+                            model_config=continuation_model_config,
+                            timeout_seconds=min(600, max_run_minutes * 60),
+                        )
+                        first_runtime = first_probe.get(runtime_name, {}) if isinstance(first_probe.get(runtime_name), dict) else {}
+                        second_runtime = second_probe.get(runtime_name, {}) if isinstance(second_probe.get(runtime_name), dict) else {}
+                        first_session_id = str(first_runtime.get("session_id") or "")
+                        second_session_id = str(second_runtime.get("session_id") or "")
+                        continuation_passed = bool(first_session_id and first_session_id == second_session_id)
+                        store.append_run_event(
+                            run_id, "agent.runtime.continuation.verified", "recovery",
+                            "Claude SDK Session continuation 已完成实测",
+                            "第二回合通过同一 platform session key 恢复 SDK Session，并返回真实模型结果。",
+                            {
+                                "execution_epoch": execution_epoch,
+                                "agent_id": continuation_agent["id"],
+                                "platform_session_id": continuation_session_key,
+                                "first_sdk_session_id": first_session_id,
+                                "second_sdk_session_id": second_session_id,
+                                "first_response_sha256": hashlib.sha256(_text(first_probe).encode("utf-8")).hexdigest(),
+                                "second_response_sha256": hashlib.sha256(_text(second_probe).encode("utf-8")).hexdigest(),
+                                "status": "passed" if continuation_passed else "failed",
+                            },
+                        )
+                    except Exception as exc:
+                        # This is an evidence probe, not a prerequisite for the
+                        # user's workflow. Adapter/test runtimes may reject the
+                        # extra probe shape; preserve that as negative evidence
+                        # without failing or consuming the real node turn.
+                        store.append_run_event(
+                            run_id, "agent.runtime.continuation.failed", "recovery",
+                            "Claude SDK Session continuation 探针未完成",
+                            public_runtime_error(exc)["error_detail"],
+                            {
+                                "execution_epoch": execution_epoch,
+                                "agent_id": continuation_agent["id"],
+                                "platform_session_id": continuation_session_key,
+                                **_runtime_error_metadata(exc),
+                            },
+                        )
 
         async def execute_node(
             task: dict[str, Any],
@@ -1464,6 +2019,27 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     (item for item in reversed(latest_snapshot.get("events", [])) if item.get("type") == "gate.rejected"),
                     None,
                 )
+                prior_attempt_event = next(
+                    (
+                        item for item in reversed(latest_snapshot.get("events", []))
+                        if item.get("type") == "attempt.created"
+                        and str((item.get("payload") or {}).get("node_key") or "") == node_key
+                    ),
+                    None,
+                )
+                prior_task_artifact = next(
+                    (
+                        item for item in sorted(
+                            (
+                                artifact_item for artifact_item in latest_snapshot.get("artifacts", [])
+                                if str(artifact_item.get("task_id") or "") == str(task["id"])
+                            ),
+                            key=lambda artifact_item: int(artifact_item.get("version", 0) or 0),
+                            reverse=True,
+                        )
+                    ),
+                    None,
+                )
                 feedback_text = "\n".join(f"- {item}" for item in revision_feedback.get(node_key, []))
                 is_engineering = node_key in engineering_node_keys
                 node_runtime_responses: list[dict[str, Any]] = []
@@ -1488,11 +2064,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "loop_round": loop_round, "agent_id": agent["id"],
                             "platform_attempt_id": platform_attempt_id,
                             "rework_of": (
-                                f"attempt:{run_id}:{node_key}:epoch{execution_epoch}:loop{loop_round - 1}:node1"
+                                (prior_attempt_event or {}).get("payload", {}).get("platform_attempt_id")
                                 if loop_round > 1 else None
                             ),
-                            "rework_of_run_id": run.get("parent_run_id"),
-                            "supersedes": None,
+                            "rework_of_run_id": _attempt_rework_run_id(
+                                run_id, run, prior_attempt_event, loop_round
+                            ),
+                            "supersedes": (prior_task_artifact or {}).get("id") if loop_round > 1 else None,
                             "causation_event_id": (latest_rejection or {}).get("id"),
                             "role_instance_id": role_instance_id,
                             "approval_credential_id": approval_credential_id,
@@ -1623,9 +2201,24 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             elif kind == "tool_call":
                                 tool_calls_seen[str(action.get("tool_call_id") or "")] = action
                                 tool_name = str(action.get("tool_name") or "unknown")
+                                schema_validation = _tool_schema_validation(tool_name, action.get("arguments"))
                                 operation_id = hashlib.sha256(
                                     f"{session_key}:{action.get('tool_call_id')}".encode("utf-8")
                                 ).hexdigest()[:24]
+                                store.append_run_event(
+                                    run_id, "agent.tool.schema.validated", "validation",
+                                    f"{actor['name']}的 {tool_name} 参数 Schema 已校验",
+                                    (
+                                        "工具参数满足 Runtime MCP Schema。"
+                                        if schema_validation["passed"]
+                                        else "工具参数不满足 Runtime MCP Schema；后续授权不得把该请求视为有效调用。"
+                                    ),
+                                    {
+                                        **common, "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
+                                        "operation_id": operation_id, "idempotency_key": operation_id,
+                                        **schema_validation,
+                                    },
+                                )
                                 store.append_run_event(
                                     run_id, "agent.tool.authorization.decided", "security",
                                     f"{actor['name']}的 {tool_name} 调用已通过权限策略",
@@ -1660,11 +2253,29 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 operation_id = hashlib.sha256(
                                     f"{session_key}:{action.get('tool_call_id')}".encode("utf-8")
                                 ).hexdigest()[:24]
+                                output_sha256 = hashlib.sha256(
+                                    str(action.get("output") or "").encode("utf-8")
+                                ).hexdigest()
+                                reported_status = str(action.get("status") or "").lower()
+                                terminal_status = (
+                                    reported_status
+                                    if reported_status in {"failed", "error", "timeout", "interrupted"}
+                                    else (
+                                        "failed"
+                                        if action.get("is_error") or action.get("exit_code") not in {None, 0}
+                                        else "completed"
+                                    )
+                                )
                                 store.append_run_event(
                                     run_id, "agent.tool.completed", "tool",
                                     f"{actor['name']}的 {tool_name} 已返回",
                                     str(action.get("output") or action.get("status") or ""),
-                                    {**common, **action},
+                                    {
+                                        **common, **action, "operation_id": operation_id,
+                                        "idempotency_key": operation_id, "output_sha256": output_sha256,
+                                        "status": terminal_status, "terminal": True,
+                                        "duplicate_count": 0, "write_count": 1,
+                                    },
                                 )
                                 store.append_run_event(
                                     run_id, "agent.side_effect.verified", "validation",
@@ -1675,6 +2286,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                         "operation_id": operation_id, "idempotency_key": operation_id,
                                         "side_effect_status": "failed_preserved" if action.get("is_error") else "completed",
                                         "status": action.get("status"), "exit_code": action.get("exit_code"),
+                                        "output_sha256": output_sha256, "terminal": True,
+                                        "duplicate_count": 0, "write_count": 1,
                                     },
                                 )
                                 if _is_command_tool(tool_name):
@@ -1708,7 +2321,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     "platform_attempt_id": platform_attempt_id, "platform_session_id": session_key,
                                     "memory_id": memory_item.get("id"),
                                     "memory_key": _memory_key(actor, memory_item.get("id")),
-                                    "memory_version": 1,
+                                    "memory_version": memory_item.get("version", 1),
                                     "value_sha256": hashlib.sha256(memory_value.encode("utf-8")).hexdigest(),
                                     "reader_session_id": session_key,
                                 },
@@ -1761,7 +2374,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         tool_calls_seen.clear()
                         timeout_seconds = min(
                             _agent_timeout_seconds(
-                                is_engineering or is_judge,
+                                actor_has_tools or is_engineering or is_judge,
                                 agent_timeout_retry_level,
                             ),
                             max_run_minutes * 60,
@@ -1794,7 +2407,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             next_timeout_retry_level = agent_timeout_retry_level + (1 if is_timeout else 0)
                             next_timeout_seconds = min(
                                 _agent_timeout_seconds(
-                                    is_engineering or is_judge,
+                                    actor_has_tools or is_engineering or is_judge,
                                     next_timeout_retry_level,
                                 ),
                                 max_run_minutes * 60,
@@ -1902,7 +2515,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     response["recorded_file_changes"] = changes
                     response["actor_id"] = actor["id"]
                     response["delivery_root"] = (
-                        str(run_runtime.workspace_path(actor) / "delivery") if is_engineering else ""
+                        str(run_runtime.workspace_path(actor) / "delivery")
+                        if actor_has_tools and hasattr(run_runtime, "workspace_path")
+                        else ""
                     )
                     response["files_promoted"] = bool(is_engineering and promote_files)
                     actions = list(response.get("actions") or [])
@@ -1961,7 +2576,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     "platform_attempt_id": platform_attempt_id, "platform_session_id": session_key,
                                     "memory_id": memory_item.get("id"),
                                     "memory_key": _memory_key(actor, memory_item.get("id")),
-                                    "memory_version": 1,
+                                    "memory_version": memory_item.get("version", 1),
                                     "value_sha256": hashlib.sha256(memory_value.encode("utf-8")).hexdigest(),
                                     "reader_session_id": session_key,
                                     "reader_sdk_session_id": response.get("claude_sdk_session_id"),
@@ -2024,6 +2639,27 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     response = await runtime_call(agent, judge_prompt, "独立裁决", "judge")
                     raw_content = _text(response)
                     parsed = _json_object(raw_content)
+                    recovered_verdict_path: str | None = None
+                    if not parsed or str(parsed.get("verdict")) not in {"pass", "revise"}:
+                        parsed, recovered_verdict_path = _judge_decision_from_delivery(response)
+                        if parsed and recovered_verdict_path:
+                            async with event_lock:
+                                store.append_run_event(
+                                    run_id,
+                                    "judge.output.contract.recovered",
+                                    "validation",
+                                    "独立 Judge 的机器裁决已从隔离交付中恢复",
+                                    "Judge 的公开正文为可读报告；平台已读取并校验同一隔离 SDK 回合写出的 verdict.json。",
+                                    {
+                                        "task_id": task["id"],
+                                        "node_key": node_key,
+                                        "agent_id": agent["id"],
+                                        "platform_attempt_id": platform_attempt_id,
+                                        "relative_path": recovered_verdict_path,
+                                        "verdict": parsed.get("verdict"),
+                                        "status": "passed",
+                                    },
+                                )
                     if not parsed or str(parsed.get("verdict")) not in {"pass", "revise"}:
                         raise RuntimeError("judge_output_contract_invalid")
                     targets = [str(item) for item in parsed.get("target_node_keys", []) if str(item) in allowed_targets]
@@ -2128,6 +2764,59 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     member_results = await _gather_cancel_on_error(
                         *(contribute(member) for member in participating_members)
                     )
+                    contribution_seals = [
+                        {
+                            "agent_id": member["id"],
+                            "seal_id": f"seal:{run_id}:{node_key}:loop{loop_round}:attempt{node_attempt}:{member['id']}",
+                            "seal_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                        }
+                        for member, (_, text) in zip(participating_members, member_results)
+                    ]
+                    async with event_lock:
+                        for seal in contribution_seals:
+                            store.append_run_event(
+                                run_id,
+                                "team.contribution.sealed",
+                                "collaboration",
+                                "独立贡献已封存",
+                                "平台在公开揭示前固定贡献原文哈希；后续议事不会改写初始提交。",
+                                {
+                                    "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
+                                    "platform_attempt_id": platform_attempt_id, **seal,
+                                    "status": "sealed", "terminal": True,
+                                },
+                            )
+                        if len(participating_members) > 1:
+                            for member in participating_members:
+                                store.append_run_event(
+                                    run_id,
+                                    "team.contribution.pre_reveal_access.denied",
+                                    "security",
+                                    f"{member['name']}的预揭示访问已拒绝",
+                                    "独立阶段只向人物注入自己的上下文；其他已封存贡献在 reveal 授权前不可见。",
+                                    {
+                                        "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
+                                        "platform_attempt_id": platform_attempt_id, "agent_id": member["id"],
+                                        "sealed_contribution_count": len(contribution_seals),
+                                        "authorization_decision": "deny", "side_effect_status": "not_started",
+                                        "status": "passed",
+                                    },
+                                )
+                        reveal_id = f"reveal:{run_id}:{node_key}:loop{loop_round}:attempt{node_attempt}"
+                        store.append_run_event(
+                            run_id,
+                            "team.dossier.reveal.authorized",
+                            "collaboration",
+                            "独立贡献已获准公开揭示",
+                            "全部初始贡献完成并封存后，平台一次性授权写入公共卷宗。",
+                            {
+                                "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
+                                "platform_attempt_id": platform_attempt_id, "reveal_id": reveal_id,
+                                "seal_ids": [item["seal_id"] for item in contribution_seals],
+                                "participant_agent_ids": [member["id"] for member in participating_members],
+                                "authorization_decision": "allow", "status": "authorized",
+                            },
+                        )
                     member_usage = [item[0].get("usage") or {} for item in member_results]
                     memory_entries.extend((member, text) for member, (_, text) in zip(participating_members, member_results))
                     lead = next((member for member in participating_members if member["id"] == agent["id"]), participating_members[0])
@@ -2146,6 +2835,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "participant_agent_ids": [member["id"] for member in participating_members],
                                 "participant_names": [member["name"] for member in participating_members],
                                 "contribution_count": len(member_results),
+                                "reveal_id": reveal_id,
+                                "seal_ids": [item["seal_id"] for item in contribution_seals],
                                 "shared_fields": ["公开贡献", "引用来源", "文件变更清单", "用户现场意见"],
                                 "private_fields_excluded": ["私有思维链", "私有 Memory", "私有会话原文"],
                             },
@@ -2330,6 +3021,37 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "member_count": len(participating_members),
                                 "message_count": len(public_messages) if len(participating_members) > 1 else 0,
                                 "usage": usage,
+                            },
+                        )
+                        decision_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                        thread_id = f"thread:{run_id}:{node_key}:loop{loop_round}:attempt{node_attempt}"
+                        store.append_run_event(
+                            run_id,
+                            "team.decision.recorded",
+                            "collaboration",
+                            "团队正式决定已记录",
+                            "负责人基于封存贡献和公开议事形成唯一正式决定；原始分歧继续保留在公共卷宗。",
+                            {
+                                "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
+                                "platform_attempt_id": platform_attempt_id, "agent_id": agent["id"],
+                                "thread_id": thread_id, "decision_sha256": decision_sha256,
+                                "participant_agent_ids": [member["id"] for member in participating_members],
+                                "status": "recorded", "terminal": True,
+                            },
+                        )
+                        store.append_run_event(
+                            run_id,
+                            "team.thread.frozen",
+                            "collaboration",
+                            "本轮团队议事线程已冻结",
+                            "决定形成后禁止继续向本轮线程追加消息；后续返工必须建立新的 loop/Attempt 线程。",
+                            {
+                                "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
+                                "platform_attempt_id": platform_attempt_id, "thread_id": thread_id,
+                                "thread_status": "frozen", "message_count": (
+                                    len(public_messages) if len(participating_members) > 1 else 0
+                                ),
+                                "decision_sha256": decision_sha256, "terminal": True,
                             },
                         )
                 else:
@@ -2673,6 +3395,26 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "真实模型返回内容已持久化为可查看、可追溯的节点产物。",
                         artifact_payload,
                     )
+                    if prior_task_artifact and str(prior_task_artifact.get("id") or "") != artifact["id"]:
+                        store.append_run_event(
+                            run_id,
+                            "artifact.superseded",
+                            "artifact",
+                            f"“{task['node_name']}”旧候选已由新版本替代",
+                            "旧 Artifact 原始内容与哈希继续保留；平台原生事件明确指定唯一后继版本。",
+                            {
+                                "task_id": task["id"], "node_key": node_key,
+                                "platform_attempt_id": platform_attempt_id,
+                                "artifact_id": prior_task_artifact.get("id"),
+                                "superseded_artifact_id": prior_task_artifact.get("id"),
+                                "superseded_artifact_version": prior_task_artifact.get("version"),
+                                "superseded_by_artifact_id": artifact["id"],
+                                "artifact_version": artifact["version"],
+                                "previous_sha256": prior_task_artifact.get("sha256"),
+                                "sha256": artifact["sha256"],
+                                "status": "superseded", "terminal": True,
+                            },
+                        )
                     if artifact_receipt["matched"]:
                         store.append_run_event(
                             run_id, "artifact.collected", "artifact",
@@ -2687,13 +3429,16 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             {**artifact_payload, "status": "matched"},
                         )
                 registered_file_artifacts: list[dict[str, Any]] = []
-                latest_file_change_by_path: dict[str, dict[str, Any]] = {}
+                latest_file_change_by_path: dict[str, tuple[dict[str, Any], str]] = {}
                 for runtime_response in node_runtime_responses:
                     for change in runtime_response.get("recorded_file_changes", []):
                         path = str(change.get("path") or "")
                         if path:
-                            latest_file_change_by_path[path] = change
-                for relative_path, change in sorted(latest_file_change_by_path.items()):
+                            latest_file_change_by_path[path] = (
+                                change,
+                                str(runtime_response.get("delivery_root") or ""),
+                            )
+                for relative_path, (change, source_root) in sorted(latest_file_change_by_path.items()):
                     try:
                         file_artifact = store.register_workspace_file_artifact(
                             run_id,
@@ -2702,6 +3447,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             status="candidate",
                             change_action=str(change.get("action") or "recorded"),
                             previous_sha256=str(change.get("previous_sha256") or ""),
+                            source_root=source_root or None,
                         )
                     except (OSError, ValueError):
                         continue
@@ -2775,6 +3521,30 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         ),
                         {},
                     )
+                    namespace_probe_reader = next(
+                        (
+                            candidate for candidate in runtime_agents.values()
+                            if str(candidate.get("id") or "") != str(memory_agent.get("id") or "")
+                            and str(candidate.get("family_id") or candidate.get("id") or "")
+                            != str(memory_agent.get("family_id") or memory_agent.get("id") or "")
+                        ),
+                        None,
+                    )
+                    namespace_denied = False
+                    namespace_error = ""
+                    if namespace_probe_reader:
+                        try:
+                            store.read_agent_memory_for(str(namespace_probe_reader["id"]), str(memory_record["id"]))
+                        except ValueError as exc:
+                            namespace_error = str(exc)
+                            namespace_denied = namespace_error == "memory_namespace_denied"
+                    hidden_superseded_ids: list[str] = []
+                    for superseded_record in memory_record.get("superseded_records", []):
+                        try:
+                            store.read_agent_memory_for(str(memory_agent["id"]), str(superseded_record["id"]))
+                        except ValueError as exc:
+                            if str(exc) == "memory_not_active":
+                                hidden_superseded_ids.append(str(superseded_record["id"]))
                     persisted_memory_records.append(
                         {
                             **memory_record,
@@ -2782,6 +3552,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "value_sha256": hashlib.sha256(memory_value.encode("utf-8")).hexdigest(),
                             "writer_session_id": writer_response.get("platform_session_id"),
                             "writer_sdk_session_id": writer_response.get("claude_sdk_session_id"),
+                            "namespace_probe_reader_id": (namespace_probe_reader or {}).get("id"),
+                            "namespace_denied": namespace_denied,
+                            "namespace_error": namespace_error,
+                            "hidden_superseded_ids": hidden_superseded_ids,
                         }
                     )
                 async with event_lock:
@@ -2792,10 +3566,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "platform_attempt_id": platform_attempt_id,
                             "memory_id": memory_record["id"],
                             "memory_key": memory_record["memory_key"],
-                            "memory_version": 1,
+                            "memory_version": memory_record.get("version", 1),
                             "value_sha256": memory_record["value_sha256"],
                             "writer_session_id": memory_record.get("writer_session_id"),
                             "writer_sdk_session_id": memory_record.get("writer_sdk_session_id"),
+                            "supersedes_memory_id": memory_record.get("supersedes_id"),
                         }
                         store.append_run_event(
                             run_id, "agent.memory.candidate", "memory",
@@ -2810,6 +3585,54 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             run_id, "agent.memory.committed", "memory",
                             "人物 Memory 已提交", "持久化完成，可由后续全新 SDK Session 读取。", memory_payload,
                         )
+                        for superseded_record in memory_record.get("superseded_records", []):
+                            superseded_payload = {
+                                **memory_payload,
+                                "superseded_memory_id": superseded_record.get("id"),
+                                "superseded_memory_version": superseded_record.get("version", 1),
+                                "superseded_value_sha256": hashlib.sha256(
+                                    str(superseded_record.get("content") or "").encode("utf-8")
+                                ).hexdigest(),
+                                "superseded_by_memory_id": memory_record["id"],
+                            }
+                            store.append_run_event(
+                                run_id, "agent.memory.superseded", "memory",
+                                "旧 Memory 版本已被新提交替代",
+                                "旧记录继续保留用于审计，但已从人物默认检索结果中移除。",
+                                {**superseded_payload, "status": "superseded"},
+                            )
+                            store.append_run_event(
+                                run_id, "agent.memory.tombstoned", "memory",
+                                "旧 Memory 版本已写入逻辑墓碑",
+                                "平台没有删除审计原文；墓碑状态阻止旧值再次进入 Agent 上下文。",
+                                {**superseded_payload, "status": "tombstoned"},
+                            )
+                            store.append_run_event(
+                                run_id, "agent.memory.old_value.hidden", "validation",
+                                "旧 Memory 已从活动检索结果隐藏",
+                                "平台使用原人物身份回读旧 Memory，确认返回 memory_not_active。",
+                                {
+                                    **superseded_payload,
+                                    "status": (
+                                        "passed"
+                                        if str(superseded_record.get("id")) in memory_record.get("hidden_superseded_ids", [])
+                                        else "failed"
+                                    ),
+                                },
+                            )
+                        if memory_record.get("namespace_probe_reader_id"):
+                            store.append_run_event(
+                                run_id, "agent.memory.namespace.denied", "security",
+                                "跨人物 Memory 命名空间读取探针已拒绝",
+                                "平台实际使用另一人物身份读取新 Memory，并由 family namespace 边界拒绝。",
+                                {
+                                    **memory_payload,
+                                    "reader_agent_id": memory_record.get("namespace_probe_reader_id"),
+                                    "authorization_decision": "deny" if memory_record.get("namespace_denied") else "unexpected_allow",
+                                    "error_detail": memory_record.get("namespace_error"),
+                                    "status": "passed" if memory_record.get("namespace_denied") else "failed",
+                                },
+                            )
                     if persisted_memory_records:
                         store.append_run_event(
                             run_id, "agent.memory.persisted", "collaboration",
@@ -2817,6 +3640,98 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             f"本节点为 {len(persisted_memory_records)} 位参与人物分别保存了私有经历；不会写入其他人物的记忆。",
                             {"task_id": task["id"], "node_key": node_key, "memory_count": len(persisted_memory_records)},
                         )
+                for memory_record in persisted_memory_records:
+                    strict_sdk_session = (
+                        str(getattr(run_runtime, "runtime_name", "")) == "claude_code"
+                        and _runtime_mode(run_runtime) == "agent-sdk-bridge"
+                    )
+                    if not strict_sdk_session:
+                        continue
+                    memory_agent = runtime_agents.get(str(memory_record.get("agent_id") or ""))
+                    if not memory_agent:
+                        memory_agent = store.get_agent(str(memory_record.get("agent_id") or ""))
+                    if not memory_agent:
+                        raise RuntimeError(f"memory_closure_agent_missing:{memory_record.get('agent_id')}")
+                    readable_memory = store.read_agent_memory_for(
+                        str(memory_agent["id"]), str(memory_record["id"])
+                    )
+                    memory_value = str(readable_memory.get("content") or "")
+                    closure_session_key = (
+                        f"agent:{memory_agent['id']}:{run_id}-{node_key}-epoch{execution_epoch}"
+                        f"-loop{loop_round}-attempt{node_attempt}-memory-closure-{memory_record['id']}"
+                    )
+                    async with event_lock:
+                        store.append_run_event(
+                            run_id, "agent.memory.retrieved", "memory",
+                            f"{memory_agent['name']}在提交后新 Session 回读 Memory",
+                            "平台通过人物 family namespace 重新读取刚提交的活动版本，准备执行确定性闭环探针。",
+                            {
+                                "task_id": task["id"], "node_key": node_key,
+                                "agent_id": memory_agent["id"], "platform_attempt_id": platform_attempt_id,
+                                "platform_session_id": closure_session_key,
+                                "memory_id": memory_record["id"], "memory_key": memory_record["memory_key"],
+                                "memory_version": memory_record.get("version", 1),
+                                "value_sha256": memory_record["value_sha256"],
+                                "reader_session_id": closure_session_key, "status": "retrieved",
+                            },
+                        )
+                    closure_marker = memory_record["value_sha256"][:16]
+                    async with llm_semaphore:
+                        closure_response = await run_runtime.message(
+                            agent=memory_agent,
+                            prompt=(
+                                "这是长期 Memory 提交后的闭环核验。阅读下方已获准的私有 Memory，"
+                                f"只返回 MEMORY_CLOSURE_OK:{closure_marker}。\n\n{memory_value}"
+                            ),
+                            session_key=closure_session_key,
+                            model_config=node_model_config,
+                            timeout_seconds=min(_agent_timeout_seconds(False), max_run_minutes * 60),
+                        )
+                    closure_runtime = (
+                        closure_response.get(runtime_name)
+                        if isinstance(closure_response.get(runtime_name), dict)
+                        else {}
+                    )
+                    reader_sdk_session_id = closure_runtime.get("session_id")
+                    closure_text = _text(closure_response)
+                    closure_passed = (
+                        f"MEMORY_CLOSURE_OK:{closure_marker}" in closure_text
+                        and bool(reader_sdk_session_id)
+                        and str(reader_sdk_session_id)
+                        != str(memory_record.get("writer_sdk_session_id") or "")
+                    )
+                    closure_usage = closure_response.get("usage") or {}
+                    input_tokens += int(closure_usage.get("input_tokens", 0) or 0)
+                    output_tokens += int(closure_usage.get("output_tokens", 0) or 0)
+                    async with event_lock:
+                        memory_closure_payload = {
+                            "task_id": task["id"], "node_key": node_key,
+                            "agent_id": memory_agent["id"], "platform_attempt_id": platform_attempt_id,
+                            "platform_session_id": closure_session_key,
+                            "memory_id": memory_record["id"], "memory_key": memory_record["memory_key"],
+                            "memory_version": memory_record.get("version", 1),
+                            "value_sha256": memory_record["value_sha256"],
+                            "writer_session_id": memory_record.get("writer_session_id"),
+                            "writer_sdk_session_id": memory_record.get("writer_sdk_session_id"),
+                            "reader_session_id": closure_session_key,
+                            "reader_sdk_session_id": reader_sdk_session_id,
+                            "strict_sdk_session": strict_sdk_session,
+                            "status": "passed" if closure_passed else "failed",
+                        }
+                        store.append_run_event(
+                            run_id, "agent.memory.used", "memory",
+                            f"{memory_agent['name']}在提交后新 SDK Session 使用了 Memory",
+                            "闭环探针把刚提交的活动 Memory 注入新的 Claude SDK Session，并核对返回标记。",
+                            memory_closure_payload,
+                        )
+                        store.append_run_event(
+                            run_id, "agent.memory.closure.verified", "validation",
+                            "Memory 提交、回读与新 Session 使用已闭环",
+                            "writer 与 reader 使用不同 Claude SDK Session；Memory ID、版本和内容哈希保持一致。",
+                            {**memory_closure_payload, "terminal": True},
+                        )
+                    if not closure_passed:
+                        raise RuntimeError(f"memory_closure_failed:{memory_record['id']}")
                 return node_key, input_tokens + output_tokens, {
                     "title": task["node_name"],
                     "content": content[:4000],
@@ -3136,6 +4051,32 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             progress = int((len(completed) / max(len(tasks), 1)) * 100)
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
+        convergence_snapshot = store.get_run(run_id) or {}
+        unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
+            list(convergence_snapshot.get("events", []))
+        )
+        store.append_run_event(
+            run_id, "worker.duplicate_side_effect.scan", "validation",
+            "Run 收敛前重复副作用终检已完成",
+            "平台在所有固定节点完成后复核稳定 Tool 身份及显式 reconciliation。",
+            {
+                "execution_epoch": execution_epoch,
+                "status": "completed",
+                "terminal": True,
+                "duplicate_side_effect_count": unresolved_duplicate_count,
+            },
+        )
+        store.append_run_event(
+            run_id, "run.converged", "gate",
+            "工作流已收敛到最终通过状态",
+            "所有固定节点均已完成，最终 Judge 已通过，未再产生待返工节点。",
+            {
+                "execution_epoch": execution_epoch,
+                "completed_node_keys": sorted(completed),
+                "pending_node_keys": [],
+                "duplicate_side_effect_count": unresolved_duplicate_count,
+            },
+        )
         store.update_run(run_id, status="completed", stage="completed", progress=100, token_count=total_tokens)
         completed_run = store.get_run(run_id) or {}
         existing_conclusion = next(

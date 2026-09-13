@@ -1,0 +1,150 @@
+{
+  "schema_version": "jianghu.runtime-g5-engineering-comparison.v1",
+  "captured_at": "2026-09-11T16:31:52.007320+00:00",
+  "source": "recovered_from_completed_runs",
+  "status": "passed",
+  "pair_checks": {
+    "both_runtimes_passed": true,
+    "same_required_delivery_contract": true,
+    "both_portable": true
+  },
+  "runtimes": [
+    {
+      "runtime": "openclaw",
+      "database": "real-engineering-team-e2e-4334c260d1.db",
+      "run_id": "run_9800e0094b6f",
+      "status": "passed",
+      "checks": {
+        "run_completed": true,
+        "independent_public_submissions": true,
+        "public_messages": true,
+        "command_events": true,
+        "test_events": true,
+        "artifact_validator_passed": true,
+        "required_files_present": true,
+        "control_files_not_leaked": true,
+        "portable_tests_passed": true
+      },
+      "run": {
+        "status": "completed",
+        "progress": 100,
+        "duration_seconds": 580.616,
+        "token_count": 532961,
+        "task_count": 1,
+        "artifact_count": 2,
+        "event_count": 355
+      },
+      "validation": {
+        "passed": true,
+        "file_count": 7,
+        "command_count": 38,
+        "successful_test_count": 10,
+        "portable_successful_test_count": 3
+      },
+      "event_counts": {
+        "team.member.completed": 2,
+        "team.dossier.published": 1,
+        "engineering.submission.published": 2,
+        "team.communication.round.started": 1,
+        "agent.message.sent": 2,
+        "team.synthesis.started": 1,
+        "agent.file.created": 19,
+        "agent.file.modified": 0,
+        "agent.command.completed": 38,
+        "agent.test.completed": 16,
+        "artifact.validation.passed": 1,
+        "run.completed": 1,
+        "run.failed": 0
+      },
+      "delivery": {
+        "files": [
+          "README.md",
+          "build_archive.py",
+          "calculator-project.zip",
+          "calculator/__init__.py",
+          "calculator/core.py",
+          "manifest.json",
+          "tests/test_core.py"
+        ],
+        "required_files": [
+          "README.md",
+          "calculator/__init__.py",
+          "calculator/core.py",
+          "tests/test_core.py"
+        ],
+        "forbidden_files": [],
+        "portable_test_exit_code": 0,
+        "portable_test_count": 12,
+        "portable_test_output_tail": "test_adds_floats (test_core.AddTests.test_adds_floats) ... ok\ntest_adds_integers (test_core.AddTests.test_adds_integers) ... ok\ntest_adds_negative_and_float (test_core.AddTests.test_adds_negative_and_float) ... ok\ntest_package_exports_core_function (test_core.AddTests.test_package_exports_core_function) ... ok\ntest_divides_evenly (test_core.SafeDivideTests.test_divides_evenly) ... ok\ntest_float_zero_raises_value_error (test_core.SafeDivideTests.test_float_zero_raises_value_error) ... ok\ntest_integer_zero_raises_value_error (test_core.SafeDivideTests.test_integer_zero_raises_value_error) ... ok\ntest_negative_float_zero_raises_value_error (test_core.SafeDivideTests.test_negative_float_zero_raises_value_error) ... ok\ntest_package_exports_core_function (test_core.SafeDivideTests.test_package_exports_core_function) ... ok\ntest_supports_negative_divisor (test_core.SafeDivideTests.test_supports_negative_divisor) ... ok\ntest_uses_python_true_division (test_core.SafeDivideTests.test_uses_python_true_division) ... ok\ntest_zero_numerator_is_valid (test_core.SafeDivideTests.test_zero_numerator_is_valid) ... ok\n\n----------------------------------------------------------------------\nRan 12 tests in 0.001s\n\nOK\n"
+      }
+    },
+    {
+      "runtime": "claude_code",
+      "database": "real-engineering-team-e2e-ce633494b4.db",
+      "run_id": "run_c632a5710385",
+      "status": "passed",
+      "checks": {
+        "run_completed": true,
+        "independent_public_submissions": true,
+        "public_messages": true,
+        "command_events": true,
+        "test_events": true,
+        "artifact_validator_passed": true,
+        "required_files_present": true,
+        "control_files_not_leaked": true,
+        "portable_tests_passed": true
+      },
+      "run": {
+        "status": "completed",
+        "progress": 100,
+        "duration_seconds": 578.682,
+        "token_count": 137515,
+        "task_count": 1,
+        "artifact_count": 2,
+        "event_count": 387
+      },
+      "validation": {
+        "passed": true,
+        "file_count": 6,
+        "command_count": 51,
+        "successful_test_count": 13,
+        "portable_successful_test_count": 4
+      },
+      "event_counts": {
+        "team.member.completed": 2,
+        "team.dossier.published": 1,
+        "engineering.submission.published": 2,
+        "team.communication.round.started": 1,
+        "agent.message.sent": 2,
+        "team.synthesis.started": 1,
+        "agent.file.created": 17,
+        "agent.file.modified": 4,
+        "agent.command.completed": 51,
+        "agent.test.completed": 14,
+        "artifact.validation.passed": 1,
+        "run.completed": 1,
+        "run.failed": 0
+      },
+      "delivery": {
+        "files": [
+          "MANIFEST.json",
+          "README.md",
+          "calculator/__init__.py",
+          "calculator/core.py",
+          "tests/__init__.py",
+          "tests/test_core.py"
+        ],
+        "required_files": [
+          "README.md",
+          "calculator/__init__.py",
+          "calculator/core.py",
+          "tests/test_core.py"
+        ],
+        "forbidden_files": [],
+        "portable_test_exit_code": 0,
+        "portable_test_count": 15,
+        "portable_test_output_tail": "test_adds_decimals (test_core.AddTests.test_adds_decimals) ... ok\ntest_adds_fractions (test_core.AddTests.test_adds_fractions) ... ok\ntest_adds_integers (test_core.AddTests.test_adds_integers) ... ok\ntest_adds_negative_and_float (test_core.AddTests.test_adds_negative_and_float) ... ok\ntest_incompatible_operands_keep_native_type_error (test_core.AddTests.test_incompatible_operands_keep_native_type_error) ... ok\ntest_accepts_negative_divisor (test_core.SafeDivideTests.test_accepts_negative_divisor) ... ok\ntest_decimal_zero_raises_value_error (test_core.SafeDivideTests.test_decimal_zero_raises_value_error) ... ok\ntest_divides_decimals (test_core.SafeDivideTests.test_divides_decimals) ... ok\ntest_divides_floats (test_core.SafeDivideTests.test_divides_floats) ... ok\ntest_divides_fractions (test_core.SafeDivideTests.test_divides_fractions) ... ok\ntest_divides_integers (test_core.SafeDivideTests.test_divides_integers) ... ok\ntest_incompatible_operands_keep_native_type_error (test_core.SafeDivideTests.test_incompatible_operands_keep_native_type_error) ... ok\ntest_integer_zero_raises_value_error_with_stable_message (test_core.SafeDivideTests.test_integer_zero_raises_value_error_with_stable_message) ... ok\ntest_negative_float_zero_raises_value_error (test_core.SafeDivideTests.test_negative_float_zero_raises_value_error) ... ok\ntest_preserves_fractional_result (test_core.SafeDivideTests.test_preserves_fractional_result) ... ok\n\n----------------------------------------------------------------------\nRan 15 tests in 0.001s\n\nOK\n"
+      }
+    }
+  ]
+}

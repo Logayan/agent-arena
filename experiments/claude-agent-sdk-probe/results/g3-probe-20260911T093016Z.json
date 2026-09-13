@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "probe_id": "20260911T093016Z",
+  "created_at": "2026-09-11T09:30:20.984823+00:00",
+  "production_runtime_changed": false,
+  "model_config": {
+    "provider": "openai-responses",
+    "base_url_scheme": "http",
+    "model": "gpt-5.6-sol",
+    "token_present": true,
+    "token_persisted_in_result": false
+  },
+  "static": {
+    "schema_version": 1,
+    "probe": "static",
+    "status": "passed",
+    "runtime": {
+      "node": "v22.18.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "sdk": {
+      "package": "@anthropic-ai/claude-agent-sdk",
+      "version": "0.3.268",
+      "claude_code_version": "2.1.268",
+      "node_requirement": ">=18.0.0",
+      "license": "SEE LICENSE IN README.md",
+      "query_exported": true,
+      "resolve_settings_exported": true,
+      "export_count": 31,
+      "exports_sha256": "1710688de473a404201ee2c4665928dac868595684905e7c853e5528999183dd"
+    },
+    "platform_binary": {
+      "path_kind": "bundled-win32-x64",
+      "exists": true
+    }
+  },
+  "anthropic_messages_protocol": {
+    "status": "passed",
+    "http_status": 200,
+    "content_type": "application/json",
+    "provider_type": "message",
+    "provider_error_type": null,
+    "body_sha256_present": true
+  },
+  "sdk_live_minimal": {
+    "schema_version": 1,
+    "probe": "live-minimal",
+    "status": "failed",
+    "session_id_present": false,
+    "init": null,
+    "result": null,
+    "event_counts": {},
+    "tool_events": [],
+    "error": {
+      "name": "Error",
+      "category": "sdk_exception",
+      "message_code": "spawn EFTYPE"
+    }
+  }
+}
