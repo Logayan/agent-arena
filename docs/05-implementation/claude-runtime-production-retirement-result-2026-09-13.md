@@ -48,7 +48,7 @@ Trace 说明：v5 配置为 `trace: retain-on-failure`，本轮 11 项全部通�
 ```text
 生产残留定向测试：63 passed
 后端全量测试：178 passed, 1 third-party warning
-Claude SDK Bridge：4 passed
+Claude SDK Bridge：8 passed
 前端生产构建：PASS（1777 modules transformed）
 根目录历史证据复算：0 executed, 2 skipped
   - evidence/platform_snapshot/events.ndjson 未物化
@@ -56,6 +56,8 @@ Claude SDK Bridge：4 passed
 ```
 
 两个 SKIP 仅代表仓库未携带大型外部冻结夹具，不用于证明迁移通过。当前 Run 内的实时 Artifact Registry、浏览器证据和独立 Judge 仍需按平台流程完成登记、下载复算和裁决。
+
+在恢复 epoch Attempt 血缘修复提交后再次执行同一工程门禁，结果保持为后端 `178 passed, 1 third-party warning`、Claude SDK Bridge `8/8 passed`、前端生产构建 `1777 modules transformed`。该回归使用测试环境，不修改 `run_bda13e93b2ea` 的事件或 Artifact；实时 Run 的最终裁决仍以平台内注册证据和独立 Judge 为准。
 
 ## 5. 生产残留扫描
 
