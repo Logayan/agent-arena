@@ -59,6 +59,8 @@ Claude SDK Bridge：8 passed
 
 在恢复 epoch Attempt 血缘修复提交后再次执行同一工程门禁，结果保持为后端 `178 passed, 1 third-party warning`、Claude SDK Bridge `8/8 passed`、前端生产构建 `1777 modules transformed`。该回归使用测试环境，不修改 `run_bda13e93b2ea` 的事件或 Artifact；实时 Run 的最终裁决仍以平台内注册证据和独立 Judge 为准。
 
+凭据扫描 `scripts/check-no-secrets.ps1` 返回 `secret_scan=passed`；生产 Runtime Port 与 source-attestation 定向合同 `44 passed, 1 third-party warning`。扫描结果只证明仓库提交内容未发现密钥落盘，不输出或归档实际凭据值。
+
 ## 5. 生产残留扫描
 
 本地严格扫描结果：
