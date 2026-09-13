@@ -127,6 +127,44 @@ def workspace_file_category(relative_path: str) -> str:
     return "other"
 
 
+def workspace_file_media_type(path_value: str) -> str:
+    """Return a deterministic media type for immutable workspace artifacts."""
+    suffix = Path(str(path_value or "")).suffix.lower()
+    media_types = {
+        ".zip": "application/zip",
+        ".json": "application/json",
+        ".har": "application/json",
+        ".xml": "application/xml",
+        ".md": "text/markdown",
+        ".markdown": "text/markdown",
+        ".txt": "text/plain",
+        ".log": "text/plain",
+        ".py": "text/plain",
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+        ".ts": "text/plain",
+        ".vue": "text/plain",
+        ".css": "text/css",
+        ".html": "text/html",
+        ".yaml": "application/yaml",
+        ".yml": "application/yaml",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+        ".bmp": "image/bmp",
+        ".avif": "image/avif",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".pdf": "application/pdf",
+    }
+    return media_types.get(suffix, "application/octet-stream")
+
+
 STARTER_STRATEGIST = {
     "id": "agent_seed_shen_lichuan",
     "name": "沈砺川",
@@ -3643,7 +3681,7 @@ class PlatformStore:
             )
         return {"family_id": family_id, "workflow_ids": workflow_ids, "status": "archived"}
 
-    def extend_run_time(self, run_id: str, minutes: int) -> dict[str, Any]:
+    def extend_run_time(self, run_id: str, minutes: int, *, hydrate_result: bool = True) -> dict[str, Any]:
         """Extend a runtime-limited run and put it back into the recovery queue.
 
         Extensions are event-backed so the original run start time, completed
@@ -3651,34 +3689,51 @@ class PlatformStore:
         """
         if minutes not in {30, 60, 120}:
             raise ValueError("invalid_extension_minutes")
-        run = self.get_run(run_id)
-        if not run:
-            raise ValueError("run_not_found")
-        if str(run.get("status")) != "budget_exhausted":
-            raise ValueError("run_time_extension_not_allowed")
-        budget_event = next(
-            (
-                event
-                for event in reversed(run.get("events", []))
-                if event.get("type") == "run.budget_exhausted"
-            ),
-            None,
-        )
+        with self._connect() as db:
+            run_row = db.execute(
+                "SELECT id,workflow_id,status FROM runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if not run_row:
+                raise ValueError("run_not_found")
+            if str(run_row["status"] or "") != "budget_exhausted":
+                raise ValueError("run_time_extension_not_allowed")
+            workflow_row = db.execute(
+                "SELECT definition_json FROM workflows WHERE id=?", (str(run_row["workflow_id"]),)
+            ).fetchone()
+            if not workflow_row:
+                raise ValueError("workflow_not_found")
+            event_rows = db.execute(
+                """SELECT sequence,type,created_at,payload_json FROM events
+                   WHERE run_id=? AND type IN (
+                     'run.started','run.recovered','run.resumed','run.time_extended',
+                     'run.pause_requested','run.paused','run.budget_exhausted',
+                     'run.completed','run.failed','run.cancelled','run.revision_exhausted'
+                   ) ORDER BY sequence""",
+                (run_id,),
+            ).fetchall()
+        events = [
+            {
+                "sequence": int(row["sequence"] or 0),
+                "type": str(row["type"] or ""),
+                "created_at": str(row["created_at"] or ""),
+                "payload": json.loads(str(row["payload_json"] or "{}")),
+            }
+            for row in event_rows
+        ]
+        budget_event = next((event for event in reversed(events) if event["type"] == "run.budget_exhausted"), None)
         budget_payload = (budget_event or {}).get("payload", {})
         error_detail = str(budget_payload.get("error_detail") or "")
         budget_kind = str(budget_payload.get("budget_kind") or "")
-        workflow = self.get_workflow(str(run["workflow_id"]))
-        if not workflow:
-            raise ValueError("workflow_not_found")
-        policies = workflow.get("definition", {}).get("policies", {})
+        definition = json.loads(str(workflow_row["definition_json"] or "{}"))
+        policies = definition.get("policies", {})
         base_minutes = int(policies.get("max_run_minutes", 180) or 180)
         previous_extensions = sum(
             int((event.get("payload") or {}).get("minutes", 0) or 0)
-            for event in run.get("events", [])
+            for event in events
             if event.get("type") == "run.time_extended"
         )
         effective_before = base_minutes + previous_extensions
-        legacy_time_limit = active_run_seconds(run.get("events", [])) >= max(0, effective_before * 60 - 1)
+        legacy_time_limit = active_run_seconds(events) >= max(0, effective_before * 60 - 1)
         if (
             budget_kind != "run_time_limit"
             and "run_time_limit" not in error_detail
@@ -3713,7 +3768,143 @@ class PlatformStore:
                     "source_error": "run_time_limit",
                 },
             )
-        return self.get_run(run_id)  # type: ignore[return-value]
+        if hydrate_result:
+            return self.get_run(run_id)  # type: ignore[return-value]
+        return {
+            "id": run_id,
+            "status": "running",
+            "stage": "resuming_after_time_extension",
+            "minutes": minutes,
+            "base_minutes": base_minutes,
+            "previous_extensions": previous_extensions,
+            "effective_minutes": effective_after,
+            "maximum_minutes": maximum_minutes,
+        }
+
+    def recover_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
+        """Resume a terminal Run in place without replacing its evidence history.
+
+        Completed tasks with registered Artifacts remain completed.  Failed or
+        otherwise unfinished tasks are marked for a new execution epoch.  A
+        targeted recovery also includes every downstream node, while retaining
+        all previous task failures, events, and Artifact versions for audit.
+        """
+        now = utc_now()
+        with self._connect() as db:
+            run_row = db.execute(
+                "SELECT id,workflow_id,status,progress,stage,run_version FROM runs WHERE id=?",
+                (run_id,),
+            ).fetchone()
+            if not run_row:
+                raise ValueError("run_not_found")
+            previous_status = str(run_row["status"] or "")
+            if previous_status not in {"failed", "cancelled", "revision_exhausted", "budget_exhausted"}:
+                raise ValueError("run_is_not_recoverable")
+            if previous_status == "budget_exhausted":
+                budget_row = db.execute(
+                    "SELECT payload_json FROM events WHERE run_id=? AND type='run.budget_exhausted' ORDER BY sequence DESC LIMIT 1",
+                    (run_id,),
+                ).fetchone()
+                budget_payload = json.loads(str(budget_row["payload_json"] or "{}")) if budget_row else {}
+                if str(budget_payload.get("budget_kind") or "") != "run_time_limit":
+                    raise ValueError("run_is_not_recoverable")
+
+            workflow_row = db.execute(
+                "SELECT definition_json FROM workflows WHERE id=?",
+                (str(run_row["workflow_id"]),),
+            ).fetchone()
+            if not workflow_row:
+                raise ValueError("workflow_not_found")
+            definition = json.loads(str(workflow_row["definition_json"] or "{}"))
+            task_rows = db.execute(
+                """SELECT t.id,t.node_key,t.node_name,t.status,
+                          EXISTS(SELECT 1 FROM artifacts a WHERE a.task_id=t.id AND a.run_id=t.run_id) AS has_artifact
+                   FROM tasks t WHERE t.run_id=? ORDER BY t.created_at,t.id""",
+                (run_id,),
+            ).fetchall()
+            task_by_id = {str(row["id"]): row for row in task_rows}
+            selected_task = task_by_id.get(str(from_task_id)) if from_task_id else None
+            if from_task_id and selected_task is None:
+                raise ValueError("recovery_task_not_found")
+
+            node_keys = {str(row["node_key"]) for row in task_rows}
+            incomplete_node_keys = {
+                str(row["node_key"])
+                for row in task_rows
+                if str(row["status"]) != "completed" or not bool(row["has_artifact"])
+            }
+            recovery_node_keys = set(incomplete_node_keys)
+            if selected_task is not None:
+                outgoing: dict[str, set[str]] = {key: set() for key in node_keys}
+                for edge in definition.get("edges", []):
+                    if isinstance(edge, (list, tuple)) and len(edge) == 2:
+                        source, target = str(edge[0]), str(edge[1])
+                        if source in node_keys and target in node_keys:
+                            outgoing[source].add(target)
+                pending = [str(selected_task["node_key"])]
+                visited: set[str] = set()
+                while pending:
+                    current = pending.pop()
+                    if current in visited:
+                        continue
+                    visited.add(current)
+                    recovery_node_keys.add(current)
+                    for target in outgoing.get(current, set()):
+                        if target not in visited:
+                            pending.append(target)
+            if not recovery_node_keys:
+                raise ValueError("run_has_no_unfinished_tasks")
+
+            placeholders = ",".join("?" for _ in recovery_node_keys)
+            db.execute(
+                f"UPDATE tasks SET status='retrying',updated_at=? WHERE run_id=? AND node_key IN ({placeholders})",
+                [now, run_id, *sorted(recovery_node_keys)],
+            )
+            preserved_node_keys = node_keys - recovery_node_keys
+            recovered_progress = int((len(preserved_node_keys) / max(len(task_rows), 1)) * 100)
+            updated = db.execute(
+                """UPDATE runs SET status='running',stage='recovery_queued',progress=?,updated_at=?
+                   WHERE id=? AND status=?""",
+                (recovered_progress, now, run_id, previous_status),
+            )
+            if getattr(updated, "rowcount", 0) != 1:
+                raise ValueError("run_is_not_recoverable")
+            failure_row = db.execute(
+                """SELECT id,sequence,type FROM events
+                   WHERE run_id=? AND type IN ('run.failed','run.cancelled','run.revision_exhausted','run.budget_exhausted')
+                   ORDER BY sequence DESC LIMIT 1""",
+                (run_id,),
+            ).fetchone()
+            self._event(
+                db,
+                run_id,
+                "run.recovery_requested",
+                "recovery",
+                "原 Run 已进入未完成节点恢复队列",
+                "保留全部历史事件、失败证据和 Artifact，只在新的 execution epoch 中重新执行未完成节点及受影响下游。",
+                {
+                    "previous_status": previous_status,
+                    "run_version": int(run_row["run_version"] or 1),
+                    "source_task_id": str(selected_task["id"]) if selected_task else None,
+                    "recovery_from_node_key": str(selected_task["node_key"]) if selected_task else None,
+                    "recovery_node_keys": sorted(recovery_node_keys),
+                    "preserved_node_keys": sorted(preserved_node_keys),
+                    "source_failure_event_id": str(failure_row["id"]) if failure_row else None,
+                    "source_failure_sequence": int(failure_row["sequence"] or 0) if failure_row else None,
+                },
+            )
+        return {
+            "run_id": run_id,
+            "run_version": int(run_row["run_version"] or 1),
+            "previous_status": previous_status,
+            "status": "running",
+            "stage": "recovery_queued",
+            "progress": recovered_progress,
+            "source_task_id": str(selected_task["id"]) if selected_task else None,
+            "recovery_from_node_key": str(selected_task["node_key"]) if selected_task else None,
+            "recovery_node_keys": sorted(recovery_node_keys),
+            "preserved_node_keys": sorted(preserved_node_keys),
+        }
 
     def retry_run(self, run_id: str, from_task_id: str | None = None) -> dict[str, Any]:
         original = self.get_run(run_id)
@@ -4027,6 +4218,75 @@ class PlatformStore:
         result["node_dossiers"] = self._build_node_dossiers(result)
         result["agent_presence"] = self._derive_agent_presence(result)
         return result
+
+    def get_run_state(self, run_id: str, organization_id: str | None = None) -> dict[str, Any] | None:
+        """Load only the fields needed by control-plane mutation responses."""
+        query = (
+            "SELECT id,project_id,workflow_id,organization_id,status,progress,stage,run_version,updated_at FROM runs "
+            "WHERE id=? AND organization_id=?"
+            if organization_id
+            else "SELECT id,project_id,workflow_id,organization_id,status,progress,stage,run_version,updated_at FROM runs WHERE id=?"
+        )
+        parameters: tuple[Any, ...] = (run_id, organization_id) if organization_id else (run_id,)
+        with self._connect() as db:
+            row = db.execute(query, parameters).fetchone()
+        return dict(row) if row else None
+
+    def get_run_task_summary(self, run_id: str, task_id: str) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT id,node_key,node_name,status FROM tasks WHERE id=? AND run_id=?",
+                (task_id, run_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def get_run_live_snapshot(
+        self, run_id: str, organization_id: str | None = None, *, event_limit: int = 100
+    ) -> dict[str, Any] | None:
+        """Load a bounded live view without hydrating Artifact bodies or dossiers."""
+        state = self.get_run_state(run_id, organization_id)
+        if not state:
+            return None
+        bounded_limit = max(10, min(int(event_limit or 100), 300))
+        with self._connect() as db:
+            task_rows = db.execute(
+                "SELECT id,node_key,node_name,status,updated_at FROM tasks WHERE run_id=? ORDER BY created_at,id",
+                (run_id,),
+            ).fetchall()
+            event_rows = db.execute(
+                "SELECT * FROM events WHERE run_id=? ORDER BY sequence DESC LIMIT ?",
+                (run_id, bounded_limit),
+            ).fetchall()
+            event_count_row = db.execute(
+                "SELECT COUNT(*) AS value FROM events WHERE run_id=?", (run_id,)
+            ).fetchone()
+            artifact_rows = db.execute(
+                "SELECT title,relative_path,media_type FROM artifacts WHERE run_id=?",
+                (run_id,),
+            ).fetchall()
+        evidence = {"cases": 0, "results": 0, "screenshots": 0, "browser_reports": 0}
+        for row in artifact_rows:
+            title = str(row["title"] or row["relative_path"] or "").replace("\\", "/").lower()
+            media_type = str(row["media_type"] or "").lower()
+            if re.search(r"(^|/)(test-cases|test_cases|测试用例)(\.|/|$)", title):
+                evidence["cases"] += 1
+            if re.search(r"(^|/)(test-results|test_results|测试结果)(\.|/|$)", title):
+                evidence["results"] += 1
+            if media_type.startswith("image/") or re.search(r"\.(png|jpe?g|webp)$", title):
+                evidence["screenshots"] += 1
+            if re.search(r"playwright|browser-e2e|e2e-report|screenshot-index|\.har$", title):
+                evidence["browser_reports"] += 1
+        evidence["complete"] = all(
+            evidence[key] > 0 for key in ("cases", "results", "screenshots", "browser_reports")
+        )
+        return {
+            **state,
+            "tasks": [dict(row) for row in task_rows],
+            "events": [self._event_json(row) for row in reversed(event_rows)],
+            "event_count_total": int(_row_value(event_count_row, "value") or 0),
+            "artifact_count": len(artifact_rows),
+            "test_evidence": evidence,
+        }
 
     def create_run_intervention(
         self,
@@ -4448,13 +4708,7 @@ class PlatformStore:
         if not destination.is_relative_to(workspace_root):
             raise ValueError("invalid_artifact_path")
         self._write_bytes_atomic(destination, data)
-        media_type = (
-            "application/zip" if suffix.lower() == ".zip"
-            else "application/json" if suffix.lower() == ".json"
-            else "text/markdown" if suffix.lower() in {".md", ".markdown"}
-            else "text/plain" if suffix.lower() in {".txt", ".log", ".py", ".js", ".mjs", ".ts", ".vue", ".css", ".html", ".yaml", ".yml"}
-            else "application/octet-stream"
-        )
+        media_type = workspace_file_media_type(source.name if normalized_action != "deleted" else suffix)
         digest = hashlib.sha256(data).hexdigest()
         artifact = {
             "id": artifact_id,

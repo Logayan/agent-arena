@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-RUN_BUDGET_START_EVENTS = {"run.started", "run.resumed", "run.time_extended"}
+RUN_BUDGET_START_EVENTS = {"run.started", "run.recovered", "run.resumed", "run.time_extended"}
 RUN_BUDGET_STOP_EVENTS = {
     "run.pause_requested",
     "run.paused",
@@ -65,3 +65,20 @@ def active_run_seconds(events: list[dict[str, Any]], *, now: datetime | None = N
     if active_since is not None:
         elapsed += max(0.0, (current_time.astimezone(timezone.utc) - active_since).total_seconds())
     return elapsed
+
+
+def active_execution_epoch_seconds(events: list[dict[str, Any]], *, now: datetime | None = None) -> float:
+    """Return active time charged to the current execution/recovery epoch.
+
+    Historical epochs remain available to ``active_run_seconds`` for audit and
+    cost reporting, but a deliberate in-place recovery receives a fresh bounded
+    execution window.  This prevents a recovered Run from exhausting its new
+    window immediately because earlier failed epochs already consumed the
+    original Run-level allowance.
+    """
+    ordered = sorted(events, key=lambda item: int(item.get("sequence", 0) or 0))
+    boundary_index = 0
+    for index, event in enumerate(ordered):
+        if str(event.get("type") or "") in {"run.started", "run.recovered", "run.recovery_requested"}:
+            boundary_index = index
+    return active_run_seconds(ordered[boundary_index:], now=now)

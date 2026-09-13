@@ -196,12 +196,20 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/runs/${encodeURIComponent(runId)}/git-delivery/retry${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
   getPlatformRun: (runId: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}?event_limit=300${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`),
+  getPlatformRunState: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/state?event_limit=100${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   artifactDownloadUrl: (artifactId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  artifactPreviewUrl: (artifactId: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download?inline=true${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`,
   startPlatformRun: (runId: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/start${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
   retryPlatformRun: (runId: string, fromTaskId?: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/retry${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
+      method: 'POST', body: JSON.stringify(fromTaskId ? { from_task_id: fromTaskId } : {}),
+    }),
+  recoverPlatformRun: (runId: string, fromTaskId?: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${runId}/recover${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, {
       method: 'POST', body: JSON.stringify(fromTaskId ? { from_task_id: fromTaskId } : {}),
     }),
   cancelPlatformRun: (runId: string, organizationId?: string) =>

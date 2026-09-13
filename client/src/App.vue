@@ -103,7 +103,6 @@ const sceneTabs: { id: 'dossier' | 'actions' | 'messages' | 'evidence' | 'ration
 ]
 const interventionForm = ref({ kind: 'supplement', content: '', agent_id: '' })
 const interventionSaving = ref(false)
-const extensionMinutes = ref(60)
 const teamToDisband = ref<Json | null>(null)
 const disbandingTeamId = ref('')
 const workflowToDelete = ref<Json | null>(null)
@@ -149,7 +148,8 @@ const latestFailureEvent = computed(() => activeRunEvents.value.find((event: Jso
 ].includes(String(event.type))))
 const runTimeLimitExhausted = computed(() => Boolean(
   activeRun.value?.status === 'budget_exhausted'
-    && String(latestFailureEvent.value?.payload?.error_detail ?? '').includes('run_time_limit'),
+    && (latestFailureEvent.value?.payload?.budget_kind === 'run_time_limit'
+      || String(latestFailureEvent.value?.payload?.error_detail ?? '').includes('run_time_limit')),
 ))
 const runConclusionArtifact = computed(() => (activeRun.value?.artifacts ?? []).find((artifact: Json) =>
   String(artifact.title ?? '') === '一页纸结论'
@@ -170,6 +170,30 @@ const artifactGroups = computed(() => {
   return definitions
     .map(definition => ({ ...definition, artifacts: grouped[definition.key] }))
     .filter(group => group.artifacts.length)
+})
+const testEvidenceSummary = computed(() => {
+  const live = activeRun.value?.test_evidence as Json | undefined
+  if (live) return {
+    cases: Number(live.cases ?? 0),
+    results: Number(live.results ?? 0),
+    screenshots: Number(live.screenshots ?? 0),
+    browserReports: Number(live.browser_reports ?? 0),
+    complete: Boolean(live.complete),
+  }
+  const artifacts = activeRun.value?.artifacts ?? []
+  const titles = artifacts.map((artifact: Json) => String(artifact.title ?? '').replace(/\\/g, '/').toLowerCase())
+  const count = (pattern: RegExp) => titles.filter((title: string) => pattern.test(title)).length
+  const cases = count(/(^|\/)(test-cases|test_cases|测试用例)(\.|\/|$)/)
+  const results = count(/(^|\/)(test-results|test_results|测试结果)(\.|\/|$)/)
+  const screenshots = titles.filter((title: string) => /\.(png|jpe?g|webp)$/.test(title)).length
+  const browserReports = titles.filter((title: string) => /playwright|browser-e2e|e2e-report|screenshot-index|\.har$/.test(title)).length
+  return {
+    cases,
+    results,
+    screenshots,
+    browserReports,
+    complete: cases > 0 && results > 0 && screenshots > 0 && browserReports > 0,
+  }
 })
 const gitDeliveryEvents = computed(() => [...(activeRun.value?.events ?? [])]
   .filter((event: Json) => String(event.type ?? '').startsWith('git.'))
@@ -794,7 +818,7 @@ function runStatusLabel(status: string): string {
 
 function eventTypeLabel(type: string): string {
   return ({
-    'run.created': '事件建立', 'run.started': '开始执行', 'run.recovered': '断点恢复', 'run.interrupted': '等待恢复', 'run.completed': '全部完成',
+    'run.created': '事件建立', 'run.started': '开始执行', 'run.recovery_requested': '原现场恢复排队', 'run.recovered': '断点恢复', 'run.interrupted': '等待恢复', 'run.completed': '全部完成',
     'run.retry_created': '重试现场建立', 'run.failed': '执行失败', 'run.cancelled': '已取消', 'run.budget_exhausted': '预算耗尽', 'run.time_extended': '运行时限延长',
     'run.pause_requested': '请求停手', 'run.paused': '现场已暂停', 'run.resumed': '恢复行动',
     'run.revision_exhausted': '返工轮次耗尽', 'agent.runtime.ready': '执行底座已接管', 'agent.runtime.recovered': '执行底座已恢复',
@@ -854,6 +878,12 @@ function artifactMergeRequestMetadata(artifact: Json): Json | null {
 function artifactFileMetadata(artifact: Json): Json | null {
   if (!['runtime_file', 'runtime_file_change'].includes(String(artifact?.kind ?? ''))) return null
   return artifactMetadata(artifact)
+}
+
+function artifactIsImage(artifact: Json): boolean {
+  const mediaType = String(artifact?.media_type ?? '').toLowerCase()
+  const title = String(artifact?.title ?? '').toLowerCase()
+  return mediaType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/.test(title)
 }
 
 function inferredFileCategory(pathValue: unknown): string {
@@ -1302,14 +1332,30 @@ async function refreshActiveRun(runId: string): Promise<void> {
   if (runPollInFlight) return
   runPollInFlight = true
   try {
-    const result = await api.getPlatformRun(runId, currentOrganizationId.value)
-    activeRun.value = result.run as Json
+    const result = await api.getPlatformRunState(runId, currentOrganizationId.value)
+    const snapshot = result.run_state as Json
+    const taskUpdates = Object.fromEntries((snapshot.tasks ?? []).map((task: Json) => [String(task.id), task]))
+    const eventById = new Map(
+      [...(activeRun.value?.events ?? []), ...(snapshot.events ?? [])]
+        .map((event: Json) => [String(event.id), event]),
+    )
+    activeRun.value = {
+      ...activeRun.value,
+      ...snapshot,
+      tasks: (activeRun.value?.tasks ?? []).map((task: Json) => ({ ...task, ...(taskUpdates[String(task.id)] ?? {}) })),
+      events: [...eventById.values()]
+        .sort((left: Json, right: Json) => Number(left.sequence ?? 0) - Number(right.sequence ?? 0))
+        .slice(-300),
+      test_evidence: snapshot.test_evidence,
+    }
     if (!activeRun.value.tasks?.some((task: Json) => task.id === selectedSceneTaskId.value)) {
       selectedSceneTaskId.value = preferredRunTask(activeRun.value.tasks ?? [])?.id ?? ''
     }
     const terminal = ['completed', 'failed', 'cancelled', 'budget_exhausted', 'revision_exhausted'].includes(String(activeRun.value.status))
     if (terminal) {
       stopRunPolling()
+      const finalResult = await api.getPlatformRun(runId, currentOrganizationId.value)
+      activeRun.value = finalResult.run as Json
       runs.value = await api.platformRuns(currentOrganizationId.value)
     }
   } catch (cause) {
@@ -2115,7 +2161,13 @@ async function submitRunIntervention(): Promise<void> {
       agent_id: interventionForm.value.agent_id || undefined,
     }
     const result = await api.intervenePlatformRun(activeRun.value.id, payload, currentOrganizationId.value)
-    activeRun.value = result.run as Json
+    const intervention = result.intervention as Json
+    const existing = activeRun.value.interventions ?? []
+    activeRun.value = {
+      ...activeRun.value,
+      ...(result.run_state as Json ?? {}),
+      interventions: [...existing.filter((item: Json) => item.id !== intervention.id), intervention],
+    }
     interventionForm.value.content = ''
     notice.value = payload.kind === 'require_rework'
       ? '返工意见已进入现场；平台会在受控边界回到该节点并重跑下游。'
@@ -2143,22 +2195,6 @@ async function retryActiveRun(fromTask?: Json): Promise<void> {
       : `已在同一事件现场建立第 ${retryInfo?.run_version ?? run.run_version ?? 2} 版完整重试；历史版本和失败证据保持不变。`
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '创建重试执行失败'
-  } finally { busy.value = false }
-}
-
-async function extendActiveRun(): Promise<void> {
-  if (!activeRun.value || !runTimeLimitExhausted.value) return
-  busy.value = true
-  error.value = ''
-  try {
-    const result = await api.extendPlatformRun(activeRun.value.id, extensionMinutes.value, currentOrganizationId.value)
-    activeRun.value = result.run as Json
-    const extension = result.extension as Json | undefined
-    runs.value = await api.platformRuns(currentOrganizationId.value)
-    beginRunPolling(activeRun.value.id)
-    notice.value = `已增加 ${extension?.minutes ?? extensionMinutes.value} 分钟运行时限；已完成节点和产物保留，现场继续执行未完成节点。`
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '延长运行时限失败'
   } finally { busy.value = false }
 }
 
@@ -2295,6 +2331,33 @@ async function deleteModel(config: Json): Promise<void> {
   } finally {
     modelDeletingId.value = ''
   }
+}
+
+async function recoverActiveRun(fromTask?: Json): Promise<void> {
+  if (!activeRun.value) return
+  busy.value = true
+  error.value = ''
+  try {
+    const sourceRunId = String(activeRun.value.id)
+    const result = await api.recoverPlatformRun(sourceRunId, fromTask?.id, currentOrganizationId.value)
+    const state = result.run_state as Json
+    const recovery = result.recovery as Json
+    const recoveryKeys = new Set((recovery.recovery_node_keys ?? []).map((key: unknown) => String(key)))
+    activeRun.value = {
+      ...activeRun.value,
+      ...state,
+      tasks: (activeRun.value.tasks ?? []).map((task: Json) => recoveryKeys.has(String(task.node_key))
+        ? { ...task, status: 'retrying' }
+        : task),
+    }
+    runs.value = await api.platformRuns(currentOrganizationId.value)
+    await openRun(sourceRunId)
+    beginRunPolling(sourceRunId)
+    notice.value = fromTask
+      ? `原 Run 已从“${fromTask.node_name}”恢复；历史失败证据和已有产物均保留。`
+      : '原 Run 已从全部未完成节点恢复；没有创建新版本，也没有覆盖历史证据。'
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : '恢复原 Run 失败' }
+  finally { busy.value = false }
 }
 
 function selectGitCredential(credential: Json): void {
@@ -2681,7 +2744,7 @@ onUnmounted(() => {
       </main>
 
       <main v-else-if="screen === 'runs'" ref="runsPage" :class="['jh-page', 'run-scene-page', { 'page-fallback-fullscreen': fullscreenTarget === 'runs' }]">
-        <section v-if="runTimeLimitExhausted" class="run-failure-station run-time-extension-card"><div><span>⏱</span><div><strong>运行时限已耗尽，可以继续这个现场</strong><p>增加运行时限后，系统会保留已完成节点和正式产物，只继续执行尚未完成的节点。</p><small>单次可增加 30、60 或 120 分钟；总运行时限最多 360 分钟。</small></div></div><div class="failure-retry-actions"><label>增加时限<select v-model.number="extensionMinutes"><option :value="30">30 分钟</option><option :value="60">60 分钟</option><option :value="120">120 分钟</option></select></label><button class="jh-primary" :disabled="busy" @click="extendActiveRun">延长并继续</button></div></section>
+        <section v-if="runTimeLimitExhausted" class="run-failure-station run-time-extension-card"><div><span>⏱</span><div><strong>旧版固定执行时限已取消</strong><p>长周期任务不再因累计运行分钟数被强制终止；平台保留单回合超时、自动重试、心跳与异常失败检测。</p><small>继续时沿用原 Run、原版本、已完成节点和全部历史证据。</small></div></div><div class="failure-retry-actions"><button class="jh-primary" :disabled="busy" @click="recoverActiveRun()"><RefreshCw />恢复全部未完成节点</button></div></section>
         <section class="page-heading"><div><span>江湖正在行动</span><h1>事件现场</h1><p>这里展示真实模型调用产生的人物行动、节点状态、协作事件和正式产物。</p></div><div class="page-heading-actions"><span v-if="runPolling" class="live-badge"><i></i>现场更新中</span><button class="jh-secondary page-fullscreen-toggle" :aria-label="fullscreenTarget === 'runs' ? '退出全屏' : '全屏查看事件现场'" @click="togglePageFullscreen('runs')"><Minimize2 v-if="fullscreenTarget === 'runs'" /> <Maximize2 v-else />{{ fullscreenTarget === 'runs' ? '退出全屏' : '全屏查看' }}</button></div></section>
         <section v-if="!runs.length" class="jh-empty">还没有正式运行的事件。请先选择一套生产流，并用具体委托开始执行。</section>
         <section v-else class="run-list"><article v-for="run in runs" :key="run.run_family_id || run.id" :class="{ selected: activeRun?.run_family_id === run.run_family_id || activeRun?.id === run.id }"><div><strong>{{ run.workflow_name }}</strong><small>事件 {{ run.run_family_id || run.id }} · 当前第 {{ run.run_version || 1 }} 版</small></div><span :data-status="run.status">{{ runStatusLabel(run.status) }}</span><b>{{ run.progress }}%</b><small>{{ run.task_count }} 个节点 · {{ run.artifact_count }} 份产物 · {{ run.attempt_count || 1 }} 个版本</small><button v-if="run.status === 'draft'" class="jh-primary" :disabled="busy" @click="startExistingRun(run)"><Play />开始执行</button><button v-else class="jh-secondary" @click="openRun(run.id)">查看现场</button></article></section>
@@ -2689,7 +2752,7 @@ onUnmounted(() => {
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>事件 {{ activeRun.run_family_id || activeRun.id }} · 第 {{ activeRun.run_version || 1 }} 版</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
           <section v-if="activeRun.attempts?.length > 1" class="run-version-history"><div><strong>同一事件的执行版本</strong><small>重试不会创建新事件；每次执行作为不可覆盖的版本保留。</small></div><button v-for="attempt in activeRun.attempts" :key="attempt.id" :class="{ active: attempt.id === activeRun.id }" @click="openRun(attempt.id)">第 {{ attempt.run_version }} 版 · {{ runStatusLabel(attempt.status) }}</button></section>
-          <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? '预算或运行时限已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>原 Run、失败证据和已有产物不会被覆盖；可以从当前未完成节点定向重试，也可以完整重跑。</small></div></div><div class="failure-retry-actions"><button v-if="selectedSceneTask" class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”重试</button><button class="jh-secondary" :disabled="busy" @click="retryActiveRun()"><RefreshCw />完整重跑</button></div></section>
+          <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status) && !runTimeLimitExhausted" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? 'Token 或成本预算已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>{{ activeRun.status === 'budget_exhausted' ? 'Token 或成本上限不会自动放开，需要调整预算策略。' : '恢复会沿用原 Run 和原版本，保留失败证据与已有产物，只执行未完成节点及受影响下游。' }}</small></div></div><div v-if="activeRun.status !== 'budget_exhausted'" class="failure-retry-actions"><button v-if="selectedSceneTask && selectedSceneTask.status !== 'completed'" class="jh-primary" :disabled="busy" @click="recoverActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”恢复</button><button class="jh-secondary" :disabled="busy" @click="recoverActiveRun()"><RefreshCw />恢复全部未完成节点</button></div></section>
           <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id, currentOrganizationId)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
           <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
           <section class="society-duty-board">
@@ -2718,7 +2781,7 @@ onUnmounted(() => {
               </div>
               <aside v-if="selectedSceneTask" class="scene-command-panel action-observatory">
                 <header><span>{{ scenePlaceIcon(activeRun.tasks.findIndex((task: Json) => task.id === selectedSceneTask.id)) }}</span><div><small>{{ runTaskTeam(selectedSceneTask)?.name ?? '独立人物驻地' }}</small><h4>{{ selectedSceneTask.node_name }}</h4></div><b>{{ runStatusLabel(selectedSceneTask.status) }}</b></header>
-                <div v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status)" class="node-retry-entry"><div><RefreshCw /><span><strong>这个节点可以重新行动</strong><small>新建定向重试 Run，保留不受影响的已完成上游节点和产物。</small></span></div><button class="jh-primary" :disabled="busy" @click="retryActiveRun(selectedSceneTask)">从此节点重试</button></div>
+                <div v-if="['failed','cancelled','revision_exhausted'].includes(activeRun.status) && selectedSceneTask.status !== 'completed'" class="node-retry-entry"><div><RefreshCw /><span><strong>这个节点可以在原现场重新行动</strong><small>沿用原 Run 与原版本，保留旧失败事件和 Artifact，只重跑此节点及受影响下游。</small></span></div><button class="jh-primary" :disabled="busy" @click="recoverActiveRun(selectedSceneTask)">从此节点恢复</button></div>
                 <p>{{ runWorkflow(activeRun)?.definition?.nodes?.find((node: Json) => node.key === selectedSceneTask.node_key)?.purpose ?? selectedSceneTask.node_name }}</p>
                 <nav class="scene-panel-tabs"><button v-for="tab in sceneTabs" :key="tab.id" :class="{ active: scenePanelTab === tab.id }" @click="scenePanelTab = tab.id">{{ tab.label }}</button></nav>
 
@@ -2791,6 +2854,11 @@ onUnmounted(() => {
             </section>
             <div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div>
             <div v-else class="artifact-group-list">
+              <section class="test-evidence-gate" :data-complete="testEvidenceSummary.complete">
+                <header><div><small>TEST EVIDENCE GATE</small><strong>测试证据完整性</strong></div><b>{{ testEvidenceSummary.complete ? '证据齐备' : '仍有缺口' }}</b></header>
+                <div><span><b>{{ testEvidenceSummary.cases }}</b> 测试用例文件</span><span><b>{{ testEvidenceSummary.results }}</b> 逐项结果文件</span><span><b>{{ testEvidenceSummary.screenshots }}</b> 页面截图</span><span><b>{{ testEvidenceSummary.browserReports }}</b> 浏览器报告/索引</span></div>
+                <p v-if="!testEvidenceSummary.complete">四类证据必须同时存在并可下载复验；测试事件或日志不能替代测试用例、逐项结果与页面截图。</p>
+              </section>
               <section v-for="group in artifactGroups" :key="group.key" class="artifact-group" :data-category="group.key">
                 <header><i>{{ group.icon }}</i><div><small>{{ group.eyebrow }}</small><strong>{{ group.title }}</strong><p>{{ group.description }}</p></div><b>{{ group.artifacts.length }}</b></header>
                 <div v-if="group.key === 'git' && artifactGroupMrCount(group.artifacts) === 0" class="git-mr-empty"><span>MR</span><div><b>尚未创建远端 Merge Request</b><small>当前只展示真实形成的本地 Commit 与 Patch；没有远端 URL、编号和状态时不会伪装成已创建 MR。</small></div></div>
@@ -2807,6 +2875,7 @@ onUnmounted(() => {
                     </section>
                     <section v-else-if="artifactMergeRequestMetadata(artifact)" class="git-mr-card"><div><small>REMOTE MERGE REQUEST</small><b>#{{ artifactMergeRequestMetadata(artifact)?.number }}</b><span>{{ artifactMergeRequestMetadata(artifact)?.status }}</span></div><h4>{{ artifactMergeRequestMetadata(artifact)?.title ?? artifact.title }}</h4><p>{{ artifactMergeRequestMetadata(artifact)?.source_branch }} → {{ artifactMergeRequestMetadata(artifact)?.target_branch }}</p><a :href="artifactMergeRequestMetadata(artifact)?.url" target="_blank" rel="noreferrer">打开远端 MR</a></section>
                     <section v-else-if="artifactFileMetadata(artifact)" class="file-change-receipt"><span><b>变更类型</b>{{ artifactActionLabel(artifactChangeAction(artifact)) }}</span><span><b>交付路径</b><code>{{ artifactFileMetadata(artifact)?.source_relative_path ?? artifact.title }}</code></span><span v-if="artifactFileMetadata(artifact)?.previous_sha256"><b>修改前 SHA</b><code>{{ artifactFileMetadata(artifact)?.previous_sha256 }}</code></span><span v-if="artifactFileMetadata(artifact)?.sha256"><b>当前 SHA</b><code>{{ artifactFileMetadata(artifact)?.sha256 }}</code></span></section>
+                    <a v-if="artifactIsImage(artifact)" class="artifact-image-preview" :href="api.artifactPreviewUrl(artifact.id, currentOrganizationId)" target="_blank" rel="noreferrer"><img :src="api.artifactPreviewUrl(artifact.id, currentOrganizationId)" :alt="artifact.title" loading="lazy" /><span>打开原始截图</span></a>
                     <div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />{{ artifactChangeAction(artifact) === 'deleted' ? '下载删除凭据' : '下载独立文件' }}</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
                     <pre v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact) && !artifactFileMetadata(artifact)">{{ artifact.content }}</pre>
                   </details>

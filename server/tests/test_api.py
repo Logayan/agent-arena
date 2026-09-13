@@ -563,8 +563,8 @@ async def test_runtime_extension_api_resumes_same_run(monkeypatch, tmp_path) -> 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(f"/api/platform/runs/{run['id']}/extend", json={"minutes": 120})
     assert response.status_code == 200
-    assert response.json()["run"]["id"] == run["id"]
-    assert response.json()["run"]["status"] == "running"
+    assert response.json()["run_state"]["id"] == run["id"]
+    assert response.json()["run_state"]["status"] == "running"
     assert response.json()["extension"]["effective_minutes"] == 300
 
 
@@ -1107,6 +1107,79 @@ def test_targeted_retry_preserves_completed_upstream_artifact(tmp_path) -> None:
     assert inherited_event["payload"]["source_artifact_sha256"] == retried["artifacts"][0]["sha256"]
 
 
+def test_failed_run_recovers_in_place_from_unfinished_nodes(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "run-recovery.db"))
+    agent = platform.create_agent(
+        name="顾复验", role="测试工程师", description="补齐真实测试证据", persona="保留历史并继续复验",
+        capabilities=["端到端测试"],
+    )
+    workflow = platform.create_workflow(
+        "原现场恢复章法", "失败后不创建新 Run", "test",
+        {
+            "nodes": [
+                {"key": "baseline", "name": "基线", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "e2e", "name": "端到端验证", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "judge", "name": "独立裁决", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [["baseline", "e2e"], ["e2e", "judge"]],
+            "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "补齐测试用例、结果、截图和浏览器报告")
+    baseline, e2e, judge = run["tasks"]
+    platform.update_task(baseline["id"], status="completed")
+    platform.create_artifact(run["id"], baseline["id"], "workflow_output", "已确认基线", "baseline", "candidate")
+    platform.update_task(e2e["id"], status="failed", output_data={"error": "database is locked"})
+    platform.update_run(run["id"], status="failed", progress=33, stage="execution_failed")
+    platform.append_run_event(run["id"], "run.failed", "system", "失败", "database is locked")
+
+    recovery = platform.recover_run(run["id"], from_task_id=e2e["id"])
+    recovered = platform.get_run(run["id"])
+
+    assert recovery["run_id"] == run["id"]
+    assert recovery["run_version"] == run["run_version"]
+    assert recovery["recovery_node_keys"] == ["e2e", "judge"]
+    assert recovery["preserved_node_keys"] == ["baseline"]
+    assert recovered["status"] == "running"
+    assert recovered["stage"] == "recovery_queued"
+    assert [task["status"] for task in recovered["tasks"]] == ["completed", "retrying", "retrying"]
+    assert len(recovered["artifacts"]) == 1
+    event = recovered["events"][-1]
+    assert event["type"] == "run.recovery_requested"
+    assert event["payload"]["source_failure_sequence"] is not None
+
+
+@pytest.mark.anyio
+async def test_recover_endpoint_reuses_same_run_and_schedules_execution(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "recover-endpoint.db"))
+    agent = platform.create_agent(
+        name="林续行", role="执行者", description="恢复未完成节点", persona="证据连续",
+        capabilities=["恢复执行"],
+    )
+    workflow = platform.create_workflow(
+        "恢复接口章法", "原 Run 就地恢复", "test",
+        {"nodes": [{"key": "work", "name": "执行", "agent_id": agent["id"], "agent_role": agent["role"]}], "edges": [], "policies": {}},
+    )
+    run = platform.create_run(workflow["id"], "继续执行")
+    platform.update_task(run["tasks"][0]["id"], status="failed")
+    platform.update_run(run["id"], status="failed", stage="execution_failed")
+    scheduled: list[str] = []
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    monkeypatch.setattr("server.app.main.prepare_agent_runtime_run", lambda _run: {"runtime": "claude_code"})
+    monkeypatch.setattr("server.app.main.schedule_platform_execution", lambda run_id: scheduled.append(run_id))
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/platform/runs/{run['id']}/recover", json={})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_state"]["id"] == run["id"]
+    assert payload["run_state"]["status"] == "running"
+    assert payload["run_state"]["run_version"] == run["run_version"]
+    assert payload["recovery"]["recovery_node_keys"] == ["work"]
+    assert scheduled == [run["id"]]
+
+
 def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "file-artifact.db"))
     agent = platform.create_agent(
@@ -1145,6 +1218,74 @@ def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, 
     metadata = json.loads(artifact["content"])
     assert metadata["change_action"] == "created"
     assert metadata["file_category"] == "other"
+
+
+def test_register_workspace_image_artifact_is_browser_renderable(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "image-artifact.db"))
+    agent = platform.create_agent(
+        name="林验图", role="质量工程师", description="登记真实页面截图", persona="按原始字节复核",
+        capabilities=["浏览器验收"],
+    )
+    workflow = platform.create_workflow(
+        "截图归档章法", "登记真实 E2E 截图", "test",
+        {
+            "nodes": [{"key": "e2e", "name": "浏览器验收", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "交付真实页面截图")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "screenshots" / "E2E-001.png"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    png_bytes = b"\x89PNG\r\n\x1a\nreal-browser-evidence"
+    source.write_bytes(png_bytes)
+
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/screenshots/E2E-001.png", change_action="created"
+    )
+
+    assert artifact["media_type"] == "image/png"
+    assert artifact["sha256"] == hashlib.sha256(png_bytes).hexdigest()
+    assert platform.verify_artifact_bytes(run["id"], artifact["id"])["matched"] is True
+
+
+@pytest.mark.anyio
+async def test_workspace_image_artifact_download_and_inline_preview(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "image-download.db"))
+    agent = platform.create_agent(
+        name="顾验图", role="质量工程师", description="复验截图下载", persona="检查响应头",
+        capabilities=["浏览器验收"],
+    )
+    workflow = platform.create_workflow(
+        "截图下载章法", "复验截图 MIME 与文件名", "test",
+        {
+            "nodes": [{"key": "e2e", "name": "浏览器验收", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "下载真实页面截图")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "screenshots" / "E2E-001.png"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    png_bytes = b"\x89PNG\r\n\x1a\ninline-browser-evidence"
+    source.write_bytes(png_bytes)
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/screenshots/E2E-001.png", change_action="created"
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        download = await client.get(f"/api/platform/artifacts/{artifact['id']}/download")
+        preview = await client.get(f"/api/platform/artifacts/{artifact['id']}/download?inline=true")
+
+    assert download.status_code == 200
+    assert download.content == png_bytes
+    assert download.headers["content-type"] == "image/png"
+    assert "E2E-001-v1.png" in download.headers["content-disposition"]
+    assert preview.status_code == 200
+    assert preview.content == png_bytes
+    assert preview.headers["content-type"] == "image/png"
+    assert "content-disposition" not in preview.headers
 
 
 def test_register_workspace_file_artifact_accepts_isolated_agent_delivery_root(tmp_path) -> None:
@@ -2722,6 +2863,89 @@ def test_run_public_dossier_intervention_and_presence_are_derived(tmp_path) -> N
     assert applied[0]["status"] == "applied"
     with pytest.raises(ValueError, match="require_rework_needs_task"):
         platform.create_run_intervention(run["id"], kind="require_rework", content="重新调查")
+
+
+@pytest.mark.anyio
+async def test_intervention_endpoint_uses_lightweight_run_state(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "intervention-lightweight.db"))
+    agent = platform.create_agent(
+        name="顾介入", role="质量工程师", description="处理现场补充要求", persona="避免阻塞控制面",
+        capabilities=["验收整改"],
+    )
+    workflow = platform.create_workflow(
+        "轻量介入章法", "大型 Run 介入不构建完整公共投影", "test",
+        {
+            "nodes": [{"key": "audit", "name": "验收审计", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "补充测试截图证据")
+    task_id = run["tasks"][0]["id"]
+
+    def fail_full_run_projection(*_args, **_kwargs):
+        raise AssertionError("intervention endpoint must not hydrate the full run projection")
+
+    monkeypatch.setattr(platform, "get_run", fail_full_run_projection)
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/platform/runs/{run['id']}/interventions",
+            json={"kind": "require_rework", "content": "补齐测试用例、逐项结果和截图", "task_id": task_id},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "run" not in payload
+    assert payload["run_state"]["id"] == run["id"]
+    assert payload["intervention"]["task_id"] == task_id
+    assert payload["intervention"]["status"] == "queued"
+
+
+@pytest.mark.anyio
+async def test_live_run_state_avoids_full_projection_and_reports_test_evidence(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "live-state.db"))
+    agent = platform.create_agent(
+        name="顾巡检", role="测试工程师", description="轻量巡检长任务", persona="不阻塞执行面",
+        capabilities=["端到端测试"],
+    )
+    workflow = platform.create_workflow(
+        "长任务巡检章法", "使用轻量状态轮询", "test",
+        {"nodes": [{"key": "e2e", "name": "端到端测试", "agent_id": agent["id"], "agent_role": agent["role"]}], "edges": [], "policies": {}},
+    )
+    run = platform.create_run(workflow["id"], "形成测试用例、结果和截图")
+    task = run["tasks"][0]
+    code_root = Path(run["workspace"]["code"])
+    for relative_path, data in (
+        ("evidence/test-cases.json", b"{}"),
+        ("evidence/test-results.json", b"{}"),
+        ("evidence/screenshots/E2E-001.png", b"\x89PNG\r\n\x1a\nreal"),
+        ("evidence/screenshot-index.json", b"{}"),
+    ):
+        path = code_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        platform.register_workspace_file_artifact(run["id"], task["id"], relative_path)
+
+    def fail_full_run_projection(*_args, **_kwargs):
+        raise AssertionError("live state endpoint must not hydrate the full run projection")
+
+    monkeypatch.setattr(platform, "get_run", fail_full_run_projection)
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/api/platform/runs/{run['id']}/state?event_limit=20")
+
+    assert response.status_code == 200
+    state = response.json()["run_state"]
+    assert state["id"] == run["id"]
+    assert state["event_count_total"] >= 1
+    assert state["artifact_count"] == 4
+    assert state["test_evidence"] == {
+        "cases": 1,
+        "results": 1,
+        "screenshots": 1,
+        "browser_reports": 1,
+        "complete": True,
+    }
 
 
 def test_extract_initiator_note_removes_private_summary_from_public_contribution() -> None:

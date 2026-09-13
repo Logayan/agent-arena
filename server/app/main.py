@@ -24,7 +24,7 @@ from starlette.background import BackgroundTask
 from .agent_runtime import AgentRuntimeError, public_runtime_error
 from .agent_runtime_registry import agent_runtime
 from .git_delivery import GitDeliveryError, deliver_commit_to_remote, export_commit_patch, test_remote_repository
-from .platform_store import platform_store
+from .platform_store import platform_store, workspace_file_media_type
 from .llm_client import LLMConfigurationError, LLMRequestError, client_for_config, configured_llm
 from .platform_executor import execute_platform_run
 from .run_budget import configured_maximum_run_minutes
@@ -271,6 +271,10 @@ class RunInterventionRequest(BaseModel):
 
 
 class RunRetryRequest(BaseModel):
+    from_task_id: str | None = None
+
+
+class RunRecoveryRequest(BaseModel):
     from_task_id: str | None = None
 
 
@@ -606,6 +610,21 @@ async def generate_platform_organization(request: OrganizationGenerateRequest) -
 @app.get("/api/platform/runs")
 async def list_platform_runs(organization_id: str | None = None) -> list[dict[str, object]]:
     return platform_store.list_runs(organization_id=organization_id)
+
+
+@app.get("/api/platform/runs/{run_id}/state")
+async def get_platform_run_live_state(
+    run_id: str,
+    organization_id: str | None = None,
+    event_limit: int = Query(default=100, ge=10, le=300),
+) -> dict[str, object]:
+    snapshot = platform_store.get_run_live_snapshot(run_id, organization_id, event_limit=event_limit)
+    if not snapshot:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization" if organization_id else "run_not_found",
+        )
+    return {"run_state": public_platform_run(snapshot)}
 
 
 def scoped_platform_run(
@@ -2266,7 +2285,11 @@ def get_platform_run(
 
 
 @app.get("/api/platform/artifacts/{artifact_id}/download")
-async def download_platform_artifact(artifact_id: str, organization_id: str | None = None) -> FileResponse:
+async def download_platform_artifact(
+    artifact_id: str,
+    organization_id: str | None = None,
+    inline: bool = False,
+) -> FileResponse:
     artifact = platform_store.get_artifact(artifact_id)
     if not artifact:
         raise HTTPException(status_code=404, detail="artifact_not_found")
@@ -2275,8 +2298,18 @@ async def download_platform_artifact(artifact_id: str, organization_id: str | No
         path = platform_store.artifact_file_path(artifact_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    filename = f"{artifact['title']}-v{artifact['version']}.md"
-    return FileResponse(path, media_type=str(artifact.get("media_type") or "text/markdown"), filename=filename)
+    source_name = Path(str(artifact.get("title") or "artifact")).name
+    source_path = Path(source_name)
+    suffix = source_path.suffix or Path(str(artifact.get("relative_path") or "")).suffix or ".md"
+    stem = source_path.stem or "artifact"
+    filename = f"{stem}-v{artifact['version']}{suffix}"
+    stored_media_type = str(artifact.get("media_type") or "")
+    media_type = (
+        workspace_file_media_type(source_name or str(artifact.get("relative_path") or ""))
+        if stored_media_type in {"", "application/octet-stream"}
+        else stored_media_type
+    )
+    return FileResponse(path, media_type=media_type, filename=None if inline else filename)
 
 
 @app.get("/api/platform/runs/{run_id}/code/download")
@@ -2345,6 +2378,35 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
             "status": "started",
             "runtime_snapshot": runtime_snapshot,
         },
+    }
+
+
+@app.post("/api/platform/runs/{run_id}/recover")
+async def recover_platform_run(
+    run_id: str,
+    request: RunRecoveryRequest | None = None,
+    organization_id: str | None = None,
+) -> dict[str, object]:
+    run = scoped_platform_run(
+        run_id, organization_id, event_limit=200, include_artifact_content=False
+    )
+    active = platform_tasks.get(run_id)
+    if active and not active.done():
+        raise HTTPException(status_code=409, detail="run_already_active")
+    # Validate Runtime/model readiness before mutating the durable Run state.
+    runtime_snapshot = prepare_agent_runtime_run(run)
+    try:
+        recovery = platform_store.recover_run(
+            run_id, from_task_id=request.from_task_id if request else None
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status = 404 if detail in {"run_not_found", "workflow_not_found", "recovery_task_not_found"} else 409
+        raise HTTPException(status_code=status, detail=detail) from exc
+    schedule_platform_execution(run_id)
+    return {
+        "run_state": platform_store.get_run_state(run_id, organization_id),
+        "recovery": {**recovery, "execution": "started", "runtime_snapshot": runtime_snapshot},
     }
 
 
@@ -2537,31 +2599,26 @@ async def resume_platform_run(run_id: str, organization_id: str | None = None) -
 
 @app.post("/api/platform/runs/{run_id}/extend")
 async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest, organization_id: str | None = None) -> dict[str, object]:
-    scoped_platform_run(run_id, organization_id)
+    run = platform_store.get_run_state(run_id, organization_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="run_not_found_in_organization" if organization_id else "run_not_found")
+    runtime_snapshot = prepare_agent_runtime_run(run)
     try:
-        extended = platform_store.extend_run_time(run_id, request.minutes)
+        extended = platform_store.extend_run_time(run_id, request.minutes, hydrate_result=False)
     except ValueError as exc:
         detail = str(exc)
         status = 404 if detail in {"run_not_found", "workflow_not_found"} else 409
         raise HTTPException(status_code=status, detail=detail) from exc
     active = platform_tasks.get(run_id)
     if not active or active.done():
-        runtime_snapshot = prepare_agent_runtime_run(extended)
         schedule_platform_execution(run_id)
     else:
         runtime_snapshot = {"status": "existing_execution_finishing"}
     return {
-        "run": public_platform_run(platform_store.get_run(run_id) or extended),
+        "run_state": platform_store.get_run_state(run_id, organization_id),
         "extension": {
             "minutes": request.minutes,
-            "effective_minutes": next(
-                (
-                    event.get("payload", {}).get("effective_minutes")
-                    for event in reversed(extended.get("events", []))
-                    if event.get("type") == "run.time_extended"
-                ),
-                None,
-            ),
+            "effective_minutes": extended.get("effective_minutes"),
             "maximum_minutes": configured_maximum_run_minutes(),
             "status": "started",
             "runtime_snapshot": runtime_snapshot,
@@ -2571,7 +2628,9 @@ async def extend_platform_run(run_id: str, request: RunTimeExtensionRequest, org
 
 @app.post("/api/platform/runs/{run_id}/interventions")
 async def intervene_platform_run(run_id: str, request: RunInterventionRequest, organization_id: str | None = None) -> dict[str, object]:
-    scoped_platform_run(run_id, organization_id)
+    run_state = platform_store.get_run_state(run_id, organization_id)
+    if not run_state:
+        raise HTTPException(status_code=404, detail="run_not_found_in_organization" if organization_id else "run_not_found")
     try:
         intervention = platform_store.create_run_intervention(
             run_id,
@@ -2585,8 +2644,7 @@ async def intervene_platform_run(run_id: str, request: RunInterventionRequest, o
         raise HTTPException(status_code=status, detail=str(exc)) from exc
     target = "整个现场"
     if request.task_id:
-        run = platform_store.get_run(run_id)
-        task = next((item for item in (run or {}).get("tasks", []) if item["id"] == request.task_id), None)
+        task = platform_store.get_run_task_summary(run_id, request.task_id)
         target = f"节点“{task['node_name']}”" if task else request.task_id
     if request.agent_id:
         agent = platform_store.get_agent(request.agent_id)
@@ -2606,8 +2664,8 @@ async def intervene_platform_run(run_id: str, request: RunInterventionRequest, o
             "status": "queued",
         },
     )
-    current_run = platform_store.get_run(run_id)
-    return {"intervention": intervention, "run": public_platform_run(current_run) if current_run else None}
+    current_state = platform_store.get_run_state(run_id, organization_id)
+    return {"intervention": intervention, "run_state": current_state}
 
 
 """Removed legacy in-memory demo API.

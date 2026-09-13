@@ -15,7 +15,7 @@ from .agent_runtime_registry import agent_runtime
 from .git_delivery import GitDeliveryError, commit_run_changes, deliver_commit_to_remote, ensure_run_repository
 from .llm_client import LLMRequestError
 from .platform_store import PlatformStore
-from .run_budget import active_run_seconds, effective_run_minutes
+from .run_budget import active_execution_epoch_seconds, effective_run_minutes
 
 
 class ArtifactValidationError(RuntimeError):
@@ -36,6 +36,11 @@ def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
             },
         }
     return public_error
+
+
+def _run_time_limit_enabled(policies: dict[str, Any]) -> bool:
+    """Fixed Run wall-clock limits are opt-in for explicitly bounded workflows."""
+    return policies.get("enforce_run_time_limit") is True
 
 
 ENGINEERING_KEYWORDS = {
@@ -1046,6 +1051,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         )
         max_parallel = int(policies.get("max_parallel_agents", 5) or 5)
         max_parallel = max(1, min(max_parallel, 5))
+        enforce_run_time_limit = _run_time_limit_enabled(policies)
         base_max_run_minutes = int(policies.get("max_run_minutes", 180) or 180)
         extension_minutes = sum(
             int((event.get("payload") or {}).get("minutes", 0) or 0)
@@ -1055,7 +1061,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         max_run_minutes = effective_run_minutes(base_max_run_minutes, extension_minutes)
         max_total_tokens = int(policies.get("max_total_tokens", 0) or 0)
         started_at = time.monotonic()
-        elapsed_before_invocation = active_run_seconds(list(run.get("events", [])))
+        elapsed_before_invocation = (
+            active_execution_epoch_seconds(list(run.get("events", [])))
+            if enforce_run_time_limit
+            else 0.0
+        )
+
+        def bounded_run_timeout(seconds: int) -> int:
+            return min(seconds, max_run_minutes * 60) if enforce_run_time_limit else seconds
         node_semaphore = asyncio.Semaphore(max_parallel)
         llm_semaphore = asyncio.Semaphore(max_parallel)
         event_lock = asyncio.Lock()
@@ -1933,14 +1946,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             prompt=f"Runtime continuation probe epoch {execution_epoch}: reply exactly PROBE_READY.",
                             session_key=continuation_session_key,
                             model_config=continuation_model_config,
-                            timeout_seconds=min(600, max_run_minutes * 60),
+                            timeout_seconds=bounded_run_timeout(600),
                         )
                         second_probe = await run_runtime.message(
                             agent=continuation_agent,
                             prompt="Continue the same SDK session and reply exactly PROBE_CONTINUED.",
                             session_key=continuation_session_key,
                             model_config=continuation_model_config,
-                            timeout_seconds=min(600, max_run_minutes * 60),
+                            timeout_seconds=bounded_run_timeout(600),
                         )
                         first_runtime = first_probe.get(runtime_name, {}) if isinstance(first_probe.get(runtime_name), dict) else {}
                         second_runtime = second_probe.get(runtime_name, {}) if isinstance(second_probe.get(runtime_name), dict) else {}
@@ -2372,12 +2385,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     for agent_attempt in range(1, max_agent_attempts + 1):
                         session_key = f"{session_key_base}-agent-attempt{agent_attempt}"
                         tool_calls_seen.clear()
-                        timeout_seconds = min(
+                        timeout_seconds = bounded_run_timeout(
                             _agent_timeout_seconds(
                                 actor_has_tools or is_engineering or is_judge,
                                 agent_timeout_retry_level,
-                            ),
-                            max_run_minutes * 60,
+                            )
                         )
                         message_arguments: dict[str, Any] = {
                             "agent": actor,
@@ -2405,12 +2417,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             public_error = public_runtime_error(exc)
                             is_timeout = public_error["error_category"] == "timeout"
                             next_timeout_retry_level = agent_timeout_retry_level + (1 if is_timeout else 0)
-                            next_timeout_seconds = min(
+                            next_timeout_seconds = bounded_run_timeout(
                                 _agent_timeout_seconds(
                                     actor_has_tools or is_engineering or is_judge,
                                     next_timeout_retry_level,
-                                ),
-                                max_run_minutes * 60,
+                                )
                             )
                             timeout_extended = is_timeout and next_timeout_seconds > timeout_seconds
                             if is_timeout:
@@ -3685,7 +3696,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             ),
                             session_key=closure_session_key,
                             model_config=node_model_config,
-                            timeout_seconds=min(_agent_timeout_seconds(False), max_run_minutes * 60),
+                            timeout_seconds=bounded_run_timeout(_agent_timeout_seconds(False)),
                         )
                     closure_runtime = (
                         closure_response.get(runtime_name)
@@ -3876,7 +3887,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             current = store.get_run(run_id)
             if not current or current["status"] == "cancelled":
                 return
-            if elapsed_before_invocation + (time.monotonic() - started_at) > max_run_minutes * 60:
+            if enforce_run_time_limit and elapsed_before_invocation + (time.monotonic() - started_at) > max_run_minutes * 60:
                 raise RuntimeError("budget_exhausted:run_time_limit")
             if max_total_tokens and total_tokens >= max_total_tokens:
                 raise RuntimeError("budget_exhausted:token_limit")

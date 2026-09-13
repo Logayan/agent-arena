@@ -135,3 +135,25 @@
 修复后，启动恢复会针对每个 paused Run 调用 `get_run(event_limit=200, include_artifact_content=False)`：只加载最近不可变事件、任务状态和 Artifact 元数据，不加载大 Artifact 正文。新增回归测试证明启动器能够读取 sequence 42 的重启请求并写出接管链，同时准确区分 completed 与 pending 节点。
 
 第二次暂停边界重启已在真实 Run 产生 sequence 26153 `run.interrupted` 和 26154 `run.restart.completed`；Run 保持 paused、进度 90%、版本 9。随后 resume 返回 HTTP 200，定向返工 intervention 已 applied，sequence 26252 生成 `workflow.loop.created`，最终报告与 Judge 均回到 pending。新执行回合已按 amendment 启动产品、架构、工程、QA、安全风险五个独立 Claude Code SDK 人物 Session。
+
+五角色首轮均在 sequence 28214～28218 真实命中 1800 秒边界，事件记录 `error_category=timeout`、`next_timeout_seconds=3600` 和 `timeout_extended=true`；3600 秒回合继续产生 Read、Edit、Bash 和测试证据。第二次仍未完成后，sequence 31356 记录 `timeout_seconds=3600`、`next_timeout_seconds=7200`、`timeout_retry_level=1`、`timeout_extended=true`，sequence 31357 随即生成 `task.retrying`。节点整体重试已经继承 7200 秒档位，未回落到 1800 秒。
+
+## 2026-09-13 测试证据完整性补充整改
+
+最终验收不能把 `agent.test.completed` 或零散命令日志等同于测试交付物。对 `run_bda13e93b2ea` 的实际隔离工作区盘点显示，虽然已有测试日志、验证 JSON 和大体积证据包，但工作区内没有 PNG/JPG/HTML/HAR/视频证据，也没有独立的结构化测试用例与逐项结果清单。因而“测试运行过”已有证据，“用户能够复核测了什么、如何操作、页面实际呈现什么、每项是否通过”尚未被证明。
+
+这一缺口被提升为最终发布硬门禁。平台已登记 `intervention_9f1b3ba6c5e8`，sequence 34385，类型 `require_rework`，目标为原 Run 的 `final_report_and_gap_list`；当前成员回合不被强杀，节点结束后在同一第 9 版 Run 内自动返工并重新进入独立 Judge。
+
+返工必须产出并注册：结构化 `test-cases.json`、结构化 `test-results.json`、人类可读测试报告、当前 5173/8003 实例上的 Playwright E2E 报告、关键场景 PNG、失败整改前后截图、`screenshot-index.json`、命令与环境日志。每个文件必须具备 Run/Task/Attempt/Claude SDK Session 血缘、时间戳、SHA-256 和 Artifact Registry 引用，并进入 self-excluding Manifest 与最终证据 ZIP。任何缺失、BLOCKED 或 SKIPPED 都不能被报告为 PASS，最终 Judge 在这些证据没有齐备前不得 ACCEPT。
+
+为保证新证据真正能在产品页面被用户复核，Artifact 文件链路已补齐图片 MIME、原扩展名下载和内联预览。前端新增测试证据门禁汇总，分别显示用例文件、逐项结果、截图及浏览器报告/索引数量；旧 Run 中被错误存为 `application/octet-stream` 的图片也会在下载时按原始文件名重新推断 MIME。截图存储与 HTTP 预览回归 `4 passed`，前端生产构建 1777 modules 通过。sequence 35476 已证明 intervention 被真实执行团队加载，而不是只写入数据库后无人消费。
+
+本次真实浏览器复验还暴露大 Run 介入接口的事件循环阻塞：旧 async handler 在介入写入后同步生成完整公共 Run 投影，当前 Run 已有三万余事件和大量 Artifact，导致 `/api/health`、组织列表和前端初始化一起超过 15 秒，而数据库事件仍持续增长。修复后接口仅返回 `intervention + run_state`，节点名称使用轻量 task summary；前端局部合并响应并继续轮询。新增合同通过 monkeypatch 禁止调用全量 `get_run()`，证明控制面介入不再依赖超大投影。截图与介入链路合计 `5 passed`；旧 Worker 待安全边界重启后生效。
+
+## 2026-09-13 长周期执行策略调整
+
+固定 Run 总执行时长改为显式 opt-in。普通 Workflow 即使仍携带历史 `max_run_minutes` 字段，也不会据此终止；只有同时设置 `enforce_run_time_limit=true` 才启用该上限。平台继续强制单人物/模型回合超时与递增重试上限，保留 Token/成本预算和失败检测，因此“允许执行数天”不等于取消异常保护。
+
+因旧时限终止的 Run 可以在原 Run、原 WorkflowVersion 和原 Artifact Registry 上恢复，`run.recovery_requested` 记录来源失败 sequence、恢复节点和保留节点。历史 epoch 的累计活动时间只用于审计，新恢复 epoch 不会被旧耗时立即耗尽。
+
+长任务页面轮询改用轻量 live snapshot：状态查询直接读取 Run 行、任务摘要、最近 10～300 条事件和 Artifact 元数据计数，不生成全量 node dossier 或加载 Artifact 内容。测试证据摘要在服务端按 Artifact Registry 计算 `test-cases`、`test-results`、图片截图和 Playwright/浏览器报告索引四类数量，运行中即可显示缺口；Run 进入终态后再加载一次完整卷宗供最终复核。

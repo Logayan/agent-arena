@@ -23,13 +23,14 @@ from server.app.platform_executor import (
     _runtime_mode,
     _runtime_source_attestation,
     _runtime_tool_enabled_agent_ids,
+    _run_time_limit_enabled,
     _tool_schema_validation,
     _tool_terminal_reconciliations,
     _release_run_execution_lease,
     _try_acquire_run_execution_lease,
 )
 from server.app.platform_store import PlatformStore
-from server.app.run_budget import active_run_seconds, configured_maximum_run_minutes
+from server.app.run_budget import active_execution_epoch_seconds, active_run_seconds, configured_maximum_run_minutes
 
 
 @pytest.fixture
@@ -163,6 +164,37 @@ def test_active_run_time_excludes_pause_and_budget_intervention_waits() -> None:
     ]
     now = datetime(2026, 9, 12, 2, 30, tzinfo=timezone.utc)
     assert active_run_seconds(events, now=now) == 60 * 60
+
+
+def test_recovery_epoch_gets_fresh_window_without_erasing_total_active_time() -> None:
+    events = [
+        {"sequence": 1, "type": "run.started", "created_at": "2026-09-12T00:00:00+00:00"},
+        {"sequence": 2, "type": "run.failed", "created_at": "2026-09-12T03:00:00+00:00"},
+        {"sequence": 3, "type": "run.recovery_requested", "created_at": "2026-09-12T04:00:00+00:00"},
+        {"sequence": 4, "type": "run.recovered", "created_at": "2026-09-12T04:00:10+00:00"},
+    ]
+    now = datetime(2026, 9, 12, 4, 30, 10, tzinfo=timezone.utc)
+
+    assert active_run_seconds(events, now=now) == 3.5 * 60 * 60
+    assert active_execution_epoch_seconds(events, now=now) == 30 * 60
+
+
+def test_run_time_limit_is_disabled_by_default_and_requires_explicit_opt_in() -> None:
+    assert _run_time_limit_enabled({}) is False
+    assert _run_time_limit_enabled({"max_run_minutes": 180}) is False
+    assert _run_time_limit_enabled({"enforce_run_time_limit": False, "max_run_minutes": 180}) is False
+    assert _run_time_limit_enabled({"enforce_run_time_limit": True, "max_run_minutes": 180}) is True
+
+
+def test_queued_recovery_has_not_consumed_its_new_execution_window() -> None:
+    events = [
+        {"sequence": 1, "type": "run.started", "created_at": "2026-09-12T00:00:00+00:00"},
+        {"sequence": 2, "type": "run.failed", "created_at": "2026-09-12T03:00:00+00:00"},
+        {"sequence": 3, "type": "run.recovery_requested", "created_at": "2026-09-12T04:00:00+00:00"},
+    ]
+    now = datetime(2026, 9, 12, 5, 0, tzinfo=timezone.utc)
+
+    assert active_execution_epoch_seconds(events, now=now) == 0
 
 
 def test_interrupted_tool_scan_only_returns_started_calls_without_terminal_receipts() -> None:
