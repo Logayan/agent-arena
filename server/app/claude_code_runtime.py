@@ -340,7 +340,10 @@ class ClaudeCodeRuntime:
 
     @staticmethod
     def _workspace_snapshot(root: Path) -> dict[str, dict[str, Any]]:
-        ignored = {".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv"}
+        ignored = {
+            ".git", "node_modules", "dist", "build", "coverage", "__pycache__",
+            ".pytest_cache", ".venv", "venv", ".jianghu-platform-evidence",
+        }
         snapshot: dict[str, dict[str, Any]] = {}
         if not root.is_dir():
             return snapshot
@@ -444,10 +447,21 @@ class ClaudeCodeRuntime:
         workspace = self._workspace(agent)
         delivery = workspace / "delivery"
         if seed_directory:
-            self._copy_tree(Path(seed_directory).resolve(), delivery)
-        delivery.mkdir(parents=True, exist_ok=True)
-        before = self._workspace_snapshot(delivery) if capture_workspace else {}
-        policy = self._policy(agent_id)
+            # Mature Runs seed hundreds of evidence files. Copying them on the
+            # event-loop thread made /api/health and browser polling time out
+            # even though the Claude bridge itself was healthy.
+            await asyncio.to_thread(
+                self._copy_tree,
+                Path(seed_directory).resolve(),
+                delivery,
+            )
+        await asyncio.to_thread(delivery.mkdir, parents=True, exist_ok=True)
+        before = (
+            await asyncio.to_thread(self._workspace_snapshot, delivery)
+            if capture_workspace
+            else {}
+        )
+        policy = await asyncio.to_thread(self._policy, agent_id)
         payload = {
             "agent_id": agent_id,
             "prompt": prompt,
@@ -555,8 +569,17 @@ class ClaudeCodeRuntime:
         if not response_text:
             raise ClaudeCodeRuntimeError("claude_empty_output", category="invalid_output", retryable=True)
         session_id = str(final.get("session_id") or "")
-        self._save_session_id(agent_id, session_key, session_id)
-        after = self._workspace_snapshot(delivery) if capture_workspace else {}
+        await asyncio.to_thread(self._save_session_id, agent_id, session_key, session_id)
+        after = (
+            await asyncio.to_thread(self._workspace_snapshot, delivery)
+            if capture_workspace
+            else {}
+        )
+        file_changes = (
+            await asyncio.to_thread(self._workspace_changes, before, after)
+            if capture_workspace
+            else []
+        )
         return {
             "id": session_id,
             "session_id": session_id,
@@ -564,7 +587,7 @@ class ClaudeCodeRuntime:
             "content": [{"type": "text", "text": response_text}],
             "usage": dict(final.get("usage") or {}),
             "actions": actions,
-            "file_changes": self._workspace_changes(before, after) if capture_workspace else [],
+            "file_changes": file_changes,
             "claude_code": {
                 "runtime": "agent-sdk-bridge",
                 "agent_id": agent_id,

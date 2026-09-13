@@ -4,6 +4,7 @@ import asyncio
 import json
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -172,6 +173,45 @@ async def test_claude_message_normalizes_stream_resume_and_file_changes(monkeypa
         timeout_seconds=5,
     )
     assert resumed["content"][0]["text"] == "RESUMED:sdk-session-1"
+
+
+@pytest.mark.anyio
+async def test_claude_message_keeps_event_loop_responsive_during_large_seed_copy(
+    monkeypatch, tmp_path
+) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG, tool_enabled_agent_ids={str(agent["id"])})
+    bridge = _fake_bridge(tmp_path)
+    monkeypatch.setattr(runtime, "_base_command", lambda: [sys.executable, str(bridge)])
+    seed = tmp_path / "large-seed"
+    seed.mkdir()
+    original_copy = runtime._copy_tree
+
+    def slow_copy(source: Path, destination: Path) -> None:
+        time.sleep(0.25)
+        original_copy(source, destination)
+
+    monkeypatch.setattr(runtime, "_copy_tree", slow_copy)
+    started = time.monotonic()
+    message = asyncio.create_task(
+        runtime.message(
+            agent=agent,
+            prompt="验证复制期间事件循环仍响应",
+            session_key="responsive-seed-copy",
+            model_config=MODEL_CONFIG,
+            timeout_seconds=5,
+            seed_directory=seed,
+            capture_workspace=True,
+        )
+    )
+
+    await asyncio.sleep(0.03)
+    heartbeat_elapsed = time.monotonic() - started
+    result = await message
+
+    assert heartbeat_elapsed < 0.15
+    assert result["content"][0]["text"] == "G4_ADAPTER_OK"
 
 
 @pytest.mark.anyio

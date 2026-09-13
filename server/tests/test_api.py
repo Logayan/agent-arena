@@ -198,6 +198,88 @@ def test_run_operational_projection_can_skip_large_artifact_content(tmp_path) ->
     assert full is not None and len(full["artifacts"][0]["content"]) == 100_000
 
 
+def test_run_execution_snapshot_skips_browser_only_projections(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "execution-snapshot.db"))
+    agent = platform.create_agent(
+        name="执行快照工程师",
+        role="运行工程师",
+        description="验证执行器不构建浏览器 dossier",
+        persona="仅检查执行所需字段",
+        capabilities=["运行控制"],
+    )
+    workflow = platform.create_workflow(
+        "执行快照",
+        "隔离执行热路径与 UI 派生投影",
+        "test",
+        {"nodes": [{"key": "execute", "name": "执行", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证轻量执行快照")
+    task = run["tasks"][0]
+    platform.create_artifact(
+        run["id"], task["id"], "workflow_output", "执行证据", "verified"
+    )
+    platform.append_run_event(
+        run["id"], "execution.snapshot.test", "validation", "执行快照测试", "保留完整事件"
+    )
+
+    monkeypatch.setattr(
+        platform,
+        "_build_node_dossiers",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("UI dossier invoked")),
+    )
+    monkeypatch.setattr(
+        platform,
+        "_derive_agent_presence",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("presence invoked")),
+    )
+
+    snapshot = platform.get_run_execution_snapshot(run["id"])
+
+    assert snapshot is not None
+    assert snapshot["id"] == run["id"]
+    assert snapshot["tasks"][0]["id"] == task["id"]
+    assert snapshot["artifacts"][0]["content"] == "verified"
+    assert snapshot["events"][-1]["type"] == "execution.snapshot.test"
+    assert "node_dossiers" not in snapshot
+    assert "agent_presence" not in snapshot
+    assert "attempts" not in snapshot
+    assert "git_delivery" not in snapshot
+
+
+def test_sqlite_wal_allows_event_write_while_reader_transaction_is_open(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "wal-concurrency.db"))
+    agent = platform.create_agent(
+        name="并发核验员",
+        role="运行可靠性工程师",
+        description="验证长 Run 读写互不阻断",
+        persona="以数据库并发事实为准",
+        capabilities=["SQLite 并发"],
+    )
+    workflow = platform.create_workflow(
+        "WAL 并发验证",
+        "读取执行快照时仍可写入事件",
+        "test",
+        {"nodes": [{"key": "verify", "name": "验证", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证 WAL 读写并发")
+
+    with platform._connect() as reader:
+        assert str(reader.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal"
+        reader.execute("BEGIN")
+        reader.execute("SELECT * FROM events WHERE run_id=?", (run["id"],)).fetchall()
+        platform.append_run_event(
+            run["id"],
+            "test.concurrent_write",
+            "validation",
+            "读事务期间写入成功",
+            "WAL 未让长读事务阻断 Agent 事件写入。",
+        )
+
+    latest = platform.get_run(run["id"], event_limit=10)
+    assert latest is not None
+    assert latest["events"][-1]["type"] == "test.concurrent_write"
+
+
 def test_public_platform_run_redacts_legacy_runtime_trace_without_mutating_evidence() -> None:
     raw_error = (
         "openclaw_agent_failed:[agents/tool-policy] tool policy removed via tools.profile "

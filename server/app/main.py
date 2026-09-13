@@ -2350,29 +2350,38 @@ async def download_platform_run_code(run_id: str, organization_id: str | None = 
 
 @app.post("/api/platform/runs/{run_id}/start")
 async def start_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(run_id, organization_id)
+    run = await asyncio.to_thread(scoped_platform_run, run_id, organization_id)
     active = platform_tasks.get(run_id)
     if active and not active.done():
         raise HTTPException(status_code=409, detail="run_already_active")
     if run["status"] != "draft":
         raise HTTPException(status_code=409, detail="run_is_immutable_use_retry_for_failed_run")
-    runtime_snapshot = prepare_agent_runtime_run(run)
+    runtime_snapshot = await asyncio.to_thread(prepare_agent_runtime_run, run)
     schedule_platform_execution(run_id)
-    return {"run": public_platform_run(platform_store.get_run(run_id) or run), "execution": {"mode": agent_runtime.runtime_name, "runtime": agent_runtime.runtime_name, "status": "started", "runtime_snapshot": runtime_snapshot}}
+    current_run = await asyncio.to_thread(platform_store.get_run, run_id)
+    return {"run": public_platform_run(current_run or run), "execution": {"mode": agent_runtime.runtime_name, "runtime": agent_runtime.runtime_name, "status": "started", "runtime_snapshot": runtime_snapshot}}
 
 
 @app.post("/api/platform/runs/{run_id}/retry")
 async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None, organization_id: str | None = None) -> dict[str, object]:
-    scoped_platform_run(run_id, organization_id)
+    await asyncio.to_thread(scoped_platform_run, run_id, organization_id)
     try:
-        source_run, _ = platform_store.validate_retry(run_id, from_task_id=request.from_task_id if request else None)
+        source_run, _ = await asyncio.to_thread(
+            platform_store.validate_retry,
+            run_id,
+            from_task_id=request.from_task_id if request else None,
+        )
         # Runtime/model readiness must be proven before a new Run version is persisted.
-        runtime_snapshot = prepare_agent_runtime_run(source_run)
-        retry = platform_store.retry_run(run_id, from_task_id=request.from_task_id if request else None)
+        runtime_snapshot = await asyncio.to_thread(prepare_agent_runtime_run, source_run)
+        retry = await asyncio.to_thread(
+            platform_store.retry_run,
+            run_id,
+            from_task_id=request.from_task_id if request else None,
+        )
     except ValueError as exc:
         status = 404 if str(exc) in {"run_not_found", "workflow_not_found"} else 409
         raise HTTPException(status_code=status, detail=str(exc)) from exc
-    source_run = platform_store.get_run(run_id)
+    source_run = await asyncio.to_thread(platform_store.get_run, run_id)
     source_organization_id = str((source_run or {}).get("organization_id") or "")
     for commission in platform_store.list_company_tasks(source_organization_id or None):
         if commission.get("run_id") == run_id:
@@ -2380,7 +2389,9 @@ async def retry_platform_run(run_id: str, request: RunRetryRequest | None = None
             break
     schedule_platform_execution(str(retry["id"]))
     return {
-        "run": public_platform_run(platform_store.get_run(retry["id"]) or retry),
+        "run": public_platform_run(
+            await asyncio.to_thread(platform_store.get_run, retry["id"]) or retry
+        ),
         "retry": {
             "source_run_id": run_id,
             "source_task_id": request.from_task_id if request else None,
@@ -2399,17 +2410,23 @@ async def recover_platform_run(
     request: RunRecoveryRequest | None = None,
     organization_id: str | None = None,
 ) -> dict[str, object]:
-    run = scoped_platform_run(
-        run_id, organization_id, event_limit=200, include_artifact_content=False
+    run = await asyncio.to_thread(
+        scoped_platform_run,
+        run_id,
+        organization_id,
+        event_limit=200,
+        include_artifact_content=False,
     )
     active = platform_tasks.get(run_id)
     if active and not active.done():
         raise HTTPException(status_code=409, detail="run_already_active")
     # Validate Runtime/model readiness before mutating the durable Run state.
-    runtime_snapshot = prepare_agent_runtime_run(run)
+    runtime_snapshot = await asyncio.to_thread(prepare_agent_runtime_run, run)
     try:
-        recovery = platform_store.recover_run(
-            run_id, from_task_id=request.from_task_id if request else None
+        recovery = await asyncio.to_thread(
+            platform_store.recover_run,
+            run_id,
+            from_task_id=request.from_task_id if request else None,
         )
     except ValueError as exc:
         detail = str(exc)

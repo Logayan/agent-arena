@@ -8,7 +8,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from .agent_runtime import AgentRuntimeError, public_runtime_error
 from .agent_runtime_registry import agent_runtime
@@ -20,6 +20,36 @@ from .run_budget import active_execution_epoch_seconds, effective_run_minutes
 
 class ArtifactValidationError(RuntimeError):
     pass
+
+
+class _AttemptEvidenceBundleCache:
+    """Freeze one evidence bundle per platform Attempt.
+
+    Team members in the same node share a platform Attempt. Without this
+    cache, every member rebuilt the full event projection and recopied every
+    Artifact before entering Claude Code SDK, which could starve API traffic
+    for mature Runs. Different Attempts remain independently auditable.
+    """
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._paths: dict[str, Path] = {}
+
+    async def get_or_create(
+        self,
+        platform_attempt_id: str,
+        builder: Callable[[], Awaitable[Path]],
+    ) -> Path:
+        cached = self._paths.get(platform_attempt_id)
+        if cached is not None:
+            return cached
+        async with self._lock:
+            cached = self._paths.get(platform_attempt_id)
+            if cached is not None:
+                return cached
+            created = await builder()
+            self._paths[platform_attempt_id] = created
+            return created
 
 
 def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
@@ -1014,7 +1044,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
     # Mature Runs can contain tens of thousands of events and hundreds of
     # materialized Artifacts. Hydrating that projection is blocking I/O/CPU and
     # must never monopolize the FastAPI event-loop thread.
-    run = await asyncio.to_thread(store.get_run, run_id)
+    run = await asyncio.to_thread(store.get_run_execution_snapshot, run_id)
     if not run:
         return
     workflow = store.get_workflow(run["workflow_id"])
@@ -1075,7 +1105,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         node_semaphore = asyncio.Semaphore(max_parallel)
         llm_semaphore = asyncio.Semaphore(max_parallel)
         event_lock = asyncio.Lock()
-        evidence_bundle_lock = asyncio.Lock()
+        evidence_bundle_cache = _AttemptEvidenceBundleCache()
+        evidence_artifact_cache: dict[tuple[str, str], dict[str, Any]] = {}
         artifacts_by_key: dict[str, str] = {}
         completed: set[str] = set()
         latest_artifact_by_task: dict[str, dict[str, Any]] = {}
@@ -1194,7 +1225,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     async with event_lock:
                         # Full checkpoint materialization is only needed after a
                         # real pause request. Normal control checks stay light.
-                        latest = await asyncio.to_thread(store.get_run, run_id)
+                        latest = await asyncio.to_thread(store.get_run_execution_snapshot, run_id)
                         if latest and latest["status"] == "pause_requested":
                             latest_sequence = max(
                                 (int(item.get("sequence") or 0) for item in latest.get("events", [])),
@@ -1272,13 +1303,23 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     continue
                 return
 
-        async def materialize_public_evidence_bundle() -> Path:
-            async with evidence_bundle_lock:
-                latest_run = await asyncio.to_thread(store.get_run, run_id) or run
+        async def materialize_public_evidence_bundle(platform_attempt_id: str) -> Path:
+            async def build() -> Path:
+                latest_run = await asyncio.to_thread(store.get_run_execution_snapshot, run_id) or run
                 workspace = latest_run.get("workspace") or run.get("workspace") or {}
                 run_root = Path(str(workspace.get("root") or "")).resolve()
                 code_root = Path(str(workspace.get("code") or "")).resolve()
-                bundle_root = code_root / ".jianghu-platform-evidence"
+                evidence_root = code_root / ".jianghu-platform-evidence"
+                # Keep the complete identity in run-metadata.json while using
+                # a stable short directory on disk. Windows test/workspace
+                # roots can already be deep enough that the full Attempt ID
+                # would exceed the legacy path-length boundary.
+                attempt_digest = hashlib.sha256(
+                    platform_attempt_id.encode("utf-8")
+                ).hexdigest()[:16]
+                bundle_root = evidence_root / "snapshots" / (
+                    f"attempt-{attempt_digest}"
+                )
                 bundle_root.mkdir(parents=True, exist_ok=True)
 
                 projections = await asyncio.to_thread(
@@ -1338,14 +1379,19 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     newline="\n",
                 )
 
-                artifacts_root = bundle_root / "artifacts"
+                # Artifact bytes are content-addressed and shared across frozen
+                # Attempt snapshots. Snapshot registries remain immutable while
+                # repeated nodes avoid rewriting hundreds of identical files.
+                artifacts_root = evidence_root / "artifacts"
                 artifacts_root.mkdir(parents=True, exist_ok=True)
                 lineage_runs = [latest_run]
                 lineage_ids = {str(latest_run.get("id") or "")}
                 ancestor_id = str(latest_run.get("parent_run_id") or "")
                 while ancestor_id and ancestor_id not in lineage_ids:
                     lineage_ids.add(ancestor_id)
-                    ancestor = await asyncio.to_thread(store.get_run, ancestor_id)
+                    ancestor = await asyncio.to_thread(
+                        store.get_run_execution_snapshot, ancestor_id
+                    )
                     if not ancestor:
                         break
                     lineage_runs.append(ancestor)
@@ -1374,10 +1420,23 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             }
                         )
                         continue
-                    data = await asyncio.to_thread(source.read_bytes)
                     suffix = source.suffix or ".bin"
-                    target = artifacts_root / f"{_safe_segment(artifact.get('id'), 'artifact')}{suffix}"
-                    await asyncio.to_thread(target.write_bytes, data)
+                    expected_sha256 = str(artifact.get("sha256") or "")
+                    cache_key = (str(artifact.get("id") or ""), expected_sha256)
+                    cached_artifact = evidence_artifact_cache.get(cache_key)
+                    target = artifacts_root / (
+                        f"{_safe_segment(artifact.get('id'), 'artifact')}"
+                        f"-{_safe_segment(expected_sha256[:16], 'nohash')}{suffix}"
+                    )
+                    if cached_artifact is None or not target.is_file():
+                        data = await asyncio.to_thread(source.read_bytes)
+                        observed_sha256 = hashlib.sha256(data).hexdigest()
+                        await asyncio.to_thread(target.write_bytes, data)
+                        cached_artifact = {
+                            "observed_sha256": observed_sha256,
+                            "size_bytes": len(data),
+                        }
+                        evidence_artifact_cache[cache_key] = cached_artifact
                     artifact_registry.append(
                         {
                             "id": artifact.get("id"),
@@ -1387,10 +1446,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "status": artifact.get("status"),
                             "version": artifact.get("version"),
                             "source_relative_path": relative_path,
-                            "materialized_path": target.relative_to(bundle_root).as_posix(),
-                            "expected_sha256": artifact.get("sha256"),
-                            "observed_sha256": hashlib.sha256(data).hexdigest(),
-                            "size_bytes": len(data),
+                            "materialized_path": os.path.relpath(
+                                target, bundle_root
+                            ).replace("\\", "/"),
+                            "expected_sha256": expected_sha256,
+                            "observed_sha256": cached_artifact["observed_sha256"],
+                            "size_bytes": cached_artifact["size_bytes"],
                             "materialized": True,
                             **origin,
                             "inherited": inherited,
@@ -1444,6 +1505,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "runtime": runtime_name,
                     "execution_epoch": execution_epoch,
+                    "platform_attempt_id": platform_attempt_id,
                 }
                 await asyncio.to_thread(
                     (bundle_root / "run-metadata.json").write_text,
@@ -1461,13 +1523,15 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "- `runtime-source-attestation.json`：生产 Registry、执行入口、SDK 依赖与部署输入的源码字节指纹和 Claude-only 阻断扫描。\n"
                     "- `artifact-registry.json`：Artifact 元数据、登记哈希、当前字节复算哈希与物化路径。\n"
                     "- `run-lineage.json`：当前 Run 到祖先版本的不可覆盖血缘，以及继承 Artifact 的来源定位依据。\n"
-                    "- `artifacts/`：本 Run 已登记正式产物的原始字节副本。\n"
+                    "- `../../artifacts/`：所有 Attempt 共享的内容寻址原始字节副本；Registry 中记录相对路径。\n"
                     "- `run-metadata.json`：本次生成时的 Run 元数据快照。\n\n"
                     "人物不得把该投影冒充源数据库或发起人私享数据；结论必须引用 sequence、artifact id 和哈希。\n",
                     encoding="utf-8",
                     newline="\n",
                 )
                 return bundle_root
+
+            return await evidence_bundle_cache.get_or_create(platform_attempt_id, build)
 
         async def relevant_interventions(task: dict[str, Any], actor: dict[str, Any] | None = None) -> list[dict[str, Any]]:
             await wait_for_control_boundary()
@@ -1884,7 +1948,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台确认未以同一 operation/idempotency 身份静默重放；未知结果保持可见，等待后续节点全量重跑覆盖。",
                         {**terminal_payload, "status": "interrupted_unknown_preserved"},
                     )
-                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
+                recovery_snapshot = await asyncio.to_thread(
+                    store.get_run_execution_snapshot, run_id
+                ) or run
                 for reconciliation in _tool_terminal_reconciliations(list(recovery_snapshot.get("events", []))):
                     store.append_run_event(
                         run_id, "agent.tool.terminal.reconciled", "validation",
@@ -1892,7 +1958,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台保留全部原事件，并以显式 supersedes 关系选定唯一 canonical terminal；未删除失败证据。",
                         {**reconciliation, "status": "resolved"},
                     )
-                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or recovery_snapshot
+                recovery_snapshot = await asyncio.to_thread(
+                    store.get_run_execution_snapshot, run_id
+                ) or recovery_snapshot
                 completed_by_identity: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
                 for event in recovery_snapshot.get("events", []):
                     if event.get("type") != "agent.tool.completed":
@@ -1930,7 +1998,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "status": "reviewed",
                         },
                     )
-                recovery_snapshot = await asyncio.to_thread(store.get_run, run_id) or recovery_snapshot
+                recovery_snapshot = await asyncio.to_thread(
+                    store.get_run_execution_snapshot, run_id
+                ) or recovery_snapshot
                 unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
                     list(recovery_snapshot.get("events", []))
                 )
@@ -2055,7 +2125,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 )
                 role_instance_id = f"role:{run_id}:{node_key}:{agent['id']}"
                 approval_credential_id = f"approval:{run_id}:{node_key}:{agent['id']}"
-                latest_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
+                latest_snapshot = await asyncio.to_thread(
+                    store.get_run_execution_snapshot, run_id
+                ) or run
                 latest_rejection = next(
                     (item for item in reversed(latest_snapshot.get("events", [])) if item.get("type") == "gate.rejected"),
                     None,
@@ -2179,10 +2251,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 },
                             )
                     if actor_has_tools:
-                        evidence_root = await materialize_public_evidence_bundle()
+                        evidence_root = await materialize_public_evidence_bundle(platform_attempt_id)
+                        evidence_relative_path = evidence_root.relative_to(
+                            Path(str(run["workspace"]["code"])).resolve()
+                        ).as_posix()
                         effective_prompt += (
                             "\n\n本节点已获得隔离的 Runtime 工具。平台在候选工程中提供了"
-                            f" `{evidence_root.name}` 证据目录；必须实际读取其中的事件投影、Artifact Registry 和正式产物原始字节，"
+                            f" `{evidence_relative_path}` 冻结证据目录；必须实际读取其中的事件投影、Artifact Registry 和正式产物原始字节，"
                             "按 sequence、artifact id、路径及 SHA-256 复核后再下结论。需要形成报告、索引、测试或整改文件时，"
                             "必须写入当前 delivery 并运行必要校验，不得再声称没有文件、命令或证据工具。"
                             "不得读取或输出 Provider 凭据，也不得把发起人私享审计内容注入公共结论。"
@@ -2647,7 +2722,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 if is_judge:
                     judge_knowledge, judge_matches = _team_knowledge(store, team, knowledge_query, agent["id"]) if team else ("", [])
                     allowed_targets = sorted(dependencies.get(node_key, set()))
-                    judge_run_snapshot = await asyncio.to_thread(store.get_run, run_id) or run
+                    judge_run_snapshot = await asyncio.to_thread(
+                        store.get_run_execution_snapshot, run_id
+                    ) or run
                     validation_evidence = [
                         {
                             "type": event.get("type"),
@@ -4090,7 +4167,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             progress = int((len(completed) / max(len(tasks), 1)) * 100)
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
-        convergence_snapshot = await asyncio.to_thread(store.get_run, run_id) or {}
+        convergence_snapshot = await asyncio.to_thread(
+            store.get_run_execution_snapshot, run_id
+        ) or {}
         unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
             list(convergence_snapshot.get("events", []))
         )
@@ -4117,7 +4196,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             },
         )
         store.update_run(run_id, status="completed", stage="completed", progress=100, token_count=total_tokens)
-        completed_run = await asyncio.to_thread(store.get_run, run_id) or {}
+        completed_run = await asyncio.to_thread(
+            store.get_run_execution_snapshot, run_id
+        ) or {}
         existing_conclusion = next(
             (item for item in completed_run.get("artifacts", []) if str(item.get("title") or "") == "一页纸结论"),
             None,

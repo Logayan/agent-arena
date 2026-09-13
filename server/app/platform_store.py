@@ -283,13 +283,25 @@ class PlatformStore:
                 raise RuntimeError("PostgreSQL mode requires psycopg[binary]") from exc
             connection = psycopg.connect(self.database_url, row_factory=dict_row)
             return _DatabaseConnection(connection, postgres=True)
-        connection = sqlite3.connect(self.path.as_posix(), check_same_thread=False)
+        connection = sqlite3.connect(
+            self.path.as_posix(),
+            check_same_thread=False,
+            timeout=30,
+        )
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA busy_timeout = 30000")
         return _DatabaseConnection(connection, postgres=False)
 
     def _init_schema(self) -> None:
         with self._connect() as db:
+            if not db.postgres:
+                # Long-running Agent execution continuously appends events while
+                # browser/API readers inspect the same Run. WAL keeps those
+                # readers from blocking writers; a longer busy timeout absorbs
+                # short writer bursts instead of failing the whole node.
+                db.execute("PRAGMA journal_mode = WAL")
+                db.execute("PRAGMA synchronous = NORMAL")
             db.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS projects (
@@ -4231,6 +4243,73 @@ class PlatformStore:
         }
         result["node_dossiers"] = self._build_node_dossiers(result)
         result["agent_presence"] = self._derive_agent_presence(result)
+        return result
+
+    def get_run_execution_snapshot(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+        *,
+        include_artifact_content: bool = True,
+    ) -> dict[str, Any] | None:
+        """Load the durable fields needed by the executor without UI projections.
+
+        Long-lived Runs can contain tens of thousands of events. The executor
+        needs that history for recovery and evidence, but it does not need the
+        attempts list, node dossiers, agent presence, or Git delivery view that
+        ``get_run`` derives for the browser. Keeping this path separate avoids
+        repeatedly paying for those large Python projections on every node.
+        """
+        with self._connect() as db:
+            if organization_id:
+                row = db.execute(
+                    "SELECT * FROM runs WHERE id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                row = db.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+            if not row:
+                return None
+            run_organization_id = str(row["organization_id"] or "org_jianghu")
+            tasks = db.execute(
+                "SELECT * FROM tasks WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
+            ).fetchall()
+            artifact_columns = "*" if include_artifact_content else (
+                "id,run_id,organization_id,task_id,kind,title,'' AS content,version,status,created_at,"
+                "relative_path,sha256,media_type,size_bytes"
+            )
+            artifacts = db.execute(
+                f"SELECT {artifact_columns} FROM artifacts "
+                "WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
+            ).fetchall()
+            events = db.execute(
+                "SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence",
+                (run_id, run_organization_id),
+            ).fetchall()
+            interventions = db.execute(
+                "SELECT * FROM run_interventions "
+                "WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
+            ).fetchall()
+        result = dict(row)
+        result["run_family_id"] = str(row["run_family_id"] or run_id)
+        result["tasks"] = [self._task(item) for item in tasks]
+        result["artifacts"] = [self._artifact(item) for item in artifacts]
+        result["events"] = [self._event_json(item) for item in events]
+        result["interventions"] = [dict(item) for item in interventions]
+        workspace = self._run_workspace(str(result["project_id"]), str(result["id"]))
+        result["workspace"] = {
+            "root": str(workspace),
+            "manifest": str(workspace / "manifest.json"),
+            "input": str(workspace / "input"),
+            "workflow": str(workspace / "workflow"),
+            "artifacts": str(workspace / "artifacts"),
+            "code": str(workspace / "code"),
+            "logs": str(workspace / "logs"),
+            "tmp": str(workspace / "tmp"),
+        }
         return result
 
     def get_run_state(self, run_id: str, organization_id: str | None = None) -> dict[str, Any] | None:

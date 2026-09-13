@@ -10,6 +10,7 @@ from server.app import claude_code_runtime as claude_runtime_module
 from server.app.agent_runtime import AgentRuntimeError
 from server.app.claude_code_runtime import ClaudeCodeRuntime, _bridge_stream_limit_bytes, _configured_max_turns
 from server.app.platform_executor import (
+    _AttemptEvidenceBundleCache,
     _agent_timeout_seconds,
     _apply_run_execution_policy_amendments,
     _attempt_rework_run_id,
@@ -57,6 +58,50 @@ async def test_parallel_runtime_failure_cancels_sibling() -> None:
         await _gather_cancel_on_error(fail(), sibling())
 
     assert sibling_cancelled.is_set()
+
+
+@pytest.mark.anyio
+async def test_attempt_evidence_bundle_is_built_once_for_parallel_team_members(
+    tmp_path: Path,
+) -> None:
+    cache = _AttemptEvidenceBundleCache()
+    build_count = 0
+    bundle = tmp_path / "evidence" / "attempt-1"
+
+    async def build() -> Path:
+        nonlocal build_count
+        build_count += 1
+        await asyncio.sleep(0.02)
+        bundle.mkdir(parents=True, exist_ok=True)
+        return bundle
+
+    paths = await asyncio.gather(
+        *(cache.get_or_create("attempt-1", build) for _ in range(5))
+    )
+
+    assert paths == [bundle] * 5
+    assert build_count == 1
+
+
+@pytest.mark.anyio
+async def test_attempt_evidence_bundle_keeps_distinct_attempt_snapshots(
+    tmp_path: Path,
+) -> None:
+    cache = _AttemptEvidenceBundleCache()
+    build_count = 0
+
+    async def build() -> Path:
+        nonlocal build_count
+        build_count += 1
+        path = tmp_path / f"attempt-{build_count}"
+        path.mkdir()
+        return path
+
+    first = await cache.get_or_create("attempt-1", build)
+    second = await cache.get_or_create("attempt-2", build)
+
+    assert first != second
+    assert build_count == 2
 
 
 def test_complex_claude_turn_budget_is_configurable_and_bounded(monkeypatch) -> None:
