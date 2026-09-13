@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import sys
 import textwrap
 import time
@@ -212,6 +213,50 @@ async def test_claude_message_keeps_event_loop_responsive_during_large_seed_copy
 
     assert heartbeat_elapsed < 0.15
     assert result["content"][0]["text"] == "G4_ADAPTER_OK"
+
+
+def test_workspace_snapshot_tolerates_disappearing_browser_trace_directory(
+    monkeypatch, tmp_path
+) -> None:
+    root = tmp_path / "delivery"
+    root.mkdir()
+    stable = root / "report.json"
+    stable.write_text('{"status":"passed"}', encoding="utf-8")
+
+    def unstable_rglob(_self: Path, _pattern: str):
+        yield stable
+        raise FileNotFoundError("playwright trace directory disappeared")
+
+    monkeypatch.setattr(Path, "rglob", unstable_rglob)
+
+    snapshot = ClaudeCodeRuntime._workspace_snapshot(root)
+
+    assert list(snapshot) == ["report.json"]
+    assert snapshot["report.json"]["size_bytes"] == stable.stat().st_size
+
+
+def test_seed_copy_tolerates_disappearing_browser_trace_file(
+    monkeypatch, tmp_path
+) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    (source / "report.json").write_text('{"status":"passed"}', encoding="utf-8")
+    (source / "trace.tmp").write_text("transient", encoding="utf-8")
+    original_copy = shutil.copy2
+
+    def copy_with_transient_removal(path: Path, target: Path):
+        if path.name == "trace.tmp":
+            path.unlink(missing_ok=True)
+            raise FileNotFoundError(path)
+        return original_copy(path, target)
+
+    monkeypatch.setattr("server.app.claude_code_runtime.shutil.copy2", copy_with_transient_removal)
+
+    ClaudeCodeRuntime._copy_tree(source, destination)
+
+    assert (destination / "report.json").read_text(encoding="utf-8") == '{"status":"passed"}'
+    assert not (destination / "trace.tmp").exists()
 
 
 @pytest.mark.anyio

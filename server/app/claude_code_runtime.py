@@ -347,20 +347,34 @@ class ClaudeCodeRuntime:
         snapshot: dict[str, dict[str, Any]] = {}
         if not root.is_dir():
             return snapshot
-        for path in root.rglob("*"):
-            if not path.is_file():
-                continue
-            relative_path = path.relative_to(root)
-            if any(part in ignored for part in relative_path.parts):
-                continue
-            try:
-                data = path.read_bytes()
-            except OSError:
-                continue
-            snapshot[relative_path.as_posix()] = {
-                "sha256": hashlib.sha256(data).hexdigest(),
-                "size_bytes": len(data),
-            }
+        def handle_walk_error(error: OSError) -> None:
+            if not isinstance(error, (FileNotFoundError, NotADirectoryError)):
+                raise error
+
+        # Browser/test runners create and remove trace directories while their
+        # process tree is shutting down. Path.rglob can fail the whole Agent
+        # turn when one of those directories disappears between scandir calls.
+        # os.walk's onerror hook keeps the snapshot best-effort while stable
+        # files are still hashed and reported normally.
+        for directory, directory_names, file_names in os.walk(
+            root,
+            topdown=True,
+            onerror=handle_walk_error,
+            followlinks=False,
+        ):
+            directory_names[:] = [name for name in directory_names if name not in ignored]
+            directory_path = Path(directory)
+            for file_name in file_names:
+                path = directory_path / file_name
+                try:
+                    relative_path = path.relative_to(root)
+                    data = path.read_bytes()
+                except OSError:
+                    continue
+                snapshot[relative_path.as_posix()] = {
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "size_bytes": len(data),
+                }
         return snapshot
 
     @staticmethod
@@ -388,16 +402,34 @@ class ClaudeCodeRuntime:
             return
         ignored = {".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv"}
         destination.mkdir(parents=True, exist_ok=True)
-        for path in source.rglob("*"):
-            relative_path = path.relative_to(source)
-            if any(part in ignored for part in relative_path.parts):
+        def handle_walk_error(error: OSError) -> None:
+            if not isinstance(error, (FileNotFoundError, NotADirectoryError)):
+                raise error
+
+        for directory, directory_names, file_names in os.walk(
+            source,
+            topdown=True,
+            onerror=handle_walk_error,
+            followlinks=False,
+        ):
+            directory_names[:] = [name for name in directory_names if name not in ignored]
+            directory_path = Path(directory)
+            try:
+                relative_directory = directory_path.relative_to(source)
+                target_directory = destination / relative_directory
+                target_directory.mkdir(parents=True, exist_ok=True)
+            except (FileNotFoundError, NotADirectoryError):
                 continue
-            target = destination / relative_path
-            if path.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
-            elif path.is_file():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(path, target)
+            for file_name in file_names:
+                path = directory_path / file_name
+                target = target_directory / file_name
+                try:
+                    shutil.copy2(path, target)
+                except (FileNotFoundError, NotADirectoryError):
+                    # A transient browser trace may disappear after os.walk
+                    # enumerates it. It is not a durable Agent deliverable and
+                    # must not fail recovery or a completed model response.
+                    continue
 
     @staticmethod
     async def _terminate_process_tree(process: asyncio.subprocess.Process) -> None:

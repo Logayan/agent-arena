@@ -173,12 +173,26 @@ const artifactGroups = computed(() => {
 })
 const testEvidenceSummary = computed(() => {
   const live = activeRun.value?.test_evidence as Json | undefined
-  if (live) return {
-    cases: Number(live.cases ?? 0),
-    results: Number(live.results ?? 0),
-    screenshots: Number(live.screenshots ?? 0),
-    browserReports: Number(live.browser_reports ?? 0),
-    complete: Boolean(live.complete),
+  if (live) {
+    const cases = Number(live.cases ?? 0)
+    const results = Number(live.results ?? 0)
+    const screenshots = Number(live.screenshots ?? 0)
+    const browserReports = Number(live.browser_reports ?? 0)
+    const strictEvidenceShape = ['case_documents', 'junit_reports', 'manifests']
+      .every(key => Object.prototype.hasOwnProperty.call(live, key))
+    return {
+      cases,
+      results,
+      screenshots,
+      browserReports,
+      caseDocuments: Number(live.case_documents ?? 0),
+      junitReports: Number(live.junit_reports ?? 0),
+      manifests: Number(live.manifests ?? 0),
+      materialsPresent: Boolean(live.materials_present ?? (
+        cases > 0 && results > 0 && screenshots > 0 && browserReports > 0
+      )),
+      complete: strictEvidenceShape && Boolean(live.complete),
+    }
   }
   const artifacts = activeRun.value?.artifacts ?? []
   const titles = artifacts.map((artifact: Json) => String(artifact.title ?? '').replace(/\\/g, '/').toLowerCase())
@@ -187,12 +201,20 @@ const testEvidenceSummary = computed(() => {
   const results = count(/(^|\/)(test-results|test_results|测试结果)(\.|\/|$)/)
   const screenshots = titles.filter((title: string) => /\.(png|jpe?g|webp)$/.test(title)).length
   const browserReports = titles.filter((title: string) => /playwright|browser-e2e|e2e-report|screenshot-index|\.har$/.test(title)).length
+  const caseDocuments = titles.filter((title: string) => /(^|\/)(test-cases|test_cases|测试用例).*\.(md|txt|html)$/.test(title)).length
+  const junitReports = titles.filter((title: string) => /(^|\/)(junit|test-results|test_results).*\.xml$/.test(title)).length
+  const manifests = titles.filter((title: string) => /(^|\/)(sha256[-_]?manifest|evidence[-_]?manifest)(\.|\/|$)/.test(title)).length
+  const materialsPresent = cases > 0 && results > 0 && screenshots > 0 && browserReports > 0
   return {
     cases,
     results,
     screenshots,
     browserReports,
-    complete: cases > 0 && results > 0 && screenshots > 0 && browserReports > 0,
+    caseDocuments,
+    junitReports,
+    manifests,
+    materialsPresent,
+    complete: materialsPresent && caseDocuments > 0 && junitReports > 0 && manifests > 0,
   }
 })
 const gitDeliveryEvents = computed(() => [...(activeRun.value?.events ?? [])]
@@ -2862,8 +2884,8 @@ onUnmounted(() => {
             <div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div>
             <div v-else class="artifact-group-list">
               <section class="test-evidence-gate" :data-complete="testEvidenceSummary.complete">
-                <header><div><small>TEST EVIDENCE GATE</small><strong>测试证据完整性</strong></div><b>{{ testEvidenceSummary.complete ? '证据齐备' : '仍有缺口' }}</b></header>
-                <div><span><b>{{ testEvidenceSummary.cases }}</b> 测试用例文件</span><span><b>{{ testEvidenceSummary.results }}</b> 逐项结果文件</span><span><b>{{ testEvidenceSummary.screenshots }}</b> 页面截图</span><span><b>{{ testEvidenceSummary.browserReports }}</b> 浏览器报告/索引</span></div>
+                <header><div><small>TEST EVIDENCE GATE</small><strong>测试证据完整性</strong></div><b>{{ testEvidenceSummary.complete ? '证据齐备' : (testEvidenceSummary.materialsPresent ? '待结构校验' : '仍有缺口') }}</b></header>
+                <div><span><b>{{ testEvidenceSummary.cases }}</b> 测试用例 JSON</span><span><b>{{ testEvidenceSummary.results }}</b> 逐项结果文件</span><span><b>{{ testEvidenceSummary.screenshots }}</b> 页面截图</span><span><b>{{ testEvidenceSummary.browserReports }}</b> 浏览器报告/索引</span><span><b>{{ testEvidenceSummary.caseDocuments }}</b> 可读用例文档</span><span><b>{{ testEvidenceSummary.junitReports }}</b> JUnit/XML</span><span><b>{{ testEvidenceSummary.manifests }}</b> 哈希清单</span></div>
                 <p v-if="!testEvidenceSummary.complete">四类证据必须同时存在并可下载复验；测试事件或日志不能替代测试用例、逐项结果与页面截图。</p>
               </section>
               <section v-for="group in artifactGroups" :key="group.key" class="artifact-group" :data-category="group.key">

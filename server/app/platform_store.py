@@ -4357,7 +4357,15 @@ class PlatformStore:
                 "SELECT title,relative_path,media_type FROM artifacts WHERE run_id=?",
                 (run_id,),
             ).fetchall()
-        evidence = {"cases": 0, "results": 0, "screenshots": 0, "browser_reports": 0}
+        evidence = {
+            "cases": 0,
+            "results": 0,
+            "screenshots": 0,
+            "browser_reports": 0,
+            "case_documents": 0,
+            "junit_reports": 0,
+            "manifests": 0,
+        }
         for row in artifact_rows:
             title = str(row["title"] or row["relative_path"] or "").replace("\\", "/").lower()
             media_type = str(row["media_type"] or "").lower()
@@ -4369,8 +4377,20 @@ class PlatformStore:
                 evidence["screenshots"] += 1
             if re.search(r"playwright|browser-e2e|e2e-report|screenshot-index|\.har$", title):
                 evidence["browser_reports"] += 1
-        evidence["complete"] = all(
+            if re.search(r"(^|/)(test-cases|test_cases|测试用例).*\.(md|txt|html)$", title):
+                evidence["case_documents"] += 1
+            if re.search(r"(^|/)(junit|test-results|test_results).*\.xml$", title):
+                evidence["junit_reports"] += 1
+            if re.search(r"(^|/)(sha256[-_]?manifest|evidence[-_]?manifest)(\.|/|$)", title):
+                evidence["manifests"] += 1
+        evidence["materials_present"] = all(
             evidence[key] > 0 for key in ("cases", "results", "screenshots", "browser_reports")
+        )
+        evidence["complete"] = bool(
+            evidence["materials_present"]
+            and evidence["case_documents"] > 0
+            and evidence["junit_reports"] > 0
+            and evidence["manifests"] > 0
         )
         return {
             **state,

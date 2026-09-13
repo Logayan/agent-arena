@@ -3026,8 +3026,33 @@ async def test_live_run_state_avoids_full_projection_and_reports_test_evidence(m
         "results": 1,
         "screenshots": 1,
         "browser_reports": 1,
-        "complete": True,
+        "case_documents": 0,
+        "junit_reports": 0,
+        "manifests": 0,
+        "materials_present": True,
+        "complete": False,
     }
+
+    for relative_path, data in (
+        ("evidence/测试用例.md", b"# E2E-001"),
+        ("evidence/junit.xml", b'<testsuite tests="1" failures="0"/>'),
+        ("evidence/sha256-manifest.json", b"{}"),
+    ):
+        path = code_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        platform.register_workspace_file_artifact(run["id"], task["id"], relative_path)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        complete_response = await client.get(f"/api/platform/runs/{run['id']}/state?event_limit=20")
+
+    assert complete_response.status_code == 200
+    complete_evidence = complete_response.json()["run_state"]["test_evidence"]
+    assert complete_evidence["case_documents"] == 1
+    assert complete_evidence["junit_reports"] == 1
+    assert complete_evidence["manifests"] == 1
+    assert complete_evidence["materials_present"] is True
+    assert complete_evidence["complete"] is True
 
 
 def test_extract_initiator_note_removes_private_summary_from_public_contribution() -> None:
