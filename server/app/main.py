@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from PIL import Image, ImageOps, UnidentifiedImageError
 from starlette.background import BackgroundTask
 
 from .agent_runtime import AgentRuntimeError, public_runtime_error
@@ -504,8 +505,16 @@ def public_llm_error(exc: Exception) -> str:
 
 
 @app.get("/api/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "capabilities": {
+            "artifact_detail": True,
+            "artifact_thumbnail": True,
+            "artifact_content": True,
+            "artifact_inline_preview": True,
+        },
+    }
 
 
 @app.get("/api/platform/overview")
@@ -2320,6 +2329,89 @@ async def download_platform_artifact(
         else stored_media_type
     )
     return FileResponse(path, media_type=media_type, filename=None if inline else filename)
+
+
+@app.get("/api/platform/artifacts/{artifact_id}")
+async def get_platform_artifact_detail(
+    artifact_id: str,
+    organization_id: str | None = None,
+) -> dict[str, object]:
+    detail = platform_store.get_artifact_provenance(artifact_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    artifact = detail["artifact"]
+    if organization_id and str(artifact.get("organization_id") or "") != organization_id:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization",
+        )
+    projected = _public_runtime_value(detail)
+    assert isinstance(projected, dict)
+    return projected
+
+
+@app.get("/api/platform/artifacts/{artifact_id}/content")
+async def get_platform_artifact_content(
+    artifact_id: str,
+    organization_id: str | None = None,
+) -> FileResponse:
+    artifact = platform_store.get_artifact(artifact_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    if organization_id and str(artifact.get("organization_id") or "") != organization_id:
+        raise HTTPException(status_code=404, detail="run_not_found_in_organization")
+    try:
+        path, content_artifact, _ = platform_store.artifact_content_file_path(artifact_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    source_name = Path(str(artifact.get("title") or content_artifact.get("title") or "artifact")).name
+    media_type = str(content_artifact.get("media_type") or workspace_file_media_type(source_name))
+    return FileResponse(path, media_type=media_type, filename=None)
+
+
+@app.get("/api/platform/artifacts/{artifact_id}/thumbnail")
+async def get_platform_artifact_thumbnail(
+    artifact_id: str,
+    organization_id: str | None = None,
+) -> FileResponse:
+    artifact = platform_store.get_artifact(artifact_id)
+    if not artifact:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    if organization_id and str(artifact.get("organization_id") or "") != organization_id:
+        raise HTTPException(status_code=404, detail="run_not_found_in_organization")
+    try:
+        source_path, content_artifact, _ = platform_store.artifact_content_file_path(artifact_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    content_media_type = str(content_artifact.get("media_type") or workspace_file_media_type(source_path.name))
+    if not content_media_type.startswith("image/"):
+        raise HTTPException(status_code=415, detail="artifact_is_not_image")
+    cache_root = Path(platform_store.path).parent / "artifact-thumbnails"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    thumbnail_path = cache_root / f"{artifact_id}-{str(content_artifact.get('sha256') or '')[:16]}.webp"
+
+    def build_thumbnail() -> None:
+        if thumbnail_path.is_file():
+            return
+        temporary_path = thumbnail_path.with_name(
+            f".{thumbnail_path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+        )
+        try:
+            with Image.open(source_path) as raw_image:
+                image = ImageOps.exif_transpose(raw_image)
+                image.thumbnail((560, 360), Image.Resampling.LANCZOS)
+                if image.mode not in {"RGB", "RGBA"}:
+                    image = image.convert("RGB")
+                image.save(temporary_path, format="WEBP", quality=78, method=4)
+            temporary_path.replace(thumbnail_path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+
+    try:
+        await asyncio.to_thread(build_thumbnail)
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=422, detail="artifact_image_decode_failed") from exc
+    return FileResponse(thumbnail_path, media_type="image/webp")
 
 
 @app.get("/api/platform/runs/{run_id}/code/download")

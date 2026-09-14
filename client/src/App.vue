@@ -93,6 +93,25 @@ const selectedWorkflowNodeKey = ref('')
 const workflowZoom = ref(1)
 const showAllWorkflowEdges = ref(false)
 const selectedSceneTaskId = ref('')
+const evidenceCenterOpen = ref(false)
+const evidenceFilter = ref('screenshots')
+const evidenceSearch = ref('')
+const evidenceVisibleLimit = ref(24)
+const selectedEvidenceArtifact = ref<Json | null>(null)
+const selectedEvidenceDetail = ref<Json | null>(null)
+const evidenceDetailLoading = ref(false)
+const evidenceDetailError = ref('')
+const evidencePreviewText = ref('')
+const evidencePreviewError = ref('')
+const evidenceEmbedUrl = ref('')
+const evidenceImageOpen = ref(false)
+const evidenceImageZoom = ref(1)
+const artifactGroupVisibleLimits = ref<Record<string, number>>({})
+const artifactThumbnailSupport = ref<'unknown' | 'available' | 'unavailable'>('unknown')
+const artifactEvidenceApiAvailable = ref(false)
+const artifactContentApiAvailable = ref(false)
+const artifactEvidenceApiChecked = ref(false)
+let evidenceDetailRequestId = 0
 const flowsPage = ref<HTMLElement | null>(null)
 const runsPage = ref<HTMLElement | null>(null)
 const fullscreenTarget = ref<'flows' | 'runs' | ''>('')
@@ -168,9 +187,23 @@ const artifactGroups = computed(() => {
     ;(grouped[artifactCategory(artifact)] ?? grouped.other).push(artifact)
   }
   return definitions
-    .map(definition => ({ ...definition, artifacts: grouped[definition.key] }))
+    .map(definition => ({
+      ...definition,
+      artifacts: grouped[definition.key].sort((left, right) => String(right.created_at ?? '').localeCompare(String(left.created_at ?? ''))),
+    }))
     .filter(group => group.artifacts.length)
 })
+function visibleArtifactGroup(group: Json): Json[] {
+  return (group.artifacts ?? []).slice(0, artifactGroupVisibleLimits.value[String(group.key)] ?? 24)
+}
+
+function loadMoreArtifactGroup(group: Json): void {
+  const key = String(group.key)
+  artifactGroupVisibleLimits.value = {
+    ...artifactGroupVisibleLimits.value,
+    [key]: (artifactGroupVisibleLimits.value[key] ?? 24) + 24,
+  }
+}
 const testEvidenceSummary = computed(() => {
   const live = activeRun.value?.test_evidence as Json | undefined
   if (live) {
@@ -217,6 +250,50 @@ const testEvidenceSummary = computed(() => {
     complete: materialsPresent && caseDocuments > 0 && junitReports > 0 && manifests > 0,
   }
 })
+const evidenceArtifacts = computed(() => [...(activeRun.value?.artifacts ?? [])]
+  .sort((left: Json, right: Json) => String(right.created_at ?? '').localeCompare(String(left.created_at ?? ''))))
+const evidenceFilterOptions = computed(() => {
+  const definitions = [
+    { id: 'all', label: '全部证据' },
+    { id: 'screenshots', label: '截图' },
+    { id: 'test_cases', label: '测试用例' },
+    { id: 'test_results', label: '测试结果' },
+    { id: 'browser_reports', label: '浏览器报告' },
+    { id: 'logs', label: '日志' },
+    { id: 'other', label: '其他' },
+  ]
+  return definitions.map(item => ({
+    ...item,
+    count: item.id === 'all'
+      ? evidenceArtifacts.value.length
+      : evidenceArtifacts.value.filter(artifact => artifactEvidenceType(artifact) === item.id).length,
+  }))
+})
+const filteredEvidenceArtifacts = computed(() => {
+  const query = evidenceSearch.value.trim().toLowerCase()
+  return evidenceArtifacts.value.filter(artifact => {
+    if (evidenceFilter.value !== 'all' && artifactEvidenceType(artifact) !== evidenceFilter.value) return false
+    if (!query) return true
+    return [artifact.id, artifact.title, artifact.relative_path, artifact.sha256, artifact.kind]
+      .some(value => String(value ?? '').toLowerCase().includes(query))
+  })
+})
+const visibleEvidenceArtifacts = computed(() => filteredEvidenceArtifacts.value.slice(0, evidenceVisibleLimit.value))
+const evidenceImages = computed(() => filteredEvidenceArtifacts.value.filter(artifact => artifactIsImage(artifact)))
+const selectedEvidenceImageIndex = computed(() => evidenceImages.value.findIndex(artifact => artifact.id === selectedEvidenceArtifact.value?.id))
+const selectedEvidenceReceipts = computed(() => {
+  if (selectedEvidenceDetail.value?.events?.length) return selectedEvidenceDetail.value.events as Json[]
+  const artifactId = String(selectedEvidenceArtifact.value?.id ?? '')
+  if (!artifactId) return []
+  return (activeRun.value?.events ?? []).filter((event: Json) =>
+    ['artifact.created', 'artifact.collected', 'artifact.download.verified', 'artifact.inherited'].includes(String(event.type))
+      && String(event.payload?.artifact_id ?? '') === artifactId)
+})
+const selectedEvidenceAttemptId = computed(() => String(
+  selectedEvidenceDetail.value?.attempt_id
+    || selectedEvidenceReceipts.value.find((event: Json) => event.payload?.platform_attempt_id)?.payload?.platform_attempt_id
+    || '',
+))
 const gitDeliveryEvents = computed(() => [...(activeRun.value?.events ?? [])]
   .filter((event: Json) => String(event.type ?? '').startsWith('git.'))
   .reverse())
@@ -908,6 +985,176 @@ function artifactIsImage(artifact: Json): boolean {
   return mediaType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/.test(title)
 }
 
+function artifactEvidenceType(artifact: Json): string {
+  if (artifactIsImage(artifact)) return 'screenshots'
+  const title = String(artifact?.title ?? artifact?.relative_path ?? '').replace(/\\/g, '/').toLowerCase()
+  const mediaType = String(artifact?.media_type ?? '').toLowerCase()
+  if (/(^|\/)(test-cases|test_cases|测试用例)(\.|\/|$)/.test(title)) return 'test_cases'
+  if (/(^|\/)(test-results|test_results|junit|测试结果)(\.|\/|$)/.test(title) || /junit.*\.xml$/.test(title)) return 'test_results'
+  if (/playwright|browser-e2e|e2e-report|screenshot-index|trace\.zip$|\.har$/.test(title)) return 'browser_reports'
+  if (/\.(log|out|err)$/.test(title) || /(^|\/)(logs?|console|network|stdout|stderr)(\.|\/|-|_)/.test(title) || mediaType === 'text/x-log') return 'logs'
+  return 'other'
+}
+
+function evidenceTypeLabel(artifact: Json): string {
+  return ({
+    screenshots: '页面截图', test_cases: '测试用例', test_results: '测试结果',
+    browser_reports: '浏览器报告', logs: '执行日志', other: '其他证据',
+  } as Record<string, string>)[artifactEvidenceType(artifact)] ?? '证据'
+}
+
+function artifactSourceTask(artifact: Json): Json | null {
+  return activeRun.value?.tasks?.find((task: Json) => String(task.id) === String(artifact?.task_id)) ?? null
+}
+
+function artifactCanPreviewText(artifact: Json): boolean {
+  const mediaType = String(artifact?.media_type ?? '').toLowerCase()
+  const title = String(artifact?.title ?? '').toLowerCase()
+  return mediaType.startsWith('text/') && mediaType !== 'text/html'
+    || ['application/json', 'application/xml', 'application/yaml'].some(type => mediaType.includes(type))
+    || /\.(json|xml|md|markdown|txt|log|csv|ya?ml)$/.test(title)
+}
+
+function artifactCanEmbed(artifact: Json): boolean {
+  const mediaType = String(artifact?.media_type ?? '').toLowerCase()
+  const title = String(artifact?.title ?? '').toLowerCase()
+  return mediaType.includes('text/html') || mediaType.includes('application/pdf') || /\.(html?|pdf)$/.test(title)
+}
+
+function fallbackArtifactImage(event: Event, artifact: Json): void {
+  const image = event.currentTarget as HTMLImageElement
+  const fallback = new URL(artifactDisplayUrl(artifact), window.location.href).href
+  if (image.src !== fallback) image.src = fallback
+}
+
+function artifactDisplayUrl(artifact: Json): string {
+  return artifactContentApiAvailable.value
+    ? api.artifactContentUrl(String(artifact.id), currentOrganizationId.value)
+    : api.artifactPreviewUrl(String(artifact.id), currentOrganizationId.value)
+}
+
+function evidenceImageListUrl(artifact: Json): string {
+  return artifactThumbnailSupport.value === 'available'
+    ? api.artifactThumbnailUrl(String(artifact.id), currentOrganizationId.value)
+    : api.artifactPreviewUrl(String(artifact.id), currentOrganizationId.value)
+}
+
+async function detectArtifactThumbnailSupport(): Promise<void> {
+  if (artifactEvidenceApiChecked.value) return
+  try {
+    const health = await api.health() as Json
+    artifactEvidenceApiAvailable.value = Boolean(health.capabilities?.artifact_detail)
+    artifactThumbnailSupport.value = health.capabilities?.artifact_thumbnail ? 'available' : 'unavailable'
+    artifactContentApiAvailable.value = Boolean(health.capabilities?.artifact_content)
+  } catch {
+    artifactEvidenceApiAvailable.value = false
+    artifactThumbnailSupport.value = 'unavailable'
+    artifactContentApiAvailable.value = false
+  } finally {
+    artifactEvidenceApiChecked.value = true
+  }
+  if (artifactEvidenceApiAvailable.value && selectedEvidenceArtifact.value) {
+    void selectEvidenceArtifact(selectedEvidenceArtifact.value)
+  }
+}
+
+function selectEvidenceFilter(filter: string): void {
+  evidenceFilter.value = filter
+  evidenceVisibleLimit.value = 24
+  const first = filteredEvidenceArtifacts.value[0]
+  if (first) void selectEvidenceArtifact(first)
+  else {
+    selectedEvidenceArtifact.value = null
+    selectedEvidenceDetail.value = null
+    evidencePreviewText.value = ''
+  }
+}
+
+function openEvidenceCenter(filter = 'screenshots'): void {
+  evidenceCenterOpen.value = true
+  evidenceSearch.value = ''
+  selectEvidenceFilter(filter)
+  void detectArtifactThumbnailSupport()
+}
+
+function openArtifactInEvidenceCenter(artifact: Json): void {
+  evidenceCenterOpen.value = true
+  evidenceSearch.value = ''
+  evidenceFilter.value = 'all'
+  evidenceVisibleLimit.value = 24
+  void detectArtifactThumbnailSupport()
+  if (artifactIsImage(artifact)) openEvidenceImage(artifact)
+  else void selectEvidenceArtifact(artifact)
+}
+
+function clearEvidenceEmbedUrl(): void {
+  if (evidenceEmbedUrl.value) URL.revokeObjectURL(evidenceEmbedUrl.value)
+  evidenceEmbedUrl.value = ''
+}
+
+function closeEvidenceCenter(): void {
+  evidenceCenterOpen.value = false
+  evidenceImageOpen.value = false
+  evidenceDetailRequestId += 1
+  clearEvidenceEmbedUrl()
+}
+
+async function selectEvidenceArtifact(artifact: Json): Promise<void> {
+  selectedEvidenceArtifact.value = artifact
+  selectedEvidenceDetail.value = null
+  evidencePreviewText.value = ''
+  evidencePreviewError.value = ''
+  clearEvidenceEmbedUrl()
+  evidenceDetailError.value = ''
+  evidenceDetailLoading.value = true
+  const requestId = ++evidenceDetailRequestId
+  const detailPromise = artifactEvidenceApiAvailable.value
+    ? api.artifactDetail(String(artifact.id), currentOrganizationId.value)
+    : Promise.resolve(null)
+  const previewPromise = artifactCanPreviewText(artifact)
+    ? api.artifactTextPreview(String(artifact.id), currentOrganizationId.value, 512_000, artifactContentApiAvailable.value)
+    : Promise.resolve('')
+  const embedPromise = artifactCanEmbed(artifact)
+    ? api.artifactBlobPreview(String(artifact.id), currentOrganizationId.value, artifactContentApiAvailable.value)
+    : Promise.resolve(null)
+  const [detailResult, previewResult, embedResult] = await Promise.allSettled([detailPromise, previewPromise, embedPromise])
+  if (requestId !== evidenceDetailRequestId) return
+  if (detailResult.status === 'fulfilled' && detailResult.value) selectedEvidenceDetail.value = detailResult.value as Json
+  else evidenceDetailError.value = '来源回执接口尚未加载，已回退到当前 Run 的事件窗口；原文件仍可正常查看。'
+  if (previewResult.status === 'fulfilled') evidencePreviewText.value = previewResult.value
+  else evidencePreviewError.value = previewResult.reason instanceof Error ? previewResult.reason.message : '证据正文读取失败'
+  if (embedResult.status === 'fulfilled' && embedResult.value) evidenceEmbedUrl.value = URL.createObjectURL(embedResult.value)
+  else if (embedResult.status === 'rejected') evidencePreviewError.value = embedResult.reason instanceof Error ? embedResult.reason.message : '文件预览失败'
+  evidenceDetailLoading.value = false
+}
+
+function markEvidenceImageError(): void {
+  evidencePreviewError.value = '截图原文件当前不可读取；Artifact 元数据仍保留，可等待文件归档完成后重试。'
+}
+
+function openEvidenceImage(artifact: Json): void {
+  evidenceImageZoom.value = 1
+  evidenceImageOpen.value = true
+  void selectEvidenceArtifact(artifact)
+}
+
+function showAdjacentEvidenceImage(offset: number): void {
+  if (!evidenceImages.value.length) return
+  const current = selectedEvidenceImageIndex.value >= 0 ? selectedEvidenceImageIndex.value : 0
+  const next = (current + offset + evidenceImages.value.length) % evidenceImages.value.length
+  openEvidenceImage(evidenceImages.value[next])
+}
+
+function handleEvidenceKeydown(event: KeyboardEvent): void {
+  if (!evidenceCenterOpen.value) return
+  if (event.key === 'Escape') {
+    if (evidenceImageOpen.value) evidenceImageOpen.value = false
+    else closeEvidenceCenter()
+  }
+  if (evidenceImageOpen.value && event.key === 'ArrowLeft') showAdjacentEvidenceImage(-1)
+  if (evidenceImageOpen.value && event.key === 'ArrowRight') showAdjacentEvidenceImage(1)
+}
+
 function inferredFileCategory(pathValue: unknown): string {
   const path = String(pathValue ?? '').replace(/\\/g, '/').toLowerCase()
   const name = path.split('/').pop() ?? ''
@@ -1503,6 +1750,7 @@ async function hydrateRun(runId: string, navigate = false): Promise<void> {
   error.value = ''
   const result = await api.getPlatformRun(runId, currentOrganizationId.value)
   activeRun.value = result.run as Json
+  artifactGroupVisibleLimits.value = {}
   selectedSceneTaskId.value = preferredRunTask(activeRun.value.tasks ?? [])?.id ?? ''
   if (navigate) {
     screen.value = 'runs'
@@ -2483,6 +2731,7 @@ async function retryCurrentGitDelivery(): Promise<void> {
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFullscreenTarget)
   window.addEventListener('popstate', handleRealmPopState)
+  window.addEventListener('keydown', handleEvidenceKeydown)
   loadAll()
 })
 onUnmounted(() => {
@@ -2490,6 +2739,8 @@ onUnmounted(() => {
   stopShowcasePolling()
   document.removeEventListener('fullscreenchange', syncFullscreenTarget)
   window.removeEventListener('popstate', handleRealmPopState)
+  window.removeEventListener('keydown', handleEvidenceKeydown)
+  clearEvidenceEmbedUrl()
 })
 </script>
 
@@ -2884,7 +3135,7 @@ onUnmounted(() => {
             <div v-if="!activeRun.artifacts?.length" class="artifact-waiting"><LoaderCircle v-if="activeRun.status === 'running'" class="spin" /><span>{{ activeRun.status === 'running' ? '人物正在行动，首份产物形成后会自动写入本 Run 的隔离工作区。' : '本次事件尚未形成产物。' }}</span></div>
             <div v-else class="artifact-group-list">
               <section class="test-evidence-gate" :data-complete="testEvidenceSummary.complete">
-                <header><div><small>TEST EVIDENCE GATE</small><strong>测试证据完整性</strong></div><b>{{ testEvidenceSummary.complete ? '证据齐备' : (testEvidenceSummary.materialsPresent ? '待结构校验' : '仍有缺口') }}</b></header>
+                <header><div><small>TEST EVIDENCE GATE</small><strong>测试证据完整性</strong></div><div class="test-evidence-actions"><b>{{ testEvidenceSummary.complete ? '证据齐备' : (testEvidenceSummary.materialsPresent ? '待结构校验' : '仍有缺口') }}</b><button type="button" data-testid="open-evidence-center" @click="openEvidenceCenter('screenshots')">在应用内查看证据</button></div></header>
                 <div><span><b>{{ testEvidenceSummary.cases }}</b> 测试用例 JSON</span><span><b>{{ testEvidenceSummary.results }}</b> 逐项结果文件</span><span><b>{{ testEvidenceSummary.screenshots }}</b> 页面截图</span><span><b>{{ testEvidenceSummary.browserReports }}</b> 浏览器报告/索引</span><span><b>{{ testEvidenceSummary.caseDocuments }}</b> 可读用例文档</span><span><b>{{ testEvidenceSummary.junitReports }}</b> JUnit/XML</span><span><b>{{ testEvidenceSummary.manifests }}</b> 哈希清单</span></div>
                 <p v-if="!testEvidenceSummary.complete">四类证据必须同时存在并可下载复验；测试事件或日志不能替代测试用例、逐项结果与页面截图。</p>
               </section>
@@ -2892,7 +3143,7 @@ onUnmounted(() => {
                 <header><i>{{ group.icon }}</i><div><small>{{ group.eyebrow }}</small><strong>{{ group.title }}</strong><p>{{ group.description }}</p></div><b>{{ group.artifacts.length }}</b></header>
                 <div v-if="group.key === 'git' && artifactGroupMrCount(group.artifacts) === 0" class="git-mr-empty"><span>MR</span><div><b>尚未创建远端 Merge Request</b><small>当前只展示真实形成的本地 Commit 与 Patch；没有远端 URL、编号和状态时不会伪装成已创建 MR。</small></div></div>
                 <div class="artifact-group-grid">
-                  <details v-for="artifact in group.artifacts" :id="`artifact-${artifact.id}`" :key="artifact.id" class="artifact-card" :data-kind="artifact.kind" :data-action="artifactChangeAction(artifact)">
+                  <details v-for="artifact in visibleArtifactGroup(group)" :id="`artifact-${artifact.id}`" :key="artifact.id" class="artifact-card" :data-kind="artifact.kind" :data-action="artifactChangeAction(artifact)">
                     <summary><span class="artifact-change-badge" :data-action="artifactChangeAction(artifact)">{{ artifactActionBadge(artifactChangeAction(artifact)) }}</span><div><strong>{{ artifact.title }}</strong><small>{{ artifactActionLabel(artifactChangeAction(artifact)) }} · 第 {{ artifact.version }} 版 · {{ artifact.status }}</small><code v-if="artifact.relative_path">{{ artifact.relative_path }} · SHA-256 {{ artifact.sha256?.slice(0, 12) }}</code></div><span>展开</span></summary>
                     <section v-if="artifactGitMetadata(artifact)" class="git-commit-card">
                       <div><small>不可变 Git Commit</small><code>{{ artifactGitMetadata(artifact)?.commit_sha }}</code><button type="button" @click="copyGitCommit(artifactGitMetadata(artifact)?.commit_sha)">复制 SHA</button></div>
@@ -2904,14 +3155,68 @@ onUnmounted(() => {
                     </section>
                     <section v-else-if="artifactMergeRequestMetadata(artifact)" class="git-mr-card"><div><small>REMOTE MERGE REQUEST</small><b>#{{ artifactMergeRequestMetadata(artifact)?.number }}</b><span>{{ artifactMergeRequestMetadata(artifact)?.status }}</span></div><h4>{{ artifactMergeRequestMetadata(artifact)?.title ?? artifact.title }}</h4><p>{{ artifactMergeRequestMetadata(artifact)?.source_branch }} → {{ artifactMergeRequestMetadata(artifact)?.target_branch }}</p><a :href="artifactMergeRequestMetadata(artifact)?.url" target="_blank" rel="noreferrer">打开远端 MR</a></section>
                     <section v-else-if="artifactFileMetadata(artifact)" class="file-change-receipt"><span><b>变更类型</b>{{ artifactActionLabel(artifactChangeAction(artifact)) }}</span><span><b>交付路径</b><code>{{ artifactFileMetadata(artifact)?.source_relative_path ?? artifact.title }}</code></span><span v-if="artifactFileMetadata(artifact)?.previous_sha256"><b>修改前 SHA</b><code>{{ artifactFileMetadata(artifact)?.previous_sha256 }}</code></span><span v-if="artifactFileMetadata(artifact)?.sha256"><b>当前 SHA</b><code>{{ artifactFileMetadata(artifact)?.sha256 }}</code></span></section>
-                    <a v-if="artifactIsImage(artifact)" class="artifact-image-preview" :href="api.artifactPreviewUrl(artifact.id, currentOrganizationId)" target="_blank" rel="noreferrer"><img :src="api.artifactPreviewUrl(artifact.id, currentOrganizationId)" :alt="artifact.title" loading="lazy" /><span>打开原始截图</span></a>
-                    <div class="artifact-actions"><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />{{ artifactChangeAction(artifact) === 'deleted' ? '下载删除凭据' : '下载独立文件' }}</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
+                    <button v-if="artifactIsImage(artifact)" type="button" class="artifact-image-preview" @click="openEvidenceCenter('screenshots'); openEvidenceImage(artifact)"><img :src="evidenceImageListUrl(artifact)" :alt="artifact.title" loading="lazy" @error="fallbackArtifactImage($event, artifact)" /><span>在应用内查看原始截图</span></button>
+                    <div class="artifact-actions"><button v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact)" type="button" :data-testid="`open-artifact-${artifact.id}`" @click="openArtifactInEvidenceCenter(artifact)"><BookOpen />应用内查看文件</button><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />{{ artifactChangeAction(artifact) === 'deleted' ? '下载删除凭据' : '下载独立文件' }}</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
                     <pre v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact) && !artifactFileMetadata(artifact)">{{ artifact.content }}</pre>
                   </details>
+                  <button v-if="visibleArtifactGroup(group).length < group.artifacts.length" type="button" class="artifact-group-load-more" @click="loadMoreArtifactGroup(group)">继续加载 {{ Math.min(24, group.artifacts.length - visibleArtifactGroup(group).length) }} 份（尚有 {{ group.artifacts.length - visibleArtifactGroup(group).length }} 份）</button>
                 </div>
               </section>
             </div>
           </section>
+          <div v-if="evidenceCenterOpen && activeRun" class="evidence-center-mask" data-testid="evidence-center" @click.self="closeEvidenceCenter">
+            <section class="evidence-center-dialog" role="dialog" aria-modal="true" aria-label="测试与证据中心">
+              <header>
+                <div><span>证</span><div><small>RUN {{ activeRun.id }} · VERSION {{ activeRun.run_version ?? activeRun.version }}</small><h2>测试与证据中心</h2><p>用例、结果、截图、浏览器报告和日志均从当前 Run 的 Artifact Registry 读取。</p></div></div>
+                <button type="button" aria-label="关闭证据中心" @click="closeEvidenceCenter"><XCircle /></button>
+              </header>
+              <nav class="evidence-filter-bar" aria-label="证据类型筛选">
+                <button v-for="item in evidenceFilterOptions" :key="item.id" type="button" :class="{ active: evidenceFilter === item.id }" :data-testid="`evidence-filter-${item.id}`" @click="selectEvidenceFilter(item.id)"><span>{{ item.label }}</span><b>{{ item.count }}</b></button>
+              </nav>
+              <label class="evidence-search"><Search /><input v-model="evidenceSearch" placeholder="按文件名、Artifact ID、路径或 SHA-256 搜索" @input="evidenceVisibleLimit = 24" /><span>{{ filteredEvidenceArtifacts.length }} 份</span></label>
+              <div class="evidence-center-body">
+                <aside class="evidence-artifact-list">
+                  <button v-for="artifact in visibleEvidenceArtifacts" :key="artifact.id" type="button" :class="{ selected: selectedEvidenceArtifact?.id === artifact.id }" :data-testid="`evidence-item-${artifact.id}`" @click="artifactIsImage(artifact) ? openEvidenceImage(artifact) : selectEvidenceArtifact(artifact)">
+                    <img v-if="artifactIsImage(artifact)" :src="evidenceImageListUrl(artifact)" :alt="artifact.title" loading="lazy" @error="fallbackArtifactImage($event, artifact)" />
+                    <span v-else class="evidence-file-glyph">{{ artifactEvidenceType(artifact) === 'test_cases' ? 'CASE' : artifactEvidenceType(artifact) === 'test_results' ? 'PASS' : artifactEvidenceType(artifact) === 'browser_reports' ? 'E2E' : artifactEvidenceType(artifact) === 'logs' ? 'LOG' : 'FILE' }}</span>
+                    <div><small>{{ evidenceTypeLabel(artifact) }}</small><strong>{{ artifact.title }}</strong><code>{{ artifact.id }}</code><em>{{ fileSizeLabel(Number(artifact.size_bytes ?? 0)) }}</em></div>
+                  </button>
+                  <button v-if="visibleEvidenceArtifacts.length < filteredEvidenceArtifacts.length" type="button" class="evidence-load-more" @click="evidenceVisibleLimit += 24">继续加载（尚有 {{ filteredEvidenceArtifacts.length - visibleEvidenceArtifacts.length }} 份）</button>
+                  <p v-if="!filteredEvidenceArtifacts.length">当前筛选条件下没有证据。</p>
+                </aside>
+                <article v-if="selectedEvidenceArtifact" class="evidence-detail-panel" data-testid="evidence-detail-panel">
+                  <header><div><small>{{ evidenceTypeLabel(selectedEvidenceArtifact) }}</small><h3>{{ selectedEvidenceArtifact.title }}</h3></div><span :data-status="selectedEvidenceArtifact.status">{{ selectedEvidenceArtifact.status }}</span></header>
+                  <button v-if="artifactIsImage(selectedEvidenceArtifact)" type="button" class="evidence-inline-image" data-testid="evidence-inline-image" @click="evidenceImageOpen = true"><img :src="artifactDisplayUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" @error="markEvidenceImageError" /><span><Maximize2 />点击进入大图浏览</span></button>
+                  <div v-if="evidenceDetailLoading" class="evidence-detail-loading"><LoaderCircle class="spin" />正在核对 Registry 与来源事件…</div>
+                  <dl class="evidence-metadata">
+                    <div><dt>Artifact ID</dt><dd><code>{{ selectedEvidenceArtifact.id }}</code></dd></div>
+                    <div><dt>测试 Case ID</dt><dd><code>{{ artifactMetadata(selectedEvidenceArtifact)?.case_id ?? artifactMetadata(selectedEvidenceArtifact)?.test_case_id ?? '未在 Artifact 元数据中声明' }}</code></dd></div>
+                    <div><dt>文件名</dt><dd>{{ String(selectedEvidenceArtifact.title).split(/[\\/]/).pop() }}</dd></div>
+                    <div><dt>SHA-256</dt><dd><code>{{ selectedEvidenceArtifact.sha256 ?? '未登记' }}</code></dd></div>
+                    <div><dt>大小 / 类型</dt><dd>{{ fileSizeLabel(Number(selectedEvidenceArtifact.size_bytes ?? 0)) }} · {{ selectedEvidenceArtifact.media_type ?? '未知' }}</dd></div>
+                    <div><dt>生成时间</dt><dd>{{ new Date(selectedEvidenceArtifact.created_at).toLocaleString('zh-CN') }}</dd></div>
+                    <div><dt>来源节点</dt><dd><code>{{ selectedEvidenceDetail?.task?.node_key ?? artifactSourceTask(selectedEvidenceArtifact)?.node_key ?? selectedEvidenceArtifact.task_id ?? 'Run 级产物' }}</code></dd></div>
+                    <div><dt>来源 Attempt</dt><dd><code>{{ selectedEvidenceAttemptId || '当前事件窗口未包含该历史 Attempt' }}</code></dd></div>
+                    <div v-if="selectedEvidenceDetail?.content_artifact?.id && selectedEvidenceDetail.content_artifact.id !== selectedEvidenceArtifact.id"><dt>实际内容来源</dt><dd><code>{{ selectedEvidenceDetail.content_artifact.id }} · {{ selectedEvidenceDetail.content_artifact.sha256 }}</code></dd></div>
+                  </dl>
+                  <p v-if="evidenceDetailError" class="evidence-detail-warning">{{ evidenceDetailError }}</p>
+                  <iframe v-if="artifactCanEmbed(selectedEvidenceArtifact) && evidenceEmbedUrl" class="evidence-document-preview" :src="evidenceEmbedUrl" :title="selectedEvidenceArtifact.title" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+                  <section v-if="evidencePreviewText" class="evidence-text-preview"><header><strong>应用内正文预览</strong><small>只读</small></header><pre>{{ evidencePreviewText }}</pre></section>
+                  <p v-else-if="evidencePreviewError" class="evidence-preview-notice">{{ evidencePreviewError }}</p>
+                  <p v-else-if="!artifactIsImage(selectedEvidenceArtifact) && !artifactCanPreviewText(selectedEvidenceArtifact) && !artifactCanEmbed(selectedEvidenceArtifact)" class="evidence-preview-notice">该二进制格式不在页面内执行；可在这里核对元数据和验证回执，再下载原文件。</p>
+                  <section v-if="selectedEvidenceReceipts.length" class="evidence-receipts"><header><strong>Registry 验证回执</strong><b>{{ selectedEvidenceReceipts.length }}</b></header><ol><li v-for="event in selectedEvidenceReceipts" :key="event.id"><i>{{ event.type === 'artifact.download.verified' ? '✓' : '•' }}</i><div><b>{{ eventTypeLabel(event.type) }}</b><span>sequence {{ event.sequence }} · {{ new Date(event.created_at).toLocaleString('zh-CN') }}</span><code>{{ event.payload?.sha256 ?? selectedEvidenceArtifact.sha256 }}</code></div></li></ol></section>
+                  <footer><a :href="api.artifactDownloadUrl(selectedEvidenceArtifact.id, currentOrganizationId)"><Download />下载原文件</a><span>下载字节可按上方 SHA-256 独立复算</span></footer>
+                </article>
+                <div v-else class="evidence-detail-empty">从左侧选择一份证据查看。</div>
+              </div>
+            </section>
+            <div v-if="evidenceImageOpen && selectedEvidenceArtifact && artifactIsImage(selectedEvidenceArtifact)" class="evidence-lightbox" data-testid="evidence-lightbox" @click.self="evidenceImageOpen = false">
+              <header><div><small>{{ selectedEvidenceImageIndex + 1 }} / {{ evidenceImages.length }}</small><strong>{{ selectedEvidenceArtifact.title }}</strong></div><nav><button type="button" @click="evidenceImageZoom = Math.max(.5, evidenceImageZoom - .25)">－</button><span>{{ Math.round(evidenceImageZoom * 100) }}%</span><button type="button" @click="evidenceImageZoom = Math.min(4, evidenceImageZoom + .25)">＋</button><a :href="api.artifactDownloadUrl(selectedEvidenceArtifact.id, currentOrganizationId)"><Download />原图</a><button type="button" aria-label="关闭大图" @click="evidenceImageOpen = false"><XCircle /></button></nav></header>
+              <button type="button" class="evidence-lightbox-nav previous" aria-label="上一张" @click="showAdjacentEvidenceImage(-1)">‹</button>
+              <div class="evidence-lightbox-canvas"><img :src="artifactDisplayUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" :style="{ transform: `scale(${evidenceImageZoom})` }" @error="markEvidenceImageError" /></div>
+              <button type="button" class="evidence-lightbox-nav next" aria-label="下一张" @click="showAdjacentEvidenceImage(1)">›</button>
+            </div>
+          </div>
         </section>
       </main>
 

@@ -55,7 +55,14 @@ async def test_health() -> None:
     ) as client:
         response = await client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["capabilities"] == {
+        "artifact_detail": True,
+        "artifact_thumbnail": True,
+        "artifact_content": True,
+        "artifact_inline_preview": True,
+    }
 
 
 @pytest.mark.anyio
@@ -1194,6 +1201,44 @@ def test_targeted_retry_preserves_completed_upstream_artifact(tmp_path) -> None:
     assert inherited_event["payload"]["source_artifact_sha256"] == retried["artifacts"][0]["sha256"]
 
 
+def test_targeted_retry_preserves_runtime_file_bytes(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "targeted-runtime-file-retry.db"))
+    agent = platform.create_agent(
+        name="顾字节", role="工程师", description="保留重试文件字节", persona="逐字节继承",
+        capabilities=["文件交付"],
+    )
+    workflow = platform.create_workflow(
+        "文件继承章法", "重试后仍可查看原始文件", "test",
+        {
+            "nodes": [
+                {"key": "build", "name": "形成文件", "agent_id": agent["id"], "agent_role": agent["role"]},
+                {"key": "verify", "name": "验证文件", "agent_id": agent["id"], "agent_role": agent["role"]},
+            ],
+            "edges": [["build", "verify"]], "policies": {},
+        },
+    )
+    failed = platform.create_run(workflow["id"], "形成并验证实际文件")
+    build_task, verify_task = failed["tasks"]
+    source_bytes = b"def inherited_runtime_file():\n    return 'actual bytes'\n"
+    source = Path(failed["workspace"]["code"]) / "src" / "actual.py"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(source_bytes)
+    source_artifact = platform.register_workspace_file_artifact(
+        failed["id"], build_task["id"], "src/actual.py", change_action="created"
+    )
+    platform.update_task(build_task["id"], status="completed")
+    platform.update_task(verify_task["id"], status="failed")
+    platform.update_run(failed["id"], status="failed", stage="execution_failed")
+
+    retried = platform.retry_run(failed["id"], from_task_id=verify_task["id"])
+    inherited = retried["artifacts"][0]
+
+    assert inherited["kind"] == "runtime_file"
+    assert inherited["sha256"] == source_artifact["sha256"]
+    assert inherited["size_bytes"] == len(source_bytes)
+    assert platform.artifact_file_path(inherited["id"]).read_bytes() == source_bytes
+
+
 def test_failed_run_recovers_in_place_from_unfinished_nodes(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "run-recovery.db"))
     agent = platform.create_agent(
@@ -1373,6 +1418,137 @@ async def test_workspace_image_artifact_download_and_inline_preview(monkeypatch,
     assert preview.content == png_bytes
     assert preview.headers["content-type"] == "image/png"
     assert "content-disposition" not in preview.headers
+
+
+@pytest.mark.anyio
+async def test_artifact_detail_exposes_task_attempt_and_verification_receipts(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-detail.db"))
+    agent = platform.create_agent(
+        name="顾证据", role="质量工程师", description="复核证据来源", persona="检查 Artifact 血缘",
+        capabilities=["证据复核"],
+    )
+    workflow = platform.create_workflow(
+        "证据来源章法", "展示截图来源节点和 Attempt", "test",
+        {
+            "nodes": [{"key": "e2e", "name": "端到端验收", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "复核应用内证据")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "screenshots" / "E2E-DETAIL.png"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(b"\x89PNG\r\n\x1a\nartifact-detail")
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/screenshots/E2E-DETAIL.png", change_action="created"
+    )
+    attempt_id = f"attempt:{run['id']}:e2e:epoch1:loop1:node1"
+    payload = {
+        "artifact_id": artifact["id"], "task_id": task["id"], "node_key": "e2e",
+        "platform_attempt_id": attempt_id, "sha256": artifact["sha256"],
+    }
+    for event_type in ("artifact.created", "artifact.collected", "artifact.download.verified"):
+        platform.append_run_event(run["id"], event_type, "artifact", event_type, "verified", payload)
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(f"/api/platform/artifacts/{artifact['id']}")
+
+    assert response.status_code == 200
+    detail = response.json()
+    assert detail["artifact"]["id"] == artifact["id"]
+    assert detail["task"]["node_key"] == "e2e"
+    assert detail["attempt_id"] == attempt_id
+    assert detail["content_artifact"]["id"] == artifact["id"]
+    assert detail["content_lineage"] == [{"artifact_id": artifact["id"], "run_id": run["id"], "sha256": artifact["sha256"]}]
+    assert [event["type"] for event in detail["events"]] == [
+        "artifact.created", "artifact.collected", "artifact.download.verified",
+    ]
+
+
+@pytest.mark.anyio
+async def test_artifact_content_resolves_legacy_inherited_receipt(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-content-lineage.db"))
+    agent = platform.create_agent(
+        name="顾溯源", role="质量工程师", description="回溯历史 Artifact", persona="只展示真实字节",
+        capabilities=["证据溯源"],
+    )
+    workflow = platform.create_workflow(
+        "历史证据章法", "从旧回执回溯原始文件", "test",
+        {
+            "nodes": [{"key": "evidence", "name": "证据归档", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "查看历史文件正文")
+    task = run["tasks"][0]
+    source_bytes = b"actual inherited artifact content\n"
+    source = Path(run["workspace"]["code"]) / "evidence" / "actual.txt"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_bytes(source_bytes)
+    source_artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/actual.txt", change_action="created"
+    )
+    receipt = platform.create_artifact(
+        run["id"], task["id"], "runtime_file", "evidence/actual.txt",
+        json.dumps({"source_relative_path": "evidence/actual.txt", "sha256": source_artifact["sha256"]}),
+        supersede_candidates=False,
+    )
+    platform.append_run_event(
+        run["id"], "artifact.inherited", "artifact", "继承旧文件", "旧版只复制了登记回执",
+        {"artifact_id": receipt["id"], "source_artifact_id": source_artifact["id"]},
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        content = await client.get(f"/api/platform/artifacts/{receipt['id']}/content")
+        detail = await client.get(f"/api/platform/artifacts/{receipt['id']}")
+
+    assert content.status_code == 200
+    assert content.content == source_bytes
+    assert content.headers["content-type"].startswith("text/plain")
+    assert detail.status_code == 200
+    payload = detail.json()
+    assert payload["content_artifact"]["id"] == source_artifact["id"]
+    assert [item["artifact_id"] for item in payload["content_lineage"]] == [receipt["id"], source_artifact["id"]]
+
+
+@pytest.mark.anyio
+async def test_artifact_thumbnail_is_cached_webp(monkeypatch, tmp_path) -> None:
+    from PIL import Image
+
+    platform = PlatformStore(str(tmp_path / "artifact-thumbnail.db"))
+    agent = platform.create_agent(
+        name="顾缩略", role="质量工程师", description="复核截图缩略图", persona="关注证据中心性能",
+        capabilities=["截图复核"],
+    )
+    workflow = platform.create_workflow(
+        "缩略图章法", "避免证据列表重复加载原图", "test",
+        {
+            "nodes": [{"key": "e2e", "name": "截图验收", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "生成应用内截图缩略图")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "screenshots" / "large.png"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (1600, 1000), color=(35, 92, 82)).save(source, format="PNG")
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/screenshots/large.png", change_action="created"
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        first = await client.get(f"/api/platform/artifacts/{artifact['id']}/thumbnail")
+        second = await client.get(f"/api/platform/artifacts/{artifact['id']}/thumbnail")
+
+    assert first.status_code == 200
+    assert first.headers["content-type"] == "image/webp"
+    assert first.content == second.content
+    with Image.open(io.BytesIO(first.content)) as thumbnail:
+        assert thumbnail.width <= 560
+        assert thumbnail.height <= 360
 
 
 def test_register_workspace_file_artifact_accepts_isolated_agent_delivery_root(tmp_path) -> None:

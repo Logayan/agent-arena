@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e:evidence": "node e2e/evidence-center.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.26.0",
@@ -16,6 +17,7 @@
     "@types/node": "^24.13.2",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/tsconfig": "^0.9.1",
+    "playwright-core": "^1.55.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vue-tsc": "^3.3.5"

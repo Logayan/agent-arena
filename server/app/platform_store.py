@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -640,6 +640,8 @@ class PlatformStore:
                     UNIQUE(run_id, sequence),
                     FOREIGN KEY(run_id) REFERENCES runs(id)
                 );
+                CREATE INDEX IF NOT EXISTS idx_events_artifact_lookup
+                ON events(run_id,type,created_at);
                 CREATE TABLE IF NOT EXISTS run_interventions (
                     id TEXT PRIMARY KEY,
                     run_id TEXT NOT NULL,
@@ -1335,6 +1337,59 @@ class PlatformStore:
             row = db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
         return self._artifact(row) if row else None
 
+    def get_artifact_provenance(self, artifact_id: str) -> dict[str, Any] | None:
+        """Resolve task, Attempt and verification receipts for one Artifact on demand."""
+        with self._connect() as db:
+            row = db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
+            if not row:
+                return None
+            artifact = self._artifact(row)
+            task = None
+            if artifact.get("task_id"):
+                task_row = db.execute(
+                    "SELECT id,node_key,node_name,agent_id,status,created_at,updated_at FROM tasks WHERE id=? AND run_id=?",
+                    (artifact["task_id"], artifact["run_id"]),
+                ).fetchone()
+                task = dict(task_row) if task_row else None
+            artifact_created_at = datetime.fromisoformat(str(artifact["created_at"]))
+            event_window_start = (artifact_created_at - timedelta(minutes=5)).isoformat()
+            event_window_end = (artifact_created_at + timedelta(minutes=30)).isoformat()
+            event_rows = db.execute(
+                """SELECT id,sequence,type,title,summary,payload_json,created_at
+                   FROM events
+                   WHERE run_id=?
+                     AND type IN ('artifact.created','artifact.collected','artifact.download.verified','artifact.inherited')
+                     AND created_at BETWEEN ? AND ?
+                     AND payload_json LIKE ?
+                   ORDER BY sequence""",
+                (artifact["run_id"], event_window_start, event_window_end, f'%{artifact_id}%'),
+            ).fetchall()
+        events: list[dict[str, Any]] = []
+        for event_row in event_rows:
+            try:
+                payload = json.loads(str(event_row["payload_json"] or "{}"))
+            except json.JSONDecodeError:
+                payload = {}
+            if str(payload.get("artifact_id") or "") != artifact_id:
+                continue
+            event = dict(event_row)
+            event.pop("payload_json", None)
+            event["payload"] = payload
+            events.append(event)
+        attempt_id = next(
+            (str(event["payload"].get("platform_attempt_id")) for event in events if event["payload"].get("platform_attempt_id")),
+            "",
+        )
+        content_source = self.get_artifact_content_source(artifact_id)
+        return {
+            "artifact": artifact,
+            "task": task,
+            "attempt_id": attempt_id,
+            "events": events,
+            "content_artifact": content_source["artifact"],
+            "content_lineage": content_source["lineage"],
+        }
+
     def get_latest_run_artifact(self, run_id: str, kind: str) -> dict[str, Any] | None:
         """Fetch one Artifact receipt without hydrating the full Run projection."""
         with self._connect() as db:
@@ -1357,6 +1412,149 @@ class PlatformStore:
         if not path.is_relative_to(root) or not path.is_file():
             raise ValueError("artifact_file_not_found")
         return path
+
+    @staticmethod
+    def _receipt_source_sha256(artifact: dict[str, Any]) -> str:
+        if str(artifact.get("kind") or "") not in {"runtime_file", "runtime_file_change"}:
+            return ""
+        try:
+            metadata = json.loads(str(artifact.get("content") or ""))
+        except (TypeError, ValueError):
+            return ""
+        if not isinstance(metadata, dict) or not metadata.get("source_relative_path"):
+            return ""
+        return str(metadata.get("sha256") or "")
+
+    def get_artifact_content_source(self, artifact_id: str) -> dict[str, Any]:
+        """Resolve legacy retry receipts back to the immutable source-file bytes."""
+        lineage: list[dict[str, str]] = []
+        seen: set[str] = set()
+        current_id = artifact_id
+        with self._connect() as db:
+            for _ in range(32):
+                if current_id in seen:
+                    break
+                seen.add(current_id)
+                row = db.execute("SELECT * FROM artifacts WHERE id=?", (current_id,)).fetchone()
+                if not row:
+                    break
+                artifact = self._artifact(row)
+                lineage.append(
+                    {
+                        "artifact_id": str(artifact["id"]),
+                        "run_id": str(artifact["run_id"]),
+                        "sha256": str(artifact.get("sha256") or ""),
+                    }
+                )
+                source_sha256 = self._receipt_source_sha256(artifact)
+                if not source_sha256 or source_sha256 == str(artifact.get("sha256") or ""):
+                    return {"artifact": artifact, "lineage": lineage}
+                exact_source_row = db.execute(
+                    """SELECT * FROM artifacts
+                       WHERE sha256=? AND id<>?
+                       ORDER BY CASE WHEN title=? THEN 0 ELSE 1 END, created_at DESC
+                       LIMIT 1""",
+                    (source_sha256, current_id, artifact.get("title")),
+                ).fetchone()
+                if exact_source_row:
+                    current_id = str(exact_source_row["id"])
+                    continue
+                event_rows = db.execute(
+                    """SELECT payload_json FROM events
+                       WHERE run_id=? AND type='artifact.inherited' AND payload_json LIKE ?
+                       ORDER BY sequence DESC""",
+                    (artifact["run_id"], f'%{current_id}%'),
+                ).fetchall()
+                source_id = ""
+                for event_row in event_rows:
+                    try:
+                        payload = json.loads(str(event_row["payload_json"] or "{}"))
+                    except json.JSONDecodeError:
+                        continue
+                    if str(payload.get("artifact_id") or "") == current_id:
+                        source_id = str(payload.get("source_artifact_id") or "")
+                        break
+                if not source_id:
+                    return {"artifact": artifact, "lineage": lineage}
+                current_id = source_id
+        artifact = self.get_artifact(artifact_id)
+        if not artifact:
+            raise ValueError("artifact_not_found")
+        return {"artifact": artifact, "lineage": lineage}
+
+    def artifact_content_file_path(self, artifact_id: str) -> tuple[Path, dict[str, Any], list[dict[str, str]]]:
+        resolved = self.get_artifact_content_source(artifact_id)
+        source_artifact = resolved["artifact"]
+        return self.artifact_file_path(str(source_artifact["id"])), source_artifact, resolved["lineage"]
+
+    def inherit_artifact_bytes(
+        self,
+        run_id: str,
+        task_id: str,
+        source_artifact: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Create a retry Artifact by copying source bytes instead of its metadata receipt."""
+        source_path, content_artifact, _ = self.artifact_content_file_path(str(source_artifact["id"]))
+        data = source_path.read_bytes()
+        with self._connect() as db:
+            run_row = db.execute("SELECT project_id,organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
+            task_row = db.execute("SELECT node_key FROM tasks WHERE id=? AND run_id=?", (task_id, run_id)).fetchone()
+            version_row = db.execute(
+                "SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=?",
+                (run_id, task_id),
+            ).fetchone()
+        if not run_row or not task_row:
+            raise ValueError("artifact_task_not_found")
+        workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
+        artifact_id = new_id("artifact")
+        suffix = Path(str(source_artifact.get("title") or source_path.name)).suffix or source_path.suffix or ".bin"
+        relative_path = Path("artifacts") / self._safe_segment(task_row["node_key"], "node") / "files" / f"{artifact_id}{suffix}"
+        destination = (workspace_root / relative_path).resolve()
+        if not destination.is_relative_to(workspace_root):
+            raise ValueError("invalid_artifact_path")
+        self._write_bytes_atomic(destination, data)
+        now = utc_now()
+        artifact = {
+            "id": artifact_id,
+            "run_id": run_id,
+            "organization_id": str(run_row["organization_id"] or "org_jianghu"),
+            "task_id": task_id,
+            "kind": str(source_artifact.get("kind") or "runtime_file"),
+            "title": str(source_artifact.get("title") or source_path.name),
+            "content": str(source_artifact.get("content") or ""),
+            "version": int(_row_value(version_row, "value") or 1),
+            "status": str(source_artifact.get("status") or "candidate"),
+            "created_at": now,
+            "relative_path": relative_path.as_posix(),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "media_type": str(content_artifact.get("media_type") or workspace_file_media_type(source_path.name)),
+            "size_bytes": len(data),
+        }
+        with self._connect() as db:
+            db.execute(
+                """INSERT INTO artifacts
+                (id,run_id,organization_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    artifact["id"], artifact["run_id"], artifact["organization_id"], artifact["task_id"],
+                    artifact["kind"], artifact["title"], artifact["content"], artifact["version"], artifact["status"],
+                    artifact["created_at"], artifact["relative_path"], artifact["sha256"], artifact["media_type"], artifact["size_bytes"],
+                ),
+            )
+        manifest_path = workspace_root / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        entries = [item for item in manifest.get("artifacts", []) if item.get("id") != artifact_id]
+        entries.append(
+            {
+                "id": artifact_id, "task_id": task_id, "kind": artifact["kind"], "title": artifact["title"],
+                "status": artifact["status"], "version": artifact["version"], "path": artifact["relative_path"],
+                "media_type": artifact["media_type"], "size_bytes": artifact["size_bytes"], "sha256": artifact["sha256"],
+                "created_at": now, "inherited_from_artifact_id": source_artifact["id"],
+            }
+        )
+        manifest["artifacts"] = sorted(entries, key=lambda item: (str(item.get("created_at")), str(item.get("id"))))
+        self._write_json_atomic(manifest_path, manifest)
+        return artifact
 
     def list_agents(self, organization_id: str | None = None) -> list[dict[str, Any]]:
         with self._connect() as db:
@@ -4074,14 +4272,21 @@ class PlatformStore:
         for node_key in sorted(preserved_node_keys):
             source_task = original_task_by_key[node_key]
             source_artifact = latest_artifact_by_task[str(source_task["id"])]
-            inherited_artifact = self.create_artifact(
-                retry_id,
-                new_task_by_key[node_key],
-                str(source_artifact.get("kind") or "workflow_output"),
-                str(source_artifact.get("title") or source_task["node_name"]),
-                str(source_artifact.get("content") or ""),
-                str(source_artifact.get("status") or "candidate"),
-            )
+            if str(source_artifact.get("kind") or "") in {"runtime_file", "runtime_file_change"}:
+                inherited_artifact = self.inherit_artifact_bytes(
+                    retry_id,
+                    new_task_by_key[node_key],
+                    source_artifact,
+                )
+            else:
+                inherited_artifact = self.create_artifact(
+                    retry_id,
+                    new_task_by_key[node_key],
+                    str(source_artifact.get("kind") or "workflow_output"),
+                    str(source_artifact.get("title") or source_task["node_name"]),
+                    str(source_artifact.get("content") or ""),
+                    str(source_artifact.get("status") or "candidate"),
+                )
             self.append_run_event(
                 retry_id,
                 "artifact.inherited",
@@ -4098,6 +4303,8 @@ class PlatformStore:
                     "source_artifact_id": source_artifact["id"],
                     "source_artifact_sha256": source_artifact.get("sha256"),
                     "inherited_artifact_sha256": inherited_artifact.get("sha256"),
+                    "source_content_artifact_id": self.get_artifact_content_source(str(source_artifact["id"]))["artifact"]["id"],
+                    "source_content_sha256": inherited_artifact.get("sha256"),
                 },
             )
         return self.get_run(retry_id)  # type: ignore[return-value]

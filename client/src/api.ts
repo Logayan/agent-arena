@@ -19,6 +19,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  health: () => request<Record<string, unknown>>('/api/health'),
   platformOverview: () => request<Record<string, unknown>>('/api/platform/overview'),
   organizations: () => request<Record<string, unknown>[]>('/api/platform/organizations'),
   updateOrganization: (organizationId: string, payload: Record<string, unknown>) =>
@@ -202,6 +203,32 @@ export const api = {
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
   artifactPreviewUrl: (artifactId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download?inline=true${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  artifactThumbnailUrl: (artifactId: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/thumbnail${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  artifactContentUrl: (artifactId: string, organizationId?: string) =>
+    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/content${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  artifactDetail: (artifactId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/artifacts/${encodeURIComponent(artifactId)}${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
+  artifactTextPreview: async (artifactId: string, organizationId?: string, previewBytes = 512_000, resolveContent = false) => {
+    const endpoint = resolveContent
+      ? `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/content${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`
+      : `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download?inline=true${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`
+    const response = await fetch(endpoint, {
+      headers: { Range: `bytes=0-${Math.max(1, previewBytes) - 1}` },
+    })
+    if (!response.ok) throw new Error(response.status === 404 ? '原文件未进入 Artifact 存储，无法预览正文' : `证据正文读取失败（HTTP ${response.status}）`)
+    const body = await response.text()
+    const contentRange = response.headers.get('content-range')
+    return contentRange ? `${body}\n\n—— 页面仅展示 ${contentRange}；可下载原文件查看全部内容。——` : body
+  },
+  artifactBlobPreview: async (artifactId: string, organizationId?: string, resolveContent = false) => {
+    const endpoint = resolveContent
+      ? `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/content${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`
+      : `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download?inline=true${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`
+    const response = await fetch(endpoint)
+    if (!response.ok) throw new Error(response.status === 404 ? '原文件未进入 Artifact 存储，无法在应用内打开' : `文件预览失败（HTTP ${response.status}）`)
+    return response.blob()
+  },
   startPlatformRun: (runId: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/start${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`, { method: 'POST' }),
   retryPlatformRun: (runId: string, fromTaskId?: string, organizationId?: string) =>
