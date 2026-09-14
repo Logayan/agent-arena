@@ -1574,6 +1574,81 @@ async def test_commission_team_resolution_requires_confirmation_before_creating_
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("force_create", [False, True])
+async def test_commission_team_resolution_scopes_candidates_to_commission_realm(monkeypatch, tmp_path, force_create) -> None:
+    platform = PlatformStore(str(tmp_path / "scoped-team-resolution.db"))
+    foreign_agent = platform.create_agent(
+        name="旧江湖审查人", role="交付审查官", description="旧江湖的交付审查",
+        persona="根据本江湖授权资料审查", capabilities=["交付评审"],
+    )
+    realm = platform.create_organization(name="本轮交付江湖", description="独立评审资料与人物")
+    reviewer = platform.create_agent(
+        organization_id=realm["id"], name="本轮审查人", role="交付审查官",
+        description="本轮交付审查", persona="根据本江湖授权资料审查", capabilities=["交付评审"],
+    )
+    commission = platform.create_company_task(
+        organization_id=realm["id"], title="项目交付评审", description="基于本江湖公共资料组织交付评审",
+    )
+
+    class TeamPlanner:
+        model = "scoped-team-planner-test"
+
+        async def json_message(self, prompt, system, max_tokens):
+            payload = json.loads(prompt)
+            assert payload["force_create"] is force_create
+            assert [agent["id"] for agent in payload["available_agents"]] == [reviewer["id"]]
+            assert foreign_agent["id"] not in prompt
+            return {
+                "decision": "create", "reason": "本江湖人物能够完成评审",
+                "team_name": "交付评审组", "team_purpose": "形成有证据的交付评审",
+                "operating_mode": "collaborative", "fit_score": 90, "missing_capabilities": [],
+                "members": [
+                    {"agent_id": agent["id"], "member_role": "leader", "responsibility": "交付审查"}
+                    for agent in payload["available_agents"]
+                ],
+            }
+
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    monkeypatch.setattr("server.app.main.configured_llm", lambda: TeamPlanner())
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/platform/commissions/{commission['id']}/resolve-team", json={"force_create": force_create},
+        )
+        assert response.status_code == 200
+        proposal = response.json()["team_proposal"]
+        assert [member["agent_id"] for member in proposal["members"]] == [reviewer["id"]]
+        assert platform.list_teams(realm["id"]) == []
+        confirmed = await client.post(
+            f"/api/platform/commissions/{commission['id']}/team-proposals/{proposal['id']}/confirm", json={},
+        )
+    assert confirmed.status_code == 200
+    team = confirmed.json()["team"]
+    assert team["organization_id"] == realm["id"]
+    assert [member["id"] for member in team["members"]] == [reviewer["id"]]
+
+
+@pytest.mark.anyio
+async def test_commission_team_resolution_does_not_borrow_agents_for_empty_realm(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "empty-realm-team-resolution.db"))
+    assert platform.list_agents("org_jianghu")
+    realm = platform.create_organization(name="空江湖", description="尚未引入人物")
+    commission = platform.create_company_task(
+        organization_id=realm["id"], title="交付评审", description="本江湖需要交付评审人员",
+    )
+
+    def unexpected_planner():
+        pytest.fail("An empty realm must be rejected before invoking the team planner")
+
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+    monkeypatch.setattr("server.app.main.configured_llm", unexpected_planner)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/platform/commissions/{commission['id']}/resolve-team", json={})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "no_agents_available_for_team_assembly"
+    assert platform.list_teams(realm["id"]) == []
+
+
+@pytest.mark.anyio
 async def test_rejected_team_proposal_does_not_create_or_select_team(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "team-proposal-reject.db"))
     agent = platform.create_agent(
