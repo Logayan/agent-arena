@@ -1384,6 +1384,38 @@ class PlatformStore:
             row = db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
         return self._artifact(row) if row else None
 
+    def list_run_artifacts(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+        *,
+        include_content: bool = False,
+    ) -> list[dict[str, Any]] | None:
+        """Return Artifact registry rows without building the full Run dossier."""
+        with self._connect() as db:
+            if organization_id:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=?",
+                    (run_id,),
+                ).fetchone()
+            if not run_row:
+                return None
+            run_organization_id = str(run_row["organization_id"] or "org_jianghu")
+            columns = "*" if include_content else (
+                "id,run_id,organization_id,task_id,kind,title,'' AS content,version,status,created_at,"
+                "relative_path,sha256,media_type,size_bytes"
+            )
+            rows = db.execute(
+                f"SELECT {columns} FROM artifacts WHERE run_id=? AND organization_id=? ORDER BY created_at",
+                (run_id, run_organization_id),
+            ).fetchall()
+        return [self._artifact(row) for row in rows]
+
     def get_artifact_provenance(self, artifact_id: str) -> dict[str, Any] | None:
         """Resolve task, Attempt and verification receipts for one Artifact on demand."""
         with self._connect() as db:

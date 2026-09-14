@@ -199,6 +199,8 @@ export const api = {
     request<Record<string, unknown>>(`/api/platform/runs/${runId}?event_limit=300${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   getPlatformRunState: (runId: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/runs/${runId}/state?event_limit=100${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`),
+  platformRunArtifacts: (runId: string, organizationId?: string) =>
+    request<Record<string, unknown>>(`/api/platform/runs/${encodeURIComponent(runId)}/artifacts${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   artifactDownloadUrl: (artifactId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
   artifactPreviewUrl: (artifactId: string, organizationId?: string) =>

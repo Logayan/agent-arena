@@ -513,6 +513,7 @@ async def health() -> dict[str, object]:
             "artifact_thumbnail": True,
             "artifact_content": True,
             "artifact_inline_preview": True,
+            "artifact_listing": True,
         },
     }
 
@@ -637,6 +638,22 @@ async def get_platform_run_live_state(
             detail="run_not_found_in_organization" if organization_id else "run_not_found",
         )
     return {"run_state": public_platform_run(snapshot)}
+
+
+@app.get("/api/platform/runs/{run_id}/artifacts")
+async def list_platform_run_artifacts(
+    run_id: str,
+    organization_id: str | None = None,
+) -> dict[str, object]:
+    artifacts = platform_store.list_run_artifacts(run_id, organization_id)
+    if artifacts is None:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization" if organization_id else "run_not_found",
+        )
+    projected = _public_runtime_value(artifacts)
+    assert isinstance(projected, list)
+    return {"run_id": run_id, "artifacts": projected}
 
 
 def scoped_platform_run(

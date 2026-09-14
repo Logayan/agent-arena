@@ -81,7 +81,20 @@ def _fake_bridge(tmp_path: Path) -> Path:
 def _blocking_bridge(tmp_path: Path) -> Path:
     path = tmp_path / "blocking_bridge.py"
     path.write_text(
-        "import json, sys, time\njson.load(sys.stdin)\ntime.sleep(60)\n",
+        textwrap.dedent(
+            """
+            import json
+            import sys
+            import time
+            from pathlib import Path
+
+            payload = json.load(sys.stdin)
+            marker = Path(payload["workspace"]) / ".blocking-bridge-started"
+            marker.write_text("started\\n", encoding="utf-8")
+            time.sleep(60)
+            """
+        ).strip()
+        + "\n",
         encoding="utf-8",
     )
     return path
@@ -203,6 +216,43 @@ def test_workspace_change_snapshot_excludes_platform_evidence_cache(tmp_path) ->
     snapshot = ClaudeCodeRuntime._workspace_snapshot(delivery)
 
     assert set(snapshot) == {"actual-delivery.txt"}
+
+
+def test_current_attempt_evidence_bundle_is_mirrored_with_artifact_bytes(tmp_path) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG, tool_enabled_agent_ids={str(agent["id"])})
+    source_evidence = tmp_path / "run-code" / ".jianghu-platform-evidence"
+    bundle = source_evidence / "snapshots" / "attempt-current"
+    artifacts = source_evidence / "artifacts"
+    bundle.mkdir(parents=True)
+    artifacts.mkdir(parents=True)
+    artifact_bytes = b"exact production source bytes\n"
+    artifact_file = artifacts / "artifact-source-deadbeef.py"
+    artifact_file.write_bytes(artifact_bytes)
+    (bundle / "events.ndjson").write_text('{"sequence":1}\n', encoding="utf-8")
+    (bundle / "artifact-registry.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "artifact_source",
+                    "title": "server/app/main.py",
+                    "materialized": True,
+                    "materialized_path": "../../artifacts/artifact-source-deadbeef.py",
+                    "expected_sha256": "deadbeef",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    mirrored = runtime._mirror_evidence_bundle(bundle, runtime.workspace_path(agent))
+
+    assert mirrored == runtime.workspace_path(agent) / ".jianghu-platform-evidence" / "snapshots" / "attempt-current"
+    assert (mirrored / "events.ndjson").read_text(encoding="utf-8") == '{"sequence":1}\n'
+    assert (mirrored / "artifact-registry.json").is_file()
+    assert (mirrored / "../../artifacts/artifact-source-deadbeef.py").resolve().read_bytes() == artifact_bytes
+    assert runtime._workspace_snapshot(runtime.workspace_path(agent) / "delivery") == {}
 
 
 @pytest.mark.anyio
@@ -412,7 +462,12 @@ async def test_claude_message_cancellation_terminates_bridge_tree(monkeypatch, t
             timeout_seconds=30,
         )
     )
-    await asyncio.sleep(0.2)
+    marker = runtime.workspace_path(agent) / ".blocking-bridge-started"
+    for _ in range(300):
+        if marker.is_file():
+            break
+        await asyncio.sleep(0.01)
+    assert marker.is_file(), "blocking bridge did not reach its running state"
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task

@@ -59,27 +59,47 @@ page.on('requestfailed', request => {
 page.on('response', response => { if (response.status() >= 400) httpErrors.push({ url: response.url(), status: response.status() }) })
 
 try {
-  const runResponse = await context.request.get(`${backendUrl}/api/platform/runs/${runId}?event_limit=300&organization_id=org_jianghu`, { timeout: 300000 })
-  if (!runResponse.ok()) throw new Error(`Run state HTTP ${runResponse.status()}`)
-  const run = (await runResponse.json()).run
+  const [stateResponse, artifactsResponse, runsResponse] = await Promise.all([
+    context.request.get(`${backendUrl}/api/platform/runs/${runId}/state?event_limit=100&organization_id=org_jianghu`, { timeout: 60000 }),
+    context.request.get(`${backendUrl}/api/platform/runs/${runId}/artifacts?organization_id=org_jianghu`, { timeout: 60000 }),
+    context.request.get(`${backendUrl}/api/platform/runs?organization_id=org_jianghu`, { timeout: 60000 }),
+  ])
+  if (!stateResponse.ok()) throw new Error(`Run state HTTP ${stateResponse.status()}`)
+  if (!artifactsResponse.ok()) throw new Error(`Artifact listing HTTP ${artifactsResponse.status()}`)
+  if (!runsResponse.ok()) throw new Error(`Run listing HTTP ${runsResponse.status()}`)
+  const run = (await stateResponse.json()).run_state
+  run.artifacts = (await artifactsResponse.json()).artifacts
+  const runSummary = (await runsResponse.json()).find(item => String(item.id) === runId)
+  if (runSummary) Object.assign(run, runSummary)
   const imageArtifacts = [...(run.artifacts || [])].reverse().filter(item => String(item.media_type || '').startsWith('image/'))
-  const imageArtifact = imageArtifacts.find(item => item.task_id) || imageArtifacts[0]
+  // A mature Run can contain full-page screenshots tens of thousands of
+  // pixels tall. Loading one of those while the evidence list is also warming
+  // thumbnail caches makes this smoke test depend on image-decoder throughput
+  // instead of the product contract. Keep provenance coverage by preferring a
+  // task-scoped image, but use a bounded real screenshot for the interaction.
+  const imageArtifact = imageArtifacts.find(item => item.task_id && Number(item.size_bytes || 0) <= 2_000_000)
+    || imageArtifacts.find(item => Number(item.size_bytes || 0) <= 2_000_000)
+    || imageArtifacts.find(item => item.task_id)
+    || imageArtifacts[0]
   if (!imageArtifact) throw new Error('真实 Run 中没有图片 Artifact')
 
   await page.goto(frontendUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByRole('button', { name: '事件现场' }).click()
-  const targetCard = page.locator('.run-list article').filter({ hasText: `当前第 ${run.run_version} 版` }).first()
-  if (await targetCard.count()) {
-    await targetCard.getByRole('button', { name: '查看现场' }).click()
-  } else {
-    const familyCard = page.locator('.run-list article').filter({ hasText: String(run.run_family_id || run.id) }).first()
-    await familyCard.waitFor({ timeout: 240000 })
-    await familyCard.getByRole('button', { name: '查看现场' }).click()
-    const historicalVersion = page.locator('.run-version-history').getByRole('button', { name: new RegExp(`^第 ${run.run_version} 版`) })
-    await historicalVersion.waitFor({ timeout: 240000 })
-    await historicalVersion.click()
+  const liveHeader = page.locator('.live-run-panel>header').filter({ hasText: `第 ${run.run_version} 版` })
+  if (!await liveHeader.isVisible()) {
+    const targetCard = page.locator('.run-list article').filter({ hasText: `当前第 ${run.run_version} 版` }).first()
+    if (await targetCard.count()) {
+      await targetCard.getByRole('button', { name: '查看现场' }).click()
+    } else {
+      const familyCard = page.locator('.run-list article').filter({ hasText: String(run.run_family_id || run.id) }).first()
+      await familyCard.waitFor({ timeout: 240000 })
+      await familyCard.getByRole('button', { name: '查看现场' }).click()
+      const historicalVersion = page.locator('.run-version-history').getByRole('button', { name: new RegExp(`^第 ${run.run_version} 版`) })
+      await historicalVersion.waitFor({ timeout: 240000 })
+      await historicalVersion.click()
+    }
   }
-  await page.locator('.live-run-panel>header').filter({ hasText: `第 ${run.run_version} 版` }).waitFor({ timeout: 240000 })
+  await liveHeader.waitFor({ timeout: 240000 })
   await page.getByTestId('open-evidence-center').waitFor({ timeout: 240000 })
   await page.getByTestId('open-evidence-center').click()
   await page.getByTestId('evidence-center').waitFor({ timeout: 30000 })
@@ -87,26 +107,30 @@ try {
   const centerText = await page.getByTestId('evidence-center').innerText()
   record('EVC-001', centerText.includes('测试与证据中心') && centerText.includes('截图') ? 'PASS' : 'FAIL', `run=${run.id}; version=${run.run_version}; screenshot_count=${run.test_evidence?.screenshots}`, [centerShot])
 
+  const provenanceSearch = page.locator('.evidence-search input')
+  await provenanceSearch.fill(String(imageArtifact.id))
   const imageItem = page.getByTestId(`evidence-item-${imageArtifact.id}`)
   await imageItem.waitFor({ timeout: 60000 })
   await imageItem.click()
   await page.getByTestId('evidence-lightbox').waitFor({ timeout: 60000 })
   const lightboxImage = page.getByTestId('evidence-lightbox').locator('img')
-  await lightboxImage.waitFor({ state: 'visible', timeout: 60000 })
+  await lightboxImage.waitFor({ state: 'attached', timeout: 60000 })
   await lightboxImage.evaluate((image, timeout) => new Promise((resolve, reject) => {
     const element = image
     if (element.complete && element.naturalWidth > 0) return resolve(true)
     const timer = setTimeout(() => reject(new Error('image decode timeout')), Number(timeout))
     element.addEventListener('load', () => { clearTimeout(timer); resolve(true) }, { once: true })
     element.addEventListener('error', () => { clearTimeout(timer); reject(new Error('image load failed')) }, { once: true })
-  }), 60000)
-  const imageLoaded = await lightboxImage.evaluate(image => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)
+  }), 120000)
+  const imageLoaded = await lightboxImage.evaluate(image => {
+    const bounds = image.getBoundingClientRect()
+    return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0 && bounds.width > 0 && bounds.height > 0
+  })
   const lightboxShot = await shot(page, 'EVC-002', '02-image-lightbox.png', '真实证据截图在应用内大图浏览')
   await page.getByTestId('evidence-lightbox').getByRole('button', { name: '下一张' }).click()
   await page.getByTestId('evidence-lightbox').getByRole('button', { name: '关闭大图' }).click()
-  record('EVC-002', imageLoaded ? 'PASS' : 'FAIL', `artifact=${imageArtifact.id}; loaded=${imageLoaded}; navigation=next`, [lightboxShot])
+  record('EVC-002', imageLoaded ? 'PASS' : 'FAIL', `artifact=${imageArtifact.id}; size_bytes=${imageArtifact.size_bytes}; loaded=${imageLoaded}; navigation=next`, [lightboxShot])
 
-  const provenanceSearch = page.locator('.evidence-search input')
   await provenanceSearch.fill(String(imageArtifact.id))
   await page.getByTestId(`evidence-item-${imageArtifact.id}`).click()
   await page.getByTestId('evidence-lightbox').waitFor({ timeout: 60000 })

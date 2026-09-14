@@ -62,6 +62,7 @@ async def test_health() -> None:
         "artifact_thumbnail": True,
         "artifact_content": True,
         "artifact_inline_preview": True,
+        "artifact_listing": True,
     }
 
 
@@ -250,6 +251,47 @@ async def test_run_detail_returns_artifact_metadata_and_content_stays_on_demand(
     assert content.status_code == 200
     assert content.content == body.encode("utf-8")
     assert content.headers["content-type"].startswith("text/markdown")
+
+
+@pytest.mark.anyio
+async def test_run_artifact_listing_avoids_full_run_projection(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "run-artifact-listing.db"))
+    agent = platform.create_agent(
+        name="证据清单工程师",
+        role="质量工程师",
+        description="验证 Artifact Registry 轻量读取",
+        persona="只核对不可变证据元数据",
+        capabilities=["证据读取"],
+    )
+    workflow = platform.create_workflow(
+        "证据清单章法",
+        "只读取 Artifact Registry 元数据",
+        "test",
+        {"nodes": [{"key": "evidence", "name": "证据", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "读取轻量证据清单")
+    body = "真实正文" * 20_000
+    artifact = platform.create_artifact(
+        run["id"], run["tasks"][0]["id"], "test_result", "test-results.json", body, "recorded"
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            f"/api/platform/runs/{run['id']}/artifacts?organization_id=org_jianghu"
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == run["id"]
+    assert payload["artifacts"] == [
+        {
+            **{key: value for key, value in artifact.items() if key != "content"},
+            "content": "",
+        }
+    ]
 
 
 def test_run_execution_snapshot_skips_browser_only_projections(monkeypatch, tmp_path) -> None:

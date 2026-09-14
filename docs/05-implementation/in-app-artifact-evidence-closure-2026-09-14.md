@@ -170,3 +170,17 @@ deliverables/run_bda13e93b2ea/evidence-center-e2e/not-found-final-20260914/
 - Artifact 影响集：6 passed；Claude Agent SDK Bridge：10 passed；前端生产构建：1778 modules；`git diff --check` 与差异 Secret Scan 通过。
 
 正式 Run 在验证期间仍持续产生 Claude Code SDK 工具事件，因此没有为加载本轮 Python 后端优化而强制重启 8003。当前正式页面已经通过前端兼容路径实现 7/7 闭环；轻量 Run 投影和显式 `content_resolution` 将随下一次安全边界重启加载，不以中断正在执行的 Agent 为代价。
+
+## 18:10 冷缓存大截图、轻量 Registry 清单与真实正文复验
+
+针对用户看到的 `Not Found` 和“只有文件元数据”，再次沿正式页面、API 与物化文件三层核验。正式 `/content` 对 `client/src/api.ts` 返回 HTTP 206 和真实 TypeScript 字节；`test-cases.json` 在应用内展示 EVC-001 至 EVC-005 的实际 JSON 正文；截图缩略图返回有效像素，不是元数据占位。根因仍是旧交互曾把 `runtime_file` 登记回执当正文，并让浏览器直接跳转下载；当前实现已经统一先解析实际内容 Artifact。
+
+本轮又发现两个与大 Run 有关的体验问题：完整 Run 投影在 112,000+ 事件和 2,961 份 Artifact 下可能超过五分钟；证据中心冷缓存时并发生成多张超长截图缩略图，会让选中图片请求排在浏览器连接队列之后。处理如下：
+
+- 新增 `/api/platform/runs/{run_id}/artifacts` 轻量清单，只读取 Artifact Registry 元数据，不构建完整 Run dossier，也不搬运正文；
+- 现场轮询检测到 `artifact_count` 变化时，通过轻量清单刷新真实文件列表；旧后端尚未加载该能力时保持兼容，不中断状态轮询；
+- 截图筛选首批由 24 份收敛为 8 份，列表缩略图使用低优先级，选中图使用高优先级；灯箱复用缩略图响应，原始字节仍由“原图”下载入口提供；
+- E2E 不再依赖完整 Run 投影，改为并行读取轻量状态、Artifact 清单和 Run 摘要；图片用例先按 Artifact ID 收敛列表，再验证真实图片解码和可见尺寸；
+- Windows 取消合同测试不再固定等待 0.2 秒，而是等待 Bridge 写入启动 marker 后取消，消除高负载竞态。
+
+隔离快照 `5175 + 8005` 的最终真实 E2E 为 7/7 PASS，`console_errors=0`、`failed_requests=0`、`http_errors=0`，结果目录为 `deliverables/run_bda13e93b2ea/evidence-center-e2e/isolated-current/`。后端 API/Runtime 完整回归更新为 184 passed，Runtime 合同 91 passed，前端生产构建 1778 modules。正式 5173 页面已人工复验真实 JSON 正文与真实截图；正式 8003 因 Run 仍有 Claude Bridge 心跳，继续等待真实 paused 安全边界后再加载本轮 Python 接口变更。

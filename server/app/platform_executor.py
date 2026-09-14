@@ -2804,6 +2804,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             message_arguments.update(
                                 {
                                     "seed_directory": run.get("workspace", {}).get("code"),
+                                    "evidence_directory": evidence_root,
                                     # 工具型人物获得候选代码和平台证据的隔离副本；只有工程节点会晋升回正式代码区。
                                     "capture_workspace": True,
                                 }

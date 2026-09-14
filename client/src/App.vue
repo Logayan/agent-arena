@@ -96,7 +96,7 @@ const selectedSceneTaskId = ref('')
 const evidenceCenterOpen = ref(false)
 const evidenceFilter = ref('screenshots')
 const evidenceSearch = ref('')
-const evidenceVisibleLimit = ref(24)
+const evidenceVisibleLimit = ref(8)
 const selectedEvidenceArtifact = ref<Json | null>(null)
 const selectedEvidenceDetail = ref<Json | null>(null)
 const evidenceDetailLoading = ref(false)
@@ -1124,7 +1124,7 @@ async function detectArtifactThumbnailSupport(): Promise<void> {
 
 function selectEvidenceFilter(filter: string): void {
   evidenceFilter.value = filter
-  evidenceVisibleLimit.value = 24
+  evidenceVisibleLimit.value = filter === 'screenshots' ? 8 : 24
   const first = filteredEvidenceArtifacts.value[0]
   if (first) void selectEvidenceArtifact(first)
   else {
@@ -1190,10 +1190,6 @@ async function selectEvidenceArtifact(artifact: Json): Promise<void> {
   if (embedResult.status === 'fulfilled' && embedResult.value) evidenceEmbedUrl.value = URL.createObjectURL(embedResult.value)
   else if (embedResult.status === 'rejected') evidencePreviewError.value = embedResult.reason instanceof Error ? embedResult.reason.message : '文件预览失败'
   evidenceDetailLoading.value = false
-}
-
-function markEvidenceImageError(): void {
-  evidencePreviewError.value = '截图原文件当前不可读取；Artifact 元数据仍保留，可等待文件归档完成后重试。'
 }
 
 function openEvidenceImage(artifact: Json): void {
@@ -1673,10 +1669,21 @@ async function refreshActiveRun(runId: string): Promise<void> {
       [...(activeRun.value?.events ?? []), ...(snapshot.events ?? [])]
         .map((event: Json) => [String(event.id), event]),
     )
+    let refreshedArtifacts = activeRun.value?.artifacts ?? []
+    if (Number(snapshot.artifact_count ?? 0) !== refreshedArtifacts.length) {
+      try {
+        const listing = await api.platformRunArtifacts(runId, currentOrganizationId.value) as Json
+        refreshedArtifacts = listing.artifacts ?? refreshedArtifacts
+      } catch {
+        // Keep live status polling compatible with a backend that is still
+        // rolling out the lightweight Artifact listing endpoint.
+      }
+    }
     activeRun.value = {
       ...activeRun.value,
       ...snapshot,
       tasks: (activeRun.value?.tasks ?? []).map((task: Json) => ({ ...task, ...(taskUpdates[String(task.id)] ?? {}) })),
+      artifacts: refreshedArtifacts,
       events: [...eventById.values()]
         .sort((left: Json, right: Json) => Number(left.sequence ?? 0) - Number(right.sequence ?? 0))
         .slice(-300),
@@ -3243,7 +3250,7 @@ onUnmounted(() => {
               <div class="evidence-center-body">
                 <aside class="evidence-artifact-list">
                   <button v-for="artifact in visibleEvidenceArtifacts" :key="artifact.id" type="button" :class="{ selected: selectedEvidenceArtifact?.id === artifact.id }" :data-testid="`evidence-item-${artifact.id}`" @click="artifactIsImage(artifact) ? openEvidenceImage(artifact) : selectEvidenceArtifact(artifact)">
-                    <img v-if="artifactIsImage(artifact)" :src="evidenceImageListUrl(artifact)" :alt="artifact.title" loading="lazy" @error="fallbackArtifactImage($event, artifact)" />
+                    <img v-if="artifactIsImage(artifact)" :src="evidenceImageListUrl(artifact)" :alt="artifact.title" loading="lazy" fetchpriority="low" @error="fallbackArtifactImage($event, artifact)" />
                     <span v-else class="evidence-file-glyph">{{ artifactEvidenceType(artifact) === 'test_cases' ? 'CASE' : artifactEvidenceType(artifact) === 'test_results' ? 'PASS' : artifactEvidenceType(artifact) === 'browser_reports' ? 'E2E' : artifactEvidenceType(artifact) === 'logs' ? 'LOG' : 'FILE' }}</span>
                     <div><small>{{ evidenceTypeLabel(artifact) }}</small><strong>{{ artifact.title }}</strong><code>{{ artifact.id }}</code><em>{{ fileSizeLabel(Number(artifact.size_bytes ?? 0)) }}</em></div>
                   </button>
@@ -3252,7 +3259,7 @@ onUnmounted(() => {
                 </aside>
                 <article v-if="selectedEvidenceArtifact" class="evidence-detail-panel" data-testid="evidence-detail-panel">
                   <header><div><small>{{ evidenceTypeLabel(selectedEvidenceArtifact) }}</small><h3>{{ selectedEvidenceArtifact.title }}</h3></div><span :data-status="selectedEvidenceArtifact.status">{{ selectedEvidenceArtifact.status }}</span></header>
-                  <button v-if="artifactIsImage(selectedEvidenceArtifact)" type="button" class="evidence-inline-image" data-testid="evidence-inline-image" @click="evidenceImageOpen = true"><img :src="artifactDisplayUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" @error="markEvidenceImageError" /><span><Maximize2 />点击进入大图浏览</span></button>
+                  <button v-if="artifactIsImage(selectedEvidenceArtifact)" type="button" class="evidence-inline-image" data-testid="evidence-inline-image" @click="evidenceImageOpen = true"><img :src="evidenceImageListUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" fetchpriority="high" @error="fallbackArtifactImage($event, selectedEvidenceArtifact)" /><span><Maximize2 />点击进入大图浏览</span></button>
                   <div v-if="evidenceDetailLoading" class="evidence-detail-loading"><LoaderCircle class="spin" />正在核对 Registry 与来源事件…</div>
                   <dl class="evidence-metadata">
                     <div><dt>Artifact ID</dt><dd><code>{{ selectedEvidenceArtifact.id }}</code></dd></div>
@@ -3281,7 +3288,7 @@ onUnmounted(() => {
             <div v-if="evidenceImageOpen && selectedEvidenceArtifact && artifactIsImage(selectedEvidenceArtifact)" class="evidence-lightbox" data-testid="evidence-lightbox" @click.self="evidenceImageOpen = false">
               <header><div><small>{{ selectedEvidenceImageIndex + 1 }} / {{ evidenceImages.length }}</small><strong>{{ selectedEvidenceArtifact.title }}</strong></div><nav><button type="button" @click="evidenceImageZoom = Math.max(.5, evidenceImageZoom - .25)">－</button><span>{{ Math.round(evidenceImageZoom * 100) }}%</span><button type="button" @click="evidenceImageZoom = Math.min(4, evidenceImageZoom + .25)">＋</button><button type="button" @click="downloadArtifact(selectedEvidenceArtifact)"><Download />原图</button><button type="button" aria-label="关闭大图" @click="evidenceImageOpen = false"><XCircle /></button></nav></header>
               <button type="button" class="evidence-lightbox-nav previous" aria-label="上一张" @click="showAdjacentEvidenceImage(-1)">‹</button>
-              <div class="evidence-lightbox-canvas"><img :src="artifactDisplayUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" :style="{ transform: `scale(${evidenceImageZoom})` }" @error="markEvidenceImageError" /></div>
+              <div class="evidence-lightbox-canvas"><img :src="evidenceImageListUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" fetchpriority="high" :style="{ transform: `scale(${evidenceImageZoom})` }" @error="fallbackArtifactImage($event, selectedEvidenceArtifact)" /></div>
               <button type="button" class="evidence-lightbox-nav next" aria-label="下一张" @click="showAdjacentEvidenceImage(1)">›</button>
             </div>
           </div>

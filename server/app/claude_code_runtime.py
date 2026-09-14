@@ -461,6 +461,95 @@ class ClaudeCodeRuntime:
                     continue
 
     @staticmethod
+    def _mirror_evidence_bundle(bundle_root: Path, workspace: Path) -> Path:
+        """Expose one immutable Attempt evidence bundle inside an Agent workspace.
+
+        The normal seed copy deliberately excludes ``.jianghu-platform-evidence``
+        because copying and hashing several gigabytes for every Agent turn is
+        prohibitively expensive.  Tool-enabled Agents still need the exact
+        bundle named in their prompt, though.  Mirror only that snapshot and
+        its content-addressed Artifact files with hard links where possible;
+        the MCP write boundary remains limited to ``delivery/``.
+        """
+        source_bundle = bundle_root.resolve()
+        if not source_bundle.is_dir() or source_bundle.parent.name != "snapshots":
+            raise ClaudeCodeRuntimeError(
+                "claude_evidence_bundle_invalid",
+                category="configuration",
+                retryable=False,
+            )
+        source_evidence_root = source_bundle.parent.parent.resolve()
+        destination_evidence_root = (workspace.resolve() / ".jianghu-platform-evidence").resolve()
+        destination_bundle = destination_evidence_root / "snapshots" / source_bundle.name
+
+        def mirror_file(source: Path, destination: Path) -> None:
+            source = source.resolve()
+            destination = destination.resolve()
+            if not source.is_relative_to(source_evidence_root):
+                raise ClaudeCodeRuntimeError(
+                    "claude_evidence_source_escape",
+                    category="configuration",
+                    retryable=False,
+                )
+            if not destination.is_relative_to(destination_evidence_root):
+                raise ClaudeCodeRuntimeError(
+                    "claude_evidence_destination_escape",
+                    category="configuration",
+                    retryable=False,
+                )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.is_file() and destination.stat().st_size == source.stat().st_size:
+                return
+            temporary = destination.with_name(
+                f".{destination.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+            )
+            temporary.unlink(missing_ok=True)
+            try:
+                try:
+                    os.link(source, temporary)
+                except OSError:
+                    shutil.copy2(source, temporary)
+                os.replace(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+
+        for source in source_bundle.rglob("*"):
+            if source.is_file():
+                mirror_file(source, destination_bundle / source.relative_to(source_bundle))
+
+        registry_path = source_bundle / "artifact-registry.json"
+        try:
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ClaudeCodeRuntimeError(
+                "claude_evidence_registry_invalid",
+                category="configuration",
+                retryable=False,
+            ) from exc
+        if not isinstance(registry, list):
+            raise ClaudeCodeRuntimeError(
+                "claude_evidence_registry_invalid",
+                category="configuration",
+                retryable=False,
+            )
+        for item in registry:
+            if not isinstance(item, dict) or not item.get("materialized"):
+                continue
+            relative_path = str(item.get("materialized_path") or "")
+            if not relative_path:
+                continue
+            source = (source_bundle / relative_path).resolve()
+            if not source.is_relative_to(source_evidence_root) or not source.is_file():
+                raise ClaudeCodeRuntimeError(
+                    "claude_evidence_artifact_missing",
+                    category="configuration",
+                    retryable=False,
+                )
+            destination = (destination_bundle / relative_path).resolve()
+            mirror_file(source, destination)
+        return destination_bundle
+
+    @staticmethod
     async def _terminate_process_tree(process: asyncio.subprocess.Process) -> None:
         if process.returncode is not None:
             return
@@ -496,6 +585,7 @@ class ClaudeCodeRuntime:
         model_config: dict[str, Any],
         timeout_seconds: int = 600,
         seed_directory: str | Path | None = None,
+        evidence_directory: str | Path | None = None,
         capture_workspace: bool = False,
         on_action: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
@@ -515,6 +605,12 @@ class ClaudeCodeRuntime:
                 self._copy_tree,
                 Path(seed_directory).resolve(),
                 delivery,
+            )
+        if evidence_directory:
+            await asyncio.to_thread(
+                self._mirror_evidence_bundle,
+                Path(evidence_directory),
+                workspace,
             )
         await asyncio.to_thread(delivery.mkdir, parents=True, exist_ok=True)
         before = (
