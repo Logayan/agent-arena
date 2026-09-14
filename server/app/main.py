@@ -1240,7 +1240,7 @@ async def resolve_commission_team(
         raise HTTPException(status_code=404, detail="company_task_not_found")
     organization_id = str(company_task["organization_id"])
     teams = platform_store.list_teams(organization_id)
-    agents = platform_store.list_agents()
+    agents = platform_store.list_agents(organization_id)
     if not agents:
         raise HTTPException(status_code=422, detail="no_agents_available_for_team_assembly")
     agent_map = {str(agent["id"]): agent for agent in agents}
