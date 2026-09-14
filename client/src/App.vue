@@ -939,7 +939,7 @@ function eventTypeLabel(type: string): string {
     'git.merge_request.created': 'Merge Request 已创建',
     'agent.memory.persisted': '人物记忆沉淀', 'gate.passed': '裁判通过', 'gate.rejected': '裁判退回',
     'workflow.loop.created': '自动返工循环',
-    'agent.context.prepared': '行动前整备', 'agent.action.started': '开始行动', 'agent.action.progress': '公开进度',
+    'agent.context.prepared': '行动前整备', 'agent.action.started': '开始行动', 'agent.action.progress': '公开进度', 'agent.action.heartbeat': '仍在执行',
     'agent.rationale.submitted': '发起人行动说明',
     'agent.action.submitted': '完整提交', 'agent.tool.started': '工具开始', 'agent.tool.completed': '工具返回',
     'agent.file.created': '新增文件', 'agent.file.modified': '修改文件', 'agent.file.deleted': '删除文件',
@@ -1009,10 +1009,16 @@ function artifactSourceTask(artifact: Json): Json | null {
 
 function artifactCanPreviewText(artifact: Json): boolean {
   const mediaType = String(artifact?.media_type ?? '').toLowerCase()
-  const title = String(artifact?.title ?? '').toLowerCase()
+  const metadata = artifactFileMetadata(artifact)
+  const title = String(metadata?.source_relative_path ?? artifact?.title ?? '').replace(/\\/g, '/').toLowerCase()
+  const name = title.split('/').pop() ?? title
+  const category = String(metadata?.file_category ?? '').toLowerCase()
+  if (/\.(zip|7z|rar|gz|tar|png|jpe?g|gif|webp|bmp|avif|mp[34]|webm|wav|woff2?|ttf|otf|exe|dll|bin)$/.test(name)) return false
   return mediaType.startsWith('text/') && mediaType !== 'text/html'
     || ['application/json', 'application/xml', 'application/yaml'].some(type => mediaType.includes(type))
-    || /\.(json|xml|md|markdown|txt|log|csv|ya?ml)$/.test(title)
+    || ['code', 'test', 'documentation', 'configuration', 'deployment', 'report'].includes(category)
+    || /(^|\/)(dockerfile[^/]*|makefile|procfile|gemfile|rakefile|\.env[^/]*)$/.test(title)
+    || /\.(json|xml|md|markdown|txt|log|csv|tsv|ya?ml|toml|ini|cfg|conf|properties|example|pyi?|[cm]?js|tsx?|jsx|vue|java|kts?|go|rs|rb|php|cs|fsx?|c|cc|cpp|h|hpp|swift|scala|sh|ps1|bat|cmd|sql|rst|adoc|s?css)$/.test(title)
 }
 
 function artifactCanEmbed(artifact: Json): boolean {
@@ -1031,6 +1037,64 @@ function artifactDisplayUrl(artifact: Json): string {
   return artifactContentApiAvailable.value
     ? api.artifactContentUrl(String(artifact.id), currentOrganizationId.value)
     : api.artifactPreviewUrl(String(artifact.id), currentOrganizationId.value)
+}
+
+function artifactResolvedDownloadUrl(artifact: Json): string {
+  return artifactContentApiAvailable.value || !artifactEvidenceApiChecked.value
+    ? api.artifactContentUrl(String(artifact.id), currentOrganizationId.value, true)
+    : api.artifactDownloadUrl(String(artifact.id), currentOrganizationId.value)
+}
+
+function artifactIsDeletionReceipt(artifact: Json): boolean {
+  return artifactChangeAction(artifact) === 'deleted'
+}
+
+function selectedArtifactHasResolvedBytes(): boolean {
+  const resolution = selectedEvidenceDetail.value?.content_resolution
+  if (resolution) return Boolean(resolution.bytes_are_original)
+  return Boolean(selectedEvidenceDetail.value?.content_artifact?.id
+    && selectedEvidenceDetail.value.content_artifact.id !== selectedEvidenceArtifact.value?.id)
+}
+
+function selectedArtifactContentAvailable(): boolean {
+  return selectedEvidenceDetail.value?.content_resolution?.content_available !== false
+}
+
+function selectedArtifactReceiptOnly(): boolean {
+  const state = selectedEvidenceDetail.value?.content_resolution?.state
+  if (state) return state === 'receipt_only'
+  return Boolean(selectedEvidenceDetail.value && selectedEvidenceArtifact.value
+    && artifactIsDeletionReceipt(selectedEvidenceArtifact.value)
+    && !selectedArtifactHasResolvedBytes())
+}
+
+function selectedArtifactIsDeletionReceipt(): boolean {
+  return artifactIsDeletionReceipt(selectedEvidenceDetail.value?.artifact ?? selectedEvidenceArtifact.value)
+}
+
+async function downloadArtifact(artifact: Json): Promise<void> {
+  try {
+    const detail = await api.artifactDetail(String(artifact.id), currentOrganizationId.value) as Json
+    if (detail.content_resolution?.content_available === false) {
+      openArtifactInEvidenceCenter(artifact)
+      notice.value = '这份 Artifact 的原始字节未归档，已在应用内展示可追溯元数据，未跳转到 Not Found 页面。'
+      return
+    }
+    const link = document.createElement('a')
+    link.href = artifactResolvedDownloadUrl(artifact)
+    link.download = String(artifact.title ?? 'artifact').split(/[\\/]/).pop() || 'artifact'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } catch (error) {
+    openArtifactInEvidenceCenter(artifact)
+    notice.value = error instanceof Error ? `文件下载前核验失败：${error.message}` : '文件下载前核验失败，已保留在应用内查看。'
+  }
+}
+
+function artifactPreviewHeading(): string {
+  if (!selectedEvidenceArtifact.value || !selectedArtifactIsDeletionReceipt()) return '应用内正文预览'
+  return selectedArtifactHasResolvedBytes() ? '删除前原文件预览' : '删除凭据预览'
 }
 
 function evidenceImageListUrl(artifact: Json): string {
@@ -1296,7 +1360,7 @@ function taskRetryEvents(task: Json): Json[] {
 
 function taskActionEvents(task: Json): Json[] {
   return taskEvents(task).filter((event: Json) => [
-    'agent.action.started', 'agent.action.progress', 'agent.tool.started', 'agent.tool.completed',
+    'agent.action.started', 'agent.action.progress', 'agent.action.heartbeat', 'agent.tool.started', 'agent.tool.completed',
     'agent.action.retrying', 'agent.action.failed',
     'agent.file.created', 'agent.file.modified', 'agent.file.deleted',
     'agent.command.started', 'agent.command.completed', 'agent.test.started', 'agent.test.completed',
@@ -1467,6 +1531,7 @@ function personActivity(task: Json, person: Json): Json {
   const events = taskEvents(task).filter((event: Json) => event.payload?.agent_id === person.id).reverse()
   const latest = events[0]
   if (latest?.type === 'agent.message.sent') return { state: `正在${latest.payload?.message_type ?? '交流'}`, speech: speechPreview(latest.payload?.content ?? latest.summary, '我正在向协作者发出公开消息。'), tone: 'working' }
+  if (latest?.type === 'agent.action.heartbeat') return { state: '仍在执行', speech: speechPreview(latest.summary, 'Claude Code SDK 心跳正常，本回合仍在继续。'), tone: 'working' }
   if (['agent.turn.started', 'openclaw.turn.started'].includes(String(latest?.type))) return { state: '正在执行', speech: speechPreview(latest.summary, '正在装载我的身份、记忆和技能。'), tone: 'working' }
   if (latest?.type === 'agent.memory.persisted') return { state: '经历已沉淀', speech: '本次公开贡献已进入我的独立长期记忆。', tone: 'completed' }
   if (latest?.type === 'llm.retrying') return { state: '正在重连模型', speech: speechPreview(latest.summary, '模型连接不稳定，正在自动恢复。'), tone: 'retrying' }
@@ -2733,6 +2798,7 @@ onMounted(() => {
   window.addEventListener('popstate', handleRealmPopState)
   window.addEventListener('keydown', handleEvidenceKeydown)
   loadAll()
+  void detectArtifactThumbnailSupport()
 })
 onUnmounted(() => {
   stopRunPolling()
@@ -3033,7 +3099,7 @@ onUnmounted(() => {
           <header><div><span>事件 {{ activeRun.run_family_id || activeRun.id }} · 第 {{ activeRun.run_version || 1 }} 版</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
           <section v-if="activeRun.attempts?.length > 1" class="run-version-history"><div><strong>同一事件的执行版本</strong><small>重试不会创建新事件；每次执行作为不可覆盖的版本保留。</small></div><button v-for="attempt in activeRun.attempts" :key="attempt.id" :class="{ active: attempt.id === activeRun.id }" @click="openRun(attempt.id)">第 {{ attempt.run_version }} 版 · {{ runStatusLabel(attempt.status) }}</button></section>
           <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status) && !runTimeLimitExhausted" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? 'Token 或成本预算已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>{{ activeRun.status === 'budget_exhausted' ? 'Token 或成本上限不会自动放开，需要调整预算策略。' : '恢复会沿用原 Run 和原版本，保留失败证据与已有产物，只执行未完成节点及受影响下游。' }}</small></div></div><div v-if="activeRun.status !== 'budget_exhausted'" class="failure-retry-actions"><button v-if="selectedSceneTask && selectedSceneTask.status !== 'completed'" class="jh-primary" :disabled="busy" @click="recoverActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”恢复</button><button class="jh-secondary" :disabled="busy" @click="recoverActiveRun()"><RefreshCw />恢复全部未完成节点</button></div></section>
-          <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><a v-if="runConclusionArtifact.relative_path" :href="api.artifactDownloadUrl(runConclusionArtifact.id, currentOrganizationId)"><Download />下载</a></header><pre>{{ runConclusionArtifact.content }}</pre></section>
+          <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><button type="button" @click="openArtifactInEvidenceCenter(runConclusionArtifact)"><BookOpen />应用内查看</button><button v-if="runConclusionArtifact.relative_path" type="button" @click="downloadArtifact(runConclusionArtifact)"><Download />下载</button></header><pre v-if="runConclusionArtifact.content">{{ runConclusionArtifact.content }}</pre><p v-else>结论正文按需从 Artifact Registry 读取，避免加载事件现场时传输全部历史文件内容。</p></section>
           <section v-if="activeRun.workspace" class="run-workspace-ribbon"><FolderOpen /><div><span>本次 Run 的独立交付工作区</span><strong>{{ activeRun.workspace.root }}</strong><small>输入、流程快照、产物、代码、日志和临时文件相互隔离；工程节点的真实文件统一进入 code 目录。</small></div><a v-if="activeRun.events?.some((event: Json) => String(event.type).startsWith('agent.file.'))" :href="api.runCodeDownloadUrl(activeRun.id, currentOrganizationId)"><Download />下载真实工程产物</a><button @click="copyWorkspacePath(activeRun.workspace.root)">复制地址</button></section>
           <section class="society-duty-board">
             <header><div><span>人物当值榜</span><h3>谁在忙、忙什么、最近留下了什么</h3><p>状态由真实 Run 事件推导，不靠前端模拟；点击人物可定位到他当前所在的生产节点。</p></div><b>{{ activePresenceCount }} 人在办事</b></header>
@@ -3156,7 +3222,7 @@ onUnmounted(() => {
                     <section v-else-if="artifactMergeRequestMetadata(artifact)" class="git-mr-card"><div><small>REMOTE MERGE REQUEST</small><b>#{{ artifactMergeRequestMetadata(artifact)?.number }}</b><span>{{ artifactMergeRequestMetadata(artifact)?.status }}</span></div><h4>{{ artifactMergeRequestMetadata(artifact)?.title ?? artifact.title }}</h4><p>{{ artifactMergeRequestMetadata(artifact)?.source_branch }} → {{ artifactMergeRequestMetadata(artifact)?.target_branch }}</p><a :href="artifactMergeRequestMetadata(artifact)?.url" target="_blank" rel="noreferrer">打开远端 MR</a></section>
                     <section v-else-if="artifactFileMetadata(artifact)" class="file-change-receipt"><span><b>变更类型</b>{{ artifactActionLabel(artifactChangeAction(artifact)) }}</span><span><b>交付路径</b><code>{{ artifactFileMetadata(artifact)?.source_relative_path ?? artifact.title }}</code></span><span v-if="artifactFileMetadata(artifact)?.previous_sha256"><b>修改前 SHA</b><code>{{ artifactFileMetadata(artifact)?.previous_sha256 }}</code></span><span v-if="artifactFileMetadata(artifact)?.sha256"><b>当前 SHA</b><code>{{ artifactFileMetadata(artifact)?.sha256 }}</code></span></section>
                     <button v-if="artifactIsImage(artifact)" type="button" class="artifact-image-preview" @click="openEvidenceCenter('screenshots'); openEvidenceImage(artifact)"><img :src="evidenceImageListUrl(artifact)" :alt="artifact.title" loading="lazy" @error="fallbackArtifactImage($event, artifact)" /><span>在应用内查看原始截图</span></button>
-                    <div class="artifact-actions"><button v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact)" type="button" :data-testid="`open-artifact-${artifact.id}`" @click="openArtifactInEvidenceCenter(artifact)"><BookOpen />应用内查看文件</button><a v-if="artifact.relative_path" :href="api.artifactDownloadUrl(artifact.id, currentOrganizationId)"><Download />{{ artifactChangeAction(artifact) === 'deleted' ? '下载删除凭据' : '下载独立文件' }}</a><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
+                    <div class="artifact-actions"><button v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact)" type="button" :data-testid="`open-artifact-${artifact.id}`" @click="openArtifactInEvidenceCenter(artifact)"><BookOpen />{{ artifactIsDeletionReceipt(artifact) ? '查看删除证据' : '应用内查看文件' }}</button><button v-if="artifact.relative_path" type="button" @click="downloadArtifact(artifact)"><Download />{{ artifactIsDeletionReceipt(artifact) ? '下载删除前文件/凭据' : '下载独立文件' }}</button><small>{{ artifact.size_bytes ?? 0 }} bytes · {{ artifact.media_type ?? 'text/markdown' }}</small></div>
                     <pre v-if="!artifactGitMetadata(artifact) && !artifactMergeRequestMetadata(artifact) && !artifactFileMetadata(artifact)">{{ artifact.content }}</pre>
                   </details>
                   <button v-if="visibleArtifactGroup(group).length < group.artifacts.length" type="button" class="artifact-group-load-more" @click="loadMoreArtifactGroup(group)">继续加载 {{ Math.min(24, group.artifacts.length - visibleArtifactGroup(group).length) }} 份（尚有 {{ group.artifacts.length - visibleArtifactGroup(group).length }} 份）</button>
@@ -3198,20 +3264,22 @@ onUnmounted(() => {
                     <div><dt>来源节点</dt><dd><code>{{ selectedEvidenceDetail?.task?.node_key ?? artifactSourceTask(selectedEvidenceArtifact)?.node_key ?? selectedEvidenceArtifact.task_id ?? 'Run 级产物' }}</code></dd></div>
                     <div><dt>来源 Attempt</dt><dd><code>{{ selectedEvidenceAttemptId || '当前事件窗口未包含该历史 Attempt' }}</code></dd></div>
                     <div v-if="selectedEvidenceDetail?.content_artifact?.id && selectedEvidenceDetail.content_artifact.id !== selectedEvidenceArtifact.id"><dt>实际内容来源</dt><dd><code>{{ selectedEvidenceDetail.content_artifact.id }} · {{ selectedEvidenceDetail.content_artifact.sha256 }}</code></dd></div>
+                    <div v-if="artifactIsDeletionReceipt(selectedEvidenceArtifact)"><dt>删除证据状态</dt><dd>{{ selectedArtifactHasResolvedBytes() ? '已按 previous SHA-256 回溯到删除前原文件' : '仅保留删除凭据；原字节未进入 Artifact Registry' }}</dd></div>
                   </dl>
                   <p v-if="evidenceDetailError" class="evidence-detail-warning">{{ evidenceDetailError }}</p>
+                  <p v-if="selectedArtifactReceiptOnly()" class="evidence-detail-warning">这是一条删除操作凭据，删除前原文件没有进入 Artifact Registry。下方展示的是删除证据元数据，不会把它冒充为文件正文。</p>
                   <iframe v-if="artifactCanEmbed(selectedEvidenceArtifact) && evidenceEmbedUrl" class="evidence-document-preview" :src="evidenceEmbedUrl" :title="selectedEvidenceArtifact.title" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
-                  <section v-if="evidencePreviewText" class="evidence-text-preview"><header><strong>应用内正文预览</strong><small>只读</small></header><pre>{{ evidencePreviewText }}</pre></section>
+                  <section v-if="evidencePreviewText" class="evidence-text-preview"><header><strong>{{ artifactPreviewHeading() }}</strong><small>只读</small></header><pre>{{ evidencePreviewText }}</pre></section>
                   <p v-else-if="evidencePreviewError" class="evidence-preview-notice">{{ evidencePreviewError }}</p>
                   <p v-else-if="!artifactIsImage(selectedEvidenceArtifact) && !artifactCanPreviewText(selectedEvidenceArtifact) && !artifactCanEmbed(selectedEvidenceArtifact)" class="evidence-preview-notice">该二进制格式不在页面内执行；可在这里核对元数据和验证回执，再下载原文件。</p>
                   <section v-if="selectedEvidenceReceipts.length" class="evidence-receipts"><header><strong>Registry 验证回执</strong><b>{{ selectedEvidenceReceipts.length }}</b></header><ol><li v-for="event in selectedEvidenceReceipts" :key="event.id"><i>{{ event.type === 'artifact.download.verified' ? '✓' : '•' }}</i><div><b>{{ eventTypeLabel(event.type) }}</b><span>sequence {{ event.sequence }} · {{ new Date(event.created_at).toLocaleString('zh-CN') }}</span><code>{{ event.payload?.sha256 ?? selectedEvidenceArtifact.sha256 }}</code></div></li></ol></section>
-                  <footer><a :href="api.artifactDownloadUrl(selectedEvidenceArtifact.id, currentOrganizationId)"><Download />下载原文件</a><span>下载字节可按上方 SHA-256 独立复算</span></footer>
+                  <footer><button type="button" :disabled="!selectedArtifactContentAvailable()" @click="downloadArtifact(selectedEvidenceArtifact)"><Download />{{ selectedArtifactIsDeletionReceipt() ? (selectedArtifactHasResolvedBytes() ? '下载删除前原文件' : '下载删除凭据') : '下载原文件' }}</button><span>{{ selectedArtifactContentAvailable() ? '下载前会先核验 Registry 与实际字节，失败时留在应用内显示原因' : '原始字节不可用，不会跳转到 Not Found 页面' }}</span></footer>
                 </article>
                 <div v-else class="evidence-detail-empty">从左侧选择一份证据查看。</div>
               </div>
             </section>
             <div v-if="evidenceImageOpen && selectedEvidenceArtifact && artifactIsImage(selectedEvidenceArtifact)" class="evidence-lightbox" data-testid="evidence-lightbox" @click.self="evidenceImageOpen = false">
-              <header><div><small>{{ selectedEvidenceImageIndex + 1 }} / {{ evidenceImages.length }}</small><strong>{{ selectedEvidenceArtifact.title }}</strong></div><nav><button type="button" @click="evidenceImageZoom = Math.max(.5, evidenceImageZoom - .25)">－</button><span>{{ Math.round(evidenceImageZoom * 100) }}%</span><button type="button" @click="evidenceImageZoom = Math.min(4, evidenceImageZoom + .25)">＋</button><a :href="api.artifactDownloadUrl(selectedEvidenceArtifact.id, currentOrganizationId)"><Download />原图</a><button type="button" aria-label="关闭大图" @click="evidenceImageOpen = false"><XCircle /></button></nav></header>
+              <header><div><small>{{ selectedEvidenceImageIndex + 1 }} / {{ evidenceImages.length }}</small><strong>{{ selectedEvidenceArtifact.title }}</strong></div><nav><button type="button" @click="evidenceImageZoom = Math.max(.5, evidenceImageZoom - .25)">－</button><span>{{ Math.round(evidenceImageZoom * 100) }}%</span><button type="button" @click="evidenceImageZoom = Math.min(4, evidenceImageZoom + .25)">＋</button><button type="button" @click="downloadArtifact(selectedEvidenceArtifact)"><Download />原图</button><button type="button" aria-label="关闭大图" @click="evidenceImageOpen = false"><XCircle /></button></nav></header>
               <button type="button" class="evidence-lightbox-nav previous" aria-label="上一张" @click="showAdjacentEvidenceImage(-1)">‹</button>
               <div class="evidence-lightbox-canvas"><img :src="artifactDisplayUrl(selectedEvidenceArtifact)" :alt="selectedEvidenceArtifact.title" :style="{ transform: `scale(${evidenceImageZoom})` }" @error="markEvidenceImageError" /></div>
               <button type="button" class="evidence-lightbox-nav next" aria-label="下一张" @click="showAdjacentEvidenceImage(1)">›</button>

@@ -210,6 +210,48 @@ def test_run_operational_projection_can_skip_large_artifact_content(tmp_path) ->
     assert full is not None and len(full["artifacts"][0]["content"]) == 100_000
 
 
+@pytest.mark.anyio
+async def test_run_detail_returns_artifact_metadata_and_content_stays_on_demand(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "run-detail-artifact-on-demand.db"))
+    agent = platform.create_agent(
+        name="按需证据工程师",
+        role="质量工程师",
+        description="验证 Run 首屏不携带大正文",
+        persona="正文只通过 Artifact 接口按需读取",
+        capabilities=["证据读取"],
+    )
+    workflow = platform.create_workflow(
+        "按需证据章法",
+        "Run 返回元数据，Artifact 接口返回真实正文",
+        "test",
+        {"nodes": [{"key": "evidence", "name": "证据", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证 Artifact 正文按需读取")
+    task = run["tasks"][0]
+    body = "# real artifact body\n" + "verified evidence\n" * 8_000
+    artifact = platform.create_artifact(
+        run["id"], task["id"], "test_result", "真实测试结果.md", body, "recorded"
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        detail = await client.get(f"/api/platform/runs/{run['id']}")
+        content = await client.get(f"/api/platform/artifacts/{artifact['id']}/content")
+
+    assert detail.status_code == 200
+    projected_artifact = detail.json()["run"]["artifacts"][0]
+    assert projected_artifact["id"] == artifact["id"]
+    assert projected_artifact["title"] == "真实测试结果.md"
+    assert projected_artifact["sha256"] == artifact["sha256"]
+    assert projected_artifact["size_bytes"] == len(body.encode("utf-8"))
+    assert projected_artifact["content"] == ""
+    assert content.status_code == 200
+    assert content.content == body.encode("utf-8")
+    assert content.headers["content-type"].startswith("text/markdown")
+
+
 def test_run_execution_snapshot_skips_browser_only_projections(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "execution-snapshot.db"))
     agent = platform.create_agent(
@@ -1502,15 +1544,139 @@ async def test_artifact_content_resolves_legacy_inherited_receipt(monkeypatch, t
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         content = await client.get(f"/api/platform/artifacts/{receipt['id']}/content")
+        legacy_download = await client.get(f"/api/platform/artifacts/{receipt['id']}/download")
         detail = await client.get(f"/api/platform/artifacts/{receipt['id']}")
 
     assert content.status_code == 200
     assert content.content == source_bytes
     assert content.headers["content-type"].startswith("text/plain")
+    assert legacy_download.status_code == 200
+    assert legacy_download.content == source_bytes
     assert detail.status_code == 200
     payload = detail.json()
     assert payload["content_artifact"]["id"] == source_artifact["id"]
     assert [item["artifact_id"] for item in payload["content_lineage"]] == [receipt["id"], source_artifact["id"]]
+    assert payload["content_resolution"]["state"] == "resolved"
+    assert payload["content_resolution"]["bytes_are_original"] is True
+    assert payload["content_resolution"]["content_available"] is True
+
+
+@pytest.mark.anyio
+async def test_deleted_artifact_resolves_previous_registered_bytes(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "deleted-artifact-content.db"))
+    agent = platform.create_agent(
+        name="顾删证", role="质量工程师", description="复核删除前内容", persona="按 previous SHA 回溯",
+        capabilities=["删除证据复核"],
+    )
+    workflow = platform.create_workflow(
+        "删除证据章法", "在应用内查看删除前原文件", "test",
+        {
+            "nodes": [{"key": "evidence", "name": "删除证据", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "复核删除前字节")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "before-delete.md"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    original = b"# actual content before deletion\n"
+    source.write_bytes(original)
+    source_artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/before-delete.md", change_action="created"
+    )
+    source.unlink()
+    deletion = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/before-delete.md",
+        change_action="deleted", previous_sha256=source_artifact["sha256"],
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        content = await client.get(f"/api/platform/artifacts/{deletion['id']}/content")
+        download = await client.get(f"/api/platform/artifacts/{deletion['id']}/content?download=true")
+        legacy_download = await client.get(f"/api/platform/artifacts/{deletion['id']}/download")
+        detail = await client.get(f"/api/platform/artifacts/{deletion['id']}")
+
+    assert content.status_code == 200
+    assert content.content == original
+    assert content.headers["content-type"].startswith("text/markdown")
+    assert download.content == original
+    assert "before-delete-v2.md" in download.headers["content-disposition"]
+    assert legacy_download.status_code == 200
+    assert legacy_download.content == original
+    payload = detail.json()
+    assert payload["content_artifact"]["id"] == source_artifact["id"]
+    assert [item["artifact_id"] for item in payload["content_lineage"]] == [deletion["id"], source_artifact["id"]]
+    assert payload["content_resolution"]["state"] == "resolved"
+    assert payload["content_resolution"]["bytes_are_original"] is True
+
+
+@pytest.mark.anyio
+async def test_extensionless_and_env_artifacts_preview_as_text(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-text-media.db"))
+    agent = platform.create_agent(
+        name="顾正文", role="质量工程师", description="复核无扩展名配置正文", persona="不把文本误判为二进制",
+        capabilities=["证据正文复核"],
+    )
+    workflow = platform.create_workflow(
+        "正文预览章法", "在应用内查看 Dockerfile 与环境样例", "test",
+        {
+            "nodes": [{"key": "evidence", "name": "正文证据", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "查看无扩展名文本")
+    task = run["tasks"][0]
+    code_root = Path(run["workspace"]["code"])
+    (code_root / "Dockerfile").write_text("FROM python:3.13-slim\n", encoding="utf-8")
+    (code_root / ".env.docker.example").write_text("MODEL=gpt-5.6-sol\n", encoding="utf-8")
+    dockerfile = platform.register_workspace_file_artifact(run["id"], task["id"], "Dockerfile")
+    env_example = platform.register_workspace_file_artifact(run["id"], task["id"], ".env.docker.example")
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        docker_response = await client.get(f"/api/platform/artifacts/{dockerfile['id']}/content")
+        env_response = await client.get(f"/api/platform/artifacts/{env_example['id']}/content")
+
+    assert docker_response.status_code == 200
+    assert docker_response.headers["content-type"].startswith("text/plain")
+    assert docker_response.content == (code_root / "Dockerfile").read_bytes()
+    assert env_response.status_code == 200
+    assert env_response.headers["content-type"].startswith("text/plain")
+    assert env_response.content == (code_root / ".env.docker.example").read_bytes()
+
+
+@pytest.mark.anyio
+async def test_unresolved_deletion_receipt_is_explicitly_marked(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-receipt-only.db"))
+    agent = platform.create_agent(
+        name="顾缺证", role="质量工程师", description="识别只有凭据的删除记录", persona="不把元数据冒充正文",
+        capabilities=["证据缺口识别"],
+    )
+    workflow = platform.create_workflow(
+        "删除缺证章法", "明确标识原字节未归档", "test",
+        {
+            "nodes": [{"key": "evidence", "name": "删除缺证", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "查看删除凭据")
+    task = run["tasks"][0]
+    deletion = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/missing.md",
+        change_action="deleted", previous_sha256="f" * 64,
+    )
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        detail = await client.get(f"/api/platform/artifacts/{deletion['id']}")
+
+    assert detail.status_code == 200
+    resolution = detail.json()["content_resolution"]
+    assert resolution["state"] == "receipt_only"
+    assert resolution["bytes_are_original"] is False
+    assert resolution["content_available"] is True
+    assert resolution["requested_sha256"] == "f" * 64
 
 
 @pytest.mark.anyio
@@ -1580,6 +1746,36 @@ def test_register_workspace_file_artifact_accepts_isolated_agent_delivery_root(t
     assert artifact["media_type"] == "text/markdown"
     materialized = Path(run["workspace"]["root"]) / artifact["relative_path"]
     assert materialized.read_bytes() == source.read_bytes()
+    assert platform.verify_artifact_bytes(run["id"], artifact["id"])["matched"] is True
+
+
+def test_register_workspace_file_artifact_accepts_run_level_source_evidence(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "run-level-source-artifact.db"))
+    agent = platform.create_agent(
+        name="源码登记", role="平台工程师", description="登记源码字节", persona="保持来源可重建",
+        capabilities=["源码归档"],
+    )
+    workflow = platform.create_workflow(
+        "源码归档章法", "登记 Run 级源码", "test",
+        {
+            "nodes": [{"key": "probe", "name": "源码探针", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "登记 Run 级源码文件")
+    source_root = Path(run["workspace"]["root"]) / "runtime-source-evidence"
+    source = source_root / "server/app/runtime.py"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("RUNTIME = 'claude_code'\n", encoding="utf-8")
+
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], None, "server/app/runtime.py",
+        status="recorded", change_action="recorded", file_category="source", source_root=source_root,
+    )
+
+    assert artifact["task_id"] is None
+    assert artifact["title"] == "server/app/runtime.py"
+    assert artifact["status"] == "recorded"
     assert platform.verify_artifact_bytes(run["id"], artifact["id"])["matched"] is True
 
 
@@ -2506,7 +2702,10 @@ async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tm
 
     runtime = TeamRuntime()
     monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: runtime)
-    await asyncio.wait_for(execute_platform_run(platform, run["id"]), timeout=10)
+    # Windows CI and local Agent runs can contend on filesystem/SQLite I/O.
+    # Keep a hard deadlock guard, but avoid treating ordinary host load as a
+    # product deadlock.
+    await asyncio.wait_for(execute_platform_run(platform, run["id"]), timeout=30)
 
     completed = platform.get_run(run["id"])
     assert completed["status"] == "completed"

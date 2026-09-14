@@ -129,7 +129,16 @@ def workspace_file_category(relative_path: str) -> str:
 
 def workspace_file_media_type(path_value: str) -> str:
     """Return a deterministic media type for immutable workspace artifacts."""
-    suffix = Path(str(path_value or "")).suffix.lower()
+    normalized = str(path_value or "").replace("\\", "/").strip()
+    path = Path(normalized)
+    name = path.name.lower()
+    suffix = path.suffix.lower()
+    if (
+        name.startswith("dockerfile")
+        or name.startswith(".env")
+        or name in {"makefile", "procfile", "gemfile", "rakefile"}
+    ):
+        return "text/plain"
     media_types = {
         ".zip": "application/zip",
         ".json": "application/json",
@@ -139,12 +148,50 @@ def workspace_file_media_type(path_value: str) -> str:
         ".markdown": "text/markdown",
         ".txt": "text/plain",
         ".log": "text/plain",
+        ".csv": "text/csv",
+        ".tsv": "text/tab-separated-values",
+        ".toml": "text/plain",
+        ".ini": "text/plain",
+        ".cfg": "text/plain",
+        ".conf": "text/plain",
+        ".properties": "text/plain",
+        ".example": "text/plain",
         ".py": "text/plain",
+        ".pyi": "text/plain",
         ".js": "text/javascript",
         ".mjs": "text/javascript",
+        ".cjs": "text/javascript",
         ".ts": "text/plain",
+        ".tsx": "text/plain",
+        ".jsx": "text/plain",
         ".vue": "text/plain",
+        ".java": "text/plain",
+        ".kt": "text/plain",
+        ".kts": "text/plain",
+        ".go": "text/plain",
+        ".rs": "text/plain",
+        ".rb": "text/plain",
+        ".php": "text/plain",
+        ".cs": "text/plain",
+        ".fs": "text/plain",
+        ".fsx": "text/plain",
+        ".c": "text/plain",
+        ".cc": "text/plain",
+        ".cpp": "text/plain",
+        ".h": "text/plain",
+        ".hpp": "text/plain",
+        ".swift": "text/plain",
+        ".scala": "text/plain",
+        ".sh": "text/plain",
+        ".ps1": "text/plain",
+        ".bat": "text/plain",
+        ".cmd": "text/plain",
+        ".sql": "text/plain",
+        ".rst": "text/plain",
+        ".adoc": "text/plain",
         ".css": "text/css",
+        ".scss": "text/css",
+        ".sass": "text/css",
         ".html": "text/html",
         ".yaml": "application/yaml",
         ".yml": "application/yaml",
@@ -1381,13 +1428,37 @@ class PlatformStore:
             "",
         )
         content_source = self.get_artifact_content_source(artifact_id)
+        resolved_artifact = content_source["artifact"]
+        requested_source_sha256 = self._receipt_source_sha256(artifact)
+        resolved_sha256 = str(resolved_artifact.get("sha256") or "")
+        content_available = True
+        content_error = ""
+        try:
+            self.artifact_file_path(str(resolved_artifact["id"]))
+        except ValueError as exc:
+            content_available = False
+            content_error = str(exc)
+        if requested_source_sha256:
+            bytes_are_original = requested_source_sha256 == resolved_sha256
+            resolution_state = "resolved" if bytes_are_original else "receipt_only"
+        else:
+            bytes_are_original = content_available
+            resolution_state = "direct" if content_available else "missing"
         return {
             "artifact": artifact,
             "task": task,
             "attempt_id": attempt_id,
             "events": events,
-            "content_artifact": content_source["artifact"],
+            "content_artifact": resolved_artifact,
             "content_lineage": content_source["lineage"],
+            "content_resolution": {
+                "state": resolution_state,
+                "content_available": content_available,
+                "bytes_are_original": bytes_are_original,
+                "requested_sha256": requested_source_sha256,
+                "resolved_sha256": resolved_sha256,
+                "error": content_error,
+            },
         }
 
     def get_latest_run_artifact(self, run_id: str, kind: str) -> dict[str, Any] | None:
@@ -1423,6 +1494,8 @@ class PlatformStore:
             return ""
         if not isinstance(metadata, dict) or not metadata.get("source_relative_path"):
             return ""
+        if str(metadata.get("change_action") or "") == "deleted":
+            return str(metadata.get("previous_sha256") or "")
         return str(metadata.get("sha256") or "")
 
     def get_artifact_content_source(self, artifact_id: str) -> dict[str, Any]:
@@ -1451,10 +1524,15 @@ class PlatformStore:
                     return {"artifact": artifact, "lineage": lineage}
                 exact_source_row = db.execute(
                     """SELECT * FROM artifacts
-                       WHERE sha256=? AND id<>?
+                       WHERE sha256=? AND organization_id=? AND id<>?
                        ORDER BY CASE WHEN title=? THEN 0 ELSE 1 END, created_at DESC
                        LIMIT 1""",
-                    (source_sha256, current_id, artifact.get("title")),
+                    (
+                        source_sha256,
+                        str(artifact.get("organization_id") or "org_jianghu"),
+                        current_id,
+                        artifact.get("title"),
+                    ),
                 ).fetchone()
                 if exact_source_row:
                     current_id = str(exact_source_row["id"])
@@ -4947,7 +5025,7 @@ class PlatformStore:
     def register_workspace_file_artifact(
         self,
         run_id: str,
-        task_id: str,
+        task_id: str | None,
         relative_path: str,
         *,
         status: str = "candidate",
@@ -4974,13 +5052,17 @@ class PlatformStore:
             ).fetchone()
             if not run_row:
                 raise ValueError("run_not_found")
-            task_row = db.execute(
-                "SELECT id,node_key FROM tasks WHERE id=? AND run_id=?",
-                (task_id, run_id),
-            ).fetchone()
-            if not task_row:
+            task_row = (
+                db.execute(
+                    "SELECT id,node_key FROM tasks WHERE id=? AND run_id=?",
+                    (task_id, run_id),
+                ).fetchone()
+                if task_id is not None
+                else None
+            )
+            if task_id is not None and not task_row:
                 raise ValueError("artifact_task_not_found")
-        task = dict(task_row)
+        task = dict(task_row) if task_row else {"id": None, "node_key": "run"}
         workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
         code_root = (workspace_root / "code").resolve()
         resolved_source_root = Path(source_root).resolve() if source_root else code_root
@@ -5008,10 +5090,16 @@ class PlatformStore:
         artifact_id = new_id("artifact")
         now = utc_now()
         with self._connect() as db:
-            version_row = db.execute(
-                "SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=? AND kind IN ('runtime_file','runtime_file_change')",
-                (run_id, task_id),
-            ).fetchone()
+            if task_id is None:
+                version_row = db.execute(
+                    "SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id IS NULL AND kind IN ('runtime_file','runtime_file_change')",
+                    (run_id,),
+                ).fetchone()
+            else:
+                version_row = db.execute(
+                    "SELECT COALESCE(MAX(version),0)+1 AS value FROM artifacts WHERE run_id=? AND task_id=? AND kind IN ('runtime_file','runtime_file_change')",
+                    (run_id, task_id),
+                ).fetchone()
         version = int(_row_value(version_row, "value") or 1)
         suffix = (
             ".json"

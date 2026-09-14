@@ -6,6 +6,7 @@ import { chromium } from 'playwright-core'
 const frontendUrl = process.env.EVIDENCE_E2E_FRONTEND || 'http://127.0.0.1:5175'
 const backendUrl = process.env.EVIDENCE_E2E_BACKEND || 'http://127.0.0.1:8005'
 const runId = process.env.EVIDENCE_E2E_RUN || 'run_bda13e93b2ea'
+const receiptOnlyArtifactId = process.env.EVIDENCE_E2E_RECEIPT_ONLY_ARTIFACT || 'artifact_6c329182d771'
 const allowCompatibilityFallback = process.env.EVIDENCE_E2E_ALLOW_COMPAT === '1'
 const outputRoot = path.resolve(process.env.EVIDENCE_E2E_OUTPUT || `../deliverables/${runId}/evidence-center-e2e/latest`)
 const screenshotRoot = path.join(outputRoot, 'screenshots')
@@ -35,11 +36,13 @@ async function shot(page, caseId, name, description) {
   return item.path
 }
 
-defineCase('EVC-001', '从真实 Run 打开应用内证据中心', 'Run 9 的测试证据入口可打开，截图筛选与数量可见')
+defineCase('EVC-001', '从真实 Run 打开应用内证据中心', '目标 Run 的测试证据入口可打开，截图筛选与数量可见')
 defineCase('EVC-002', '应用内打开真实截图', '截图在灯箱中加载，支持上一张、下一张、缩放和原图下载')
 defineCase('EVC-003', '查看 Artifact 来源与校验回执', '展示 Artifact ID、SHA-256、来源节点、Attempt 和三类验证回执')
 defineCase('EVC-004', '筛选并查看非图片测试材料', '测试结果/JUnit/日志可筛选，正文或安全下载说明在应用内可见')
 defineCase('EVC-005', '从正式交付卡片打开实际文件', '交付物展开后可直接进入应用内文件查看器，不再只显示元数据')
+defineCase('EVC-006', '预览无扩展名与环境配置文本', 'Dockerfile、.env.example 等文本文件直接显示实际正文，不再只显示元数据')
+defineCase('EVC-007', '缺失原字节时保持应用内闭环', '删除凭据明确标识原字节未归档，下载不会把页面带到 Not Found')
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -56,17 +59,27 @@ page.on('requestfailed', request => {
 page.on('response', response => { if (response.status() >= 400) httpErrors.push({ url: response.url(), status: response.status() }) })
 
 try {
-  const runResponse = await context.request.get(`${backendUrl}/api/platform/runs/${runId}?event_limit=300&organization_id=org_jianghu`, { timeout: 120000 })
+  const runResponse = await context.request.get(`${backendUrl}/api/platform/runs/${runId}?event_limit=300&organization_id=org_jianghu`, { timeout: 300000 })
   if (!runResponse.ok()) throw new Error(`Run state HTTP ${runResponse.status()}`)
   const run = (await runResponse.json()).run
-  const imageArtifact = [...(run.artifacts || [])].reverse().find(item => String(item.media_type || '').startsWith('image/'))
+  const imageArtifacts = [...(run.artifacts || [])].reverse().filter(item => String(item.media_type || '').startsWith('image/'))
+  const imageArtifact = imageArtifacts.find(item => item.task_id) || imageArtifacts[0]
   if (!imageArtifact) throw new Error('真实 Run 中没有图片 Artifact')
 
   await page.goto(frontendUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByRole('button', { name: '事件现场' }).click()
   const targetCard = page.locator('.run-list article').filter({ hasText: `当前第 ${run.run_version} 版` }).first()
-  await targetCard.waitFor({ timeout: 240000 })
-  await targetCard.getByRole('button', { name: '查看现场' }).click()
+  if (await targetCard.count()) {
+    await targetCard.getByRole('button', { name: '查看现场' }).click()
+  } else {
+    const familyCard = page.locator('.run-list article').filter({ hasText: String(run.run_family_id || run.id) }).first()
+    await familyCard.waitFor({ timeout: 240000 })
+    await familyCard.getByRole('button', { name: '查看现场' }).click()
+    const historicalVersion = page.locator('.run-version-history').getByRole('button', { name: new RegExp(`^第 ${run.run_version} 版`) })
+    await historicalVersion.waitFor({ timeout: 240000 })
+    await historicalVersion.click()
+  }
+  await page.locator('.live-run-panel>header').filter({ hasText: `第 ${run.run_version} 版` }).waitFor({ timeout: 240000 })
   await page.getByTestId('open-evidence-center').waitFor({ timeout: 240000 })
   await page.getByTestId('open-evidence-center').click()
   await page.getByTestId('evidence-center').waitFor({ timeout: 30000 })
@@ -93,20 +106,27 @@ try {
   await page.getByTestId('evidence-lightbox').getByRole('button', { name: '关闭大图' }).click()
   record('EVC-002', imageLoaded ? 'PASS' : 'FAIL', `artifact=${imageArtifact.id}; loaded=${imageLoaded}; navigation=next`, [lightboxShot])
 
+  const provenanceSearch = page.locator('.evidence-search input')
+  await provenanceSearch.fill(String(imageArtifact.id))
+  await page.getByTestId(`evidence-item-${imageArtifact.id}`).click()
+  await page.getByTestId('evidence-lightbox').waitFor({ timeout: 60000 })
+  await page.getByTestId('evidence-lightbox').getByRole('button', { name: '关闭大图' }).click()
   const detail = page.getByTestId('evidence-detail-panel')
+  const attemptPattern = new RegExp(`attempt:${runId}:`)
   if (allowCompatibilityFallback) {
-    await detail.getByText(/来源回执接口尚未加载|attempt:run_bda13e93b2ea:/).waitFor({ timeout: 30000 })
+    await detail.getByText(new RegExp(`来源回执接口尚未加载|attempt:${runId}:`)).waitFor({ timeout: 30000 })
   } else {
-    await detail.getByText(/attempt:run_bda13e93b2ea:/).waitFor({ timeout: 30000 })
+    await detail.getByText(attemptPattern).waitFor({ timeout: 30000 })
   }
   const detailText = await detail.innerText()
   const receiptCount = await detail.locator('.evidence-receipts li').count()
   const detailShot = await shot(page, 'EVC-003', '03-artifact-provenance.png', 'Artifact 元数据、来源 Attempt 与 Registry 回执')
-  const fullProvenance = detailText.includes('attempt:run_bda13e93b2ea:') && receiptCount >= 3
+  const fullProvenance = detailText.includes(`attempt:${runId}:`) && receiptCount >= 3
   const fallbackProvenance = allowCompatibilityFallback && detailText.includes('来源回执接口尚未加载')
   const provenancePassed = detailText.includes('Artifact ID') && detailText.includes('SHA-256') && detailText.includes('来源节点') && detailText.includes('来源 Attempt') && (fullProvenance || fallbackProvenance)
   record('EVC-003', provenancePassed ? 'PASS' : 'FAIL', `artifact=${imageArtifact.id}; receipts=${receiptCount}; compatibility_fallback=${fallbackProvenance}`, [detailShot])
 
+  await provenanceSearch.fill('')
   await page.getByTestId('evidence-filter-test_results').click()
   const resultItems = page.locator('.evidence-artifact-list>button').filter({ hasNot: page.locator('.evidence-load-more') })
   const resultCount = await resultItems.count()
@@ -118,14 +138,43 @@ try {
   record('EVC-004', resultPassed ? 'PASS' : 'FAIL', `filtered_result_count=${resultCount}`, [resultShot])
 
   await page.getByRole('button', { name: '关闭证据中心' }).click()
-  const deliveryCard = page.locator('details.artifact-card').filter({ has: page.locator('[data-testid^="open-artifact-"]') }).first()
+  const actualTextArtifact = [...(run.artifacts || [])].reverse().find(item => {
+    if (!String(item.media_type || '').match(/text|json|xml|yaml/)) return false
+    if (Number(item.size_bytes || 0) < 512) return false
+    try { return JSON.parse(String(item.content || '{}')).change_action !== 'deleted' } catch { return true }
+  })
+  if (!actualTextArtifact) throw new Error('真实 Run 中没有可核对正文的交付文件')
+  const deliveryCard = page.locator(`#artifact-${actualTextArtifact.id}`)
+  await deliveryCard.waitFor({ timeout: 60000 })
   await deliveryCard.locator('summary').click()
   await deliveryCard.locator('[data-testid^="open-artifact-"]').click()
   await page.getByTestId('evidence-center').waitFor({ timeout: 30000 })
   await page.locator('.evidence-text-preview, .evidence-inline-image, .evidence-document-preview').first().waitFor({ state: 'visible', timeout: 60000 })
   const deliveryShot = await shot(page, 'EVC-005', '05-delivery-file-preview.png', '正式交付卡片直接打开应用内实际文件内容')
   const deliveryText = await page.getByTestId('evidence-center').innerText()
-  record('EVC-005', deliveryText.includes('应用内查看') || deliveryText.includes('应用内正文预览') || await page.locator('.evidence-inline-image, .evidence-document-preview').count() > 0 ? 'PASS' : 'FAIL', 'delivery_card_to_in_app_preview=true', [deliveryShot])
+  const previewBody = await page.locator('.evidence-text-preview pre').innerText()
+  const receiptOnly = /^\s*\{[\s\S]*"source_relative_path"[\s\S]*"sha256"[\s\S]*\}\s*$/.test(previewBody)
+  record('EVC-005', deliveryText.includes('应用内正文预览') && !receiptOnly ? 'PASS' : 'FAIL', `delivery_card_to_in_app_preview=true; artifact=${actualTextArtifact.id}; receipt_only=${receiptOnly}`, [deliveryShot])
+
+  const extensionlessArtifact = (run.artifacts || []).find(item => /(^|\/)(Dockerfile|\.env(?:\.[^/]+)*\.example)$/i.test(String(item.title || '').replaceAll('\\', '/')))
+  if (!extensionlessArtifact) throw new Error('真实 Run 中没有 Dockerfile 或 .env.example Artifact')
+  const evidenceSearch = page.locator('.evidence-search input')
+  await evidenceSearch.fill(String(extensionlessArtifact.id))
+  await page.getByTestId(`evidence-item-${extensionlessArtifact.id}`).click()
+  await page.locator('.evidence-text-preview pre').waitFor({ state: 'visible', timeout: 60000 })
+  const extensionlessBody = await page.locator('.evidence-text-preview pre').innerText()
+  const extensionlessShot = await shot(page, 'EVC-006', '06-extensionless-text-preview.png', 'Dockerfile 或环境配置样例的实际正文预览')
+  const extensionlessReceiptOnly = /^\s*\{[\s\S]*"source_relative_path"[\s\S]*"sha256"[\s\S]*\}\s*$/.test(extensionlessBody)
+  record('EVC-006', extensionlessBody.trim().length > 0 && !extensionlessReceiptOnly ? 'PASS' : 'FAIL', `artifact=${extensionlessArtifact.id}; body_chars=${extensionlessBody.length}; receipt_only=${extensionlessReceiptOnly}`, [extensionlessShot])
+
+  const receiptOnlyArtifact = (run.artifacts || []).find(item => String(item.id) === receiptOnlyArtifactId)
+  if (!receiptOnlyArtifact) throw new Error('真实 Run 中没有用于缺失原字节提示验证的删除凭据')
+  await evidenceSearch.fill(String(receiptOnlyArtifact.id))
+  await page.getByTestId(`evidence-item-${receiptOnlyArtifact.id}`).click()
+  await page.getByText('这是一条删除操作凭据，删除前原文件没有进入 Artifact Registry。').waitFor({ timeout: 60000 })
+  const receiptShot = await shot(page, 'EVC-007', '07-receipt-only-friendly-state.png', '原字节缺失时的应用内友好说明与安全下载入口')
+  const receiptDetailText = await page.getByTestId('evidence-detail-panel').innerText()
+  record('EVC-007', receiptDetailText.includes('不会把它冒充为文件正文') && receiptDetailText.includes('下载删除凭据') ? 'PASS' : 'FAIL', `artifact=${receiptOnlyArtifact.id}; friendly_receipt_only=true`, [receiptShot])
 } catch (error) {
   const pending = cases.filter(item => !results.some(result => result.case_id === item.id))
   for (const item of pending) record(item.id, 'FAIL', error instanceof Error ? error.stack || error.message : String(error))

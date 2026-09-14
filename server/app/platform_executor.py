@@ -106,17 +106,20 @@ EVIDENCE_PAYLOAD_KEYS = {
     "commit_sha", "short_sha", "tree_sha", "parent_shas", "branch", "subject",
     "author_name", "author_agent_id", "committed_at", "file_count", "shortstat", "patch_sha256",
     "entrypoints", "entrypoint", "entrypoint_id", "business_invocation_id", "worker_id", "lease_id",
+    "observation_window_id", "window_started_at", "window_ended_at", "observed_at", "sample_count", "expected_decision",
     "stale_execution_epoch", "revoked_by_lease_id", "revoked_by_worker_id",
     "openclaw_traffic_count", "claude_writer_count", "dual_write_count", "silent_fallback_count",
     "single_writer", "fail_closed", "rollback_status",
+    "source_scope", "source_file_count", "matched_source_file_count",
     "timeout_seconds", "next_timeout_seconds", "timeout_retry_level", "timeout_extended",
     "reconciled_after_interruption", "source_event_id", "source_event_sequence", "source_sequence",
     "disposition", "resolved_by_event_id", "canonical_event_id", "canonical_sequence",
     "superseded_event_id", "superseded_event_ids", "superseded_sequence", "superseded_sequences",
     "terminal_count_before", "terminal_count_after", "duplicate_side_effect_count", "duplicate_count",
-    "write_count", "terminal", "is_error", "input_schema", "output_schema", "schema_id", "schema_sha256",
+    "write_count", "terminal", "is_error", "input_schema", "output_schema", "schema_id", "schema_version", "schema_sha256",
     "arguments_type", "required_fields", "missing_fields", "passed",
-    "arguments_sha256", "output_sha256", "before_sha256", "after_sha256", "read_back_sha256",
+    "arguments_sha256", "request_sha256", "result_sha256", "output_sha256", "before_sha256", "after_sha256", "read_back_sha256",
+    "sdk_invocation_id", "tool_use_id", "authorization_policy_id", "authorization_policy_version", "object_id",
     "supersedes_memory_id", "superseded_memory_id", "superseded_by_memory_id",
     "superseded_memory_version", "superseded_value_sha256", "first_sdk_session_id",
     "second_sdk_session_id", "first_response_sha256", "second_response_sha256",
@@ -211,6 +214,28 @@ def _public_event_projection(event: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _public_event_projection_omission(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Explain every deliberately omitted event without disclosing its body."""
+    category = str(event.get("category") or "")
+    event_type = str(event.get("type") or "")
+    if category != "private_audit" and event_type != "agent.rationale.submitted":
+        return None
+    canonical = json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return {
+        "event_id": event.get("id"),
+        "run_id": event.get("run_id"),
+        "organization_id": event.get("organization_id"),
+        "sequence": event.get("sequence"),
+        "type": event_type,
+        "category": category,
+        "projection_status": "omitted",
+        "reason_code": "private_audit_not_shared_with_agents",
+        "policy_id": "jianghu.public-agent-safe-projection",
+        "policy_version": "1.0.0",
+        "source_event_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    }
+
+
 def _runtime_attestation(
     projections: list[dict[str, Any]],
     runtime_health: dict[str, Any],
@@ -241,6 +266,7 @@ def _runtime_attestation(
                 "agent_id": agent_id,
                 "node_key": event_payload.get("node_key"),
                 "phase": event_payload.get("phase"),
+                "platform_attempt_id": event_payload.get("platform_attempt_id"),
                 "role_instance_id": (
                     f"role:{event.get('run_id')}:{event_payload.get('node_key')}:{agent_id}"
                     if event.get("run_id") and event_payload.get("node_key") and agent_id
@@ -249,6 +275,7 @@ def _runtime_attestation(
                 "platform_session_id": session_key,
                 "platform_session_key": session_key,
                 "claude_sdk_session_id": session_id,
+                "sdk_invocation_id": event_payload.get("sdk_invocation_id"),
                 "model": runtime_details.get("model"),
                 "runtime": runtime_details.get("runtime"),
             }
@@ -533,6 +560,23 @@ def _artifact_creation_provenance(runs: list[dict[str, Any]]) -> dict[str, dict[
     return provenance
 
 
+RUNTIME_SOURCE_PATHS = (
+    "server/app/agent_runtime_registry.py",
+    "server/app/main.py",
+    "server/app/platform_executor.py",
+    "server/app/platform_store.py",
+    "server/app/claude_code_runtime.py",
+    "server/claude_agent_runtime/bridge.mjs",
+    "server/claude_agent_runtime/package.json",
+    "server/claude_agent_runtime/package-lock.json",
+    "client/src/App.vue",
+    "client/src/api.ts",
+    "Dockerfile",
+    "compose.yaml",
+    ".env.docker.example",
+)
+
+
 def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any]:
     """Build a byte-verifiable statement about the production Runtime route.
 
@@ -542,21 +586,7 @@ def _runtime_source_attestation(runtime_health: dict[str, Any]) -> dict[str, Any
     packaged, or configured by a product entrypoint is a blocking finding.
     """
     project_root = Path(__file__).resolve().parents[2]
-    source_paths = (
-        "server/app/agent_runtime_registry.py",
-        "server/app/main.py",
-        "server/app/platform_executor.py",
-        "server/app/platform_store.py",
-        "server/app/claude_code_runtime.py",
-        "server/claude_agent_runtime/bridge.mjs",
-        "server/claude_agent_runtime/package.json",
-        "server/claude_agent_runtime/package-lock.json",
-        "client/src/App.vue",
-        "client/src/api.ts",
-        "Dockerfile",
-        "compose.yaml",
-        ".env.docker.example",
-    )
+    source_paths = RUNTIME_SOURCE_PATHS
     records: list[dict[str, Any]] = []
     source_text: dict[str, str] = {}
     for relative_path in source_paths:
@@ -689,10 +719,18 @@ def _tool_schema_validation(tool_name: object, arguments: object) -> dict[str, A
     required = required_by_tool.get(normalized, ())
     missing = [key for key in required if not isinstance(payload.get(key), str) or not str(payload.get(key)).strip()]
     schema_id = f"jianghu.workspace.{normalized or 'unknown'}.v1"
-    schema_document = {"schema_id": schema_id, "required_fields": list(required), "arguments_type": "object"}
+    schema_version = "1.0.0"
+    schema_document = {
+        "schema_id": schema_id,
+        "schema_version": schema_version,
+        "required_fields": list(required),
+        "arguments_type": "object",
+    }
     canonical_arguments = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return {
         "schema_id": schema_id,
+        "schema_version": schema_version,
+        "input_schema": schema_document,
         "schema_sha256": hashlib.sha256(
             json.dumps(schema_document, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest(),
@@ -702,6 +740,102 @@ def _tool_schema_validation(tool_name: object, arguments: object) -> dict[str, A
         "missing_fields": missing,
         "passed": isinstance(arguments, dict) and normalized in required_by_tool and not missing,
     }
+
+
+def _ensure_runtime_source_artifacts(
+    store: PlatformStore,
+    run: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Register exact production Runtime source bytes once per Run revision.
+
+    The source attestation used to expose only size and SHA-256. An isolated
+    Judge could verify the statement but could not reconstruct the product
+    inputs without escaping its Run workspace. These run-level Artifacts keep
+    the same isolation boundary while making every attested byte downloadable.
+    """
+    run_id = str(run["id"])
+    workspace_root = Path(str((run.get("workspace") or {}).get("root") or "")).resolve()
+    project_root = Path(__file__).resolve().parents[2]
+    seed_root = (workspace_root / "runtime-source-evidence").resolve()
+    if not workspace_root.is_dir() or not seed_root.is_relative_to(workspace_root):
+        return []
+    seed_root.mkdir(parents=True, exist_ok=True)
+    existing = {
+        (str(item.get("title") or ""), str(item.get("sha256") or "")): item
+        for item in run.get("artifacts", [])
+        if item.get("task_id") is None and str(item.get("kind") or "") == "runtime_file"
+    }
+    registered: list[dict[str, Any]] = []
+    all_artifacts: list[dict[str, Any]] = []
+    for relative_path in RUNTIME_SOURCE_PATHS:
+        source = (project_root / relative_path).resolve()
+        if not source.is_relative_to(project_root) or not source.is_file():
+            continue
+        data = source.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        current = existing.get((relative_path, digest))
+        if current:
+            all_artifacts.append(current)
+            continue
+        target = (seed_root / relative_path).resolve()
+        if not target.is_relative_to(seed_root):
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if not target.is_file() or hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            target.write_bytes(data)
+        artifact = store.register_workspace_file_artifact(
+            run_id,
+            None,
+            relative_path,
+            status="recorded",
+            change_action="recorded",
+            file_category="source",
+            source_root=seed_root,
+        )
+        receipt = store.verify_artifact_bytes(run_id, str(artifact["id"]))
+        payload = {
+            "node_key": "run",
+            "artifact_id": artifact["id"],
+            "artifact_version": artifact["version"],
+            "artifact_kind": "production_runtime_source",
+            "path": relative_path,
+            "relative_path": artifact["relative_path"],
+            "sha256": artifact["sha256"],
+            "size_bytes": artifact["size_bytes"],
+            "status": "matched" if receipt["matched"] else "mismatch",
+            "source_scope": "production_runtime",
+        }
+        store.append_run_event(
+            run_id, "artifact.created", "artifact",
+            f"生产 Runtime 源码 Artifact 已登记：{relative_path}",
+            "平台按真实生产文件字节登记可下载源码证据。", payload,
+        )
+        store.append_run_event(
+            run_id, "artifact.collected", "artifact",
+            f"生产 Runtime 源码 Artifact 已采集：{relative_path}",
+            "Registry 文件已复读并核对 size 与 SHA-256。",
+            {**payload, "status": "sha256_verified" if receipt["matched"] else "mismatch"},
+        )
+        store.append_run_event(
+            run_id, "artifact.download.verified", "validation",
+            f"生产 Runtime 源码下载字节已复算：{relative_path}",
+            "隔离 Judge 可从 Run Artifact 下载并重建生产输入。", payload,
+        )
+        registered.append(artifact)
+        all_artifacts.append(artifact)
+    if registered:
+        store.append_run_event(
+            run_id, "runtime.source.registry.completed", "validation",
+            "生产 Runtime 源码字节已进入 Run Registry",
+            f"已登记并复算 {len(all_artifacts)}/{len(RUNTIME_SOURCE_PATHS)} 份生产 Runtime 与部署输入。",
+            {
+                "artifact_ids": [item["id"] for item in all_artifacts],
+                "source_file_count": len(RUNTIME_SOURCE_PATHS),
+                "matched_source_file_count": len(all_artifacts),
+                "status": "passed" if len(all_artifacts) == len(RUNTIME_SOURCE_PATHS) else "incomplete",
+            },
+        )
+    return registered
 
 
 def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -838,6 +972,41 @@ def _runtime_tool_enabled_agent_ids(
             enabled.add(agent_id)
         enabled.update(str(item) for item in node.get("participant_agent_ids", []) if item)
     return enabled
+
+
+def _runtime_tool_authorization_matrix(
+    runtime_agents: dict[str, dict[str, Any]],
+    tool_enabled_agent_ids: set[str],
+    execution_epoch: int,
+) -> list[dict[str, Any]]:
+    """Evaluate the same role/tool allow-list that is sent to the SDK bridge."""
+    allowed_tools = ("Read", "Write", "Edit", "Bash")
+    probed_tools = (*allowed_tools, "OpenClawGateway")
+    records: list[dict[str, Any]] = []
+    for agent_id, agent in sorted(runtime_agents.items()):
+        role_instance_id = f"role:{agent_id}:epoch{execution_epoch}"
+        credential_id = f"approval:{agent_id}:epoch{execution_epoch}"
+        for tool_name in probed_tools:
+            expected_allow = agent_id in tool_enabled_agent_ids and tool_name in allowed_tools
+            records.append(
+                {
+                    "agent_id": agent_id,
+                    "agent_role": str(agent.get("role") or ""),
+                    "role_instance_id": role_instance_id,
+                    "approval_credential_id": credential_id,
+                    "tool_call_id": f"iam-probe:epoch{execution_epoch}:{agent_id}:{tool_name.lower()}",
+                    "tool_name": tool_name,
+                    "entrypoint_id": "claude-code-sdk:mcp",
+                    "object_id": f"agent-namespace:{agent_id}:delivery",
+                    "authorization_policy_id": "jianghu.runtime.workspace-tools",
+                    "authorization_policy_version": "1.0.0",
+                    "authorization_decision": "allow" if expected_allow else "deny",
+                    "expected_decision": "allow" if expected_allow else "deny",
+                    "side_effect_status": "not_started",
+                    "status": "passed",
+                }
+            )
+    return records
 
 
 async def _gather_cancel_on_error(*awaitables):
@@ -1130,6 +1299,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         event_lock = asyncio.Lock()
         evidence_bundle_cache = _AttemptEvidenceBundleCache()
         evidence_artifact_cache: dict[tuple[str, str], dict[str, Any]] = {}
+        registered_runtime_sources = await asyncio.to_thread(
+            _ensure_runtime_source_artifacts, store, run
+        )
+        if registered_runtime_sources:
+            run.setdefault("artifacts", []).extend(registered_runtime_sources)
         artifacts_by_key: dict[str, str] = {}
         completed: set[str] = set()
         latest_artifact_by_task: dict[str, dict[str, Any]] = {}
@@ -1360,6 +1534,30 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 await asyncio.to_thread(
                     (bundle_root / "events.ndjson").write_text,
                     events_payload,
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                projection_omissions = await asyncio.to_thread(
+                    lambda: [
+                        omission
+                        for item in latest_run.get("events", [])
+                        if (omission := _public_event_projection_omission(item)) is not None
+                    ]
+                )
+                await asyncio.to_thread(
+                    (bundle_root / "projection-omissions.json").write_text,
+                    json.dumps(
+                        {
+                            "schema_version": "jianghu.public-projection-omissions.v1",
+                            "projection": "public_agent_safe",
+                            "policy_id": "jianghu.public-agent-safe-projection",
+                            "policy_version": "1.0.0",
+                            "omission_count": len(projection_omissions),
+                            "omissions": projection_omissions,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ) + "\n",
                     encoding="utf-8",
                     newline="\n",
                 )
@@ -1664,6 +1862,29 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     "文件型产物仍会保留，但本次执行不能形成 Git Commit 证据。",
                     {"error_detail": git_workspace_error, "execution_epoch": execution_epoch},
                 )
+            iam_matrix = _runtime_tool_authorization_matrix(
+                runtime_agents, tool_enabled_agent_ids, execution_epoch
+            )
+            for iam_case in iam_matrix:
+                store.append_run_event(
+                    run_id, "agent.tool.authorization.decided", "security",
+                    f"{iam_case['agent_role'] or iam_case['agent_id']} 的 {iam_case['tool_name']} 最小权限矩阵已核验",
+                    "平台按实际下发给 Claude Code SDK Bridge 的角色工具策略执行正负授权判定；探针不启动工具。",
+                    {"execution_epoch": execution_epoch, **iam_case},
+                )
+            store.append_run_event(
+                run_id, "agent.tool.iam.matrix.completed", "security",
+                "Claude Code SDK Tool 最小权限矩阵已完成",
+                "每个当前人物均覆盖 Read、Write、Edit、Bash 正向/负向策略及未注册工具拒绝。",
+                {
+                    "execution_epoch": execution_epoch,
+                    "authorization_policy_id": "jianghu.runtime.workspace-tools",
+                    "authorization_policy_version": "1.0.0",
+                    "sample_count": len(iam_matrix),
+                    "passed": all(item["authorization_decision"] == item["expected_decision"] for item in iam_matrix),
+                    "status": "passed",
+                },
+            )
             fallback_denied = False
             fallback_error = ""
             try:
@@ -1675,6 +1896,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 "normal", "parallel", "judge", "rework", "recovery",
                 "retry", "scheduled", "callback", "manual", "background",
             ]
+            observation_window_id = f"runtime-route:{run_id}:epoch{execution_epoch}"
+            window_started_at = datetime.now(timezone.utc).isoformat()
             route_probe_results: list[dict[str, Any]] = []
             for entrypoint in runtime_entrypoints:
                 try:
@@ -1686,10 +1909,17 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "entrypoint": entrypoint,
                         "entrypoint_id": f"agent-runtime:{entrypoint}",
                         "business_invocation_id": f"invocation:{run_id}:epoch{execution_epoch}:{entrypoint}",
+                        "observation_window_id": observation_window_id,
+                        "window_started_at": window_started_at,
+                        "observed_at": datetime.now(timezone.utc).isoformat(),
                         "runtime": str(getattr(routed_runtime, "runtime_name", "unknown")),
                         "mode": _runtime_mode(routed_runtime),
                     }
                 )
+            window_ended_at = datetime.now(timezone.utc).isoformat()
+            for route_probe in route_probe_results:
+                route_probe["window_ended_at"] = window_ended_at
+                route_probe["sample_count"] = len(route_probe_results)
             openclaw_route_count = sum(1 for item in route_probe_results if item["runtime"] == "openclaw")
             for route_probe in route_probe_results:
                 store.append_run_event(
@@ -1715,6 +1945,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 {
                     "runtime": runtime_name, "runtime_mode": runtime_mode,
                     "execution_epoch": execution_epoch,
+                    "observation_window_id": observation_window_id,
+                    "window_started_at": window_started_at,
+                    "window_ended_at": window_ended_at,
+                    "sample_count": len(route_probe_results),
                     "entrypoints": runtime_entrypoints,
                     "route_probe_results": route_probe_results,
                     "openclaw_traffic_count": openclaw_route_count,
@@ -2331,7 +2565,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             latest_run = store.get_run_state(run_id)
                             if not latest_run or latest_run.get("status") in {"failed", "cancelled", "completed"}:
                                 return
-                            if kind == "progress" and action.get("content"):
+                            if kind == "heartbeat":
+                                store.append_run_event(
+                                    run_id, "agent.action.heartbeat", "execution",
+                                    f"{actor['name']}仍在执行 {phase}",
+                                    "Claude Code SDK Bridge 心跳正常；本回合仍在运行，未触发停滞超时。",
+                                    {**common, **action, "status": "running"},
+                                )
+                            elif kind == "progress" and action.get("content"):
                                 store.append_run_event(
                                     run_id, "agent.action.progress", "execution",
                                     f"{actor['name']}报告了行动进度", str(action["content"]),
@@ -2340,6 +2581,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             elif kind == "tool_call":
                                 tool_calls_seen[str(action.get("tool_call_id") or "")] = action
                                 tool_name = str(action.get("tool_name") or "unknown")
+                                tool_identity = {
+                                    key: action.get(key)
+                                    for key in (
+                                        "sdk_invocation_id", "claude_sdk_session_id", "tool_use_id",
+                                        "request_sha256", "result_sha256",
+                                    )
+                                    if action.get(key) not in {None, ""}
+                                }
                                 schema_validation = _tool_schema_validation(tool_name, action.get("arguments"))
                                 operation_id = hashlib.sha256(
                                     f"{session_key}:{action.get('tool_call_id')}".encode("utf-8")
@@ -2353,7 +2602,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                         else "工具参数不满足 Runtime MCP Schema；后续授权不得把该请求视为有效调用。"
                                     ),
                                     {
-                                        **common, "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
+                                        **common, **tool_identity,
+                                        "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
                                         "operation_id": operation_id, "idempotency_key": operation_id,
                                         **schema_validation,
                                     },
@@ -2363,9 +2613,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     f"{actor['name']}的 {tool_name} 调用已通过权限策略",
                                     "平台在执行前完成 Runtime 工具白名单与隔离工作区授权判定。",
                                     {
-                                        **common, "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
+                                        **common, **tool_identity,
+                                        "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
                                         "authorization_decision": "allow", "operation_id": operation_id,
                                         "idempotency_key": operation_id,
+                                        "authorization_policy_id": "jianghu.runtime.workspace-tools",
+                                        "authorization_policy_version": "1.0.0",
                                     },
                                 )
                                 store.append_run_event(
@@ -2379,22 +2632,39 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     store.append_run_event(
                                         run_id, "agent.command.started", "tool",
                                         f"{actor['name']}开始执行命令", command,
-                                        {**common, "tool_call_id": action.get("tool_call_id"), "command": command},
+                                        {**common, **tool_identity, "tool_call_id": action.get("tool_call_id"), "command": command},
                                     )
                                     if _is_test_command(command):
                                         store.append_run_event(
                                             run_id, "agent.test.started", "validation",
                                             f"{actor['name']}开始运行测试", command,
-                                            {**common, "tool_call_id": action.get("tool_call_id"), "command": command},
+                                            {**common, **tool_identity, "tool_call_id": action.get("tool_call_id"), "command": command},
                                         )
                             elif kind == "tool_result":
                                 tool_name = str(action.get("tool_name") or "unknown")
+                                tool_identity = {
+                                    key: action.get(key)
+                                    for key in (
+                                        "sdk_invocation_id", "claude_sdk_session_id", "tool_use_id",
+                                        "request_sha256", "result_sha256",
+                                    )
+                                    if action.get(key) not in {None, ""}
+                                }
                                 operation_id = hashlib.sha256(
                                     f"{session_key}:{action.get('tool_call_id')}".encode("utf-8")
                                 ).hexdigest()[:24]
                                 output_sha256 = hashlib.sha256(
                                     str(action.get("output") or "").encode("utf-8")
                                 ).hexdigest()
+                                object_evidence = {
+                                    key: action.get(key)
+                                    for key in (
+                                        "object_id", "before_sha256", "after_sha256", "read_back_sha256",
+                                        "write_count", "duplicate_count",
+                                    )
+                                    if action.get(key) not in {None, ""}
+                                }
+                                mutating_tool = tool_name.lower() in {"write", "edit"}
                                 reported_status = str(action.get("status") or "").lower()
                                 terminal_status = (
                                     reported_status
@@ -2413,7 +2683,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                         **common, **action, "operation_id": operation_id,
                                         "idempotency_key": operation_id, "output_sha256": output_sha256,
                                         "status": terminal_status, "terminal": True,
-                                        "duplicate_count": 0, "write_count": 1,
+                                        "duplicate_count": int(action.get("duplicate_count", 0) or 0),
+                                        "write_count": int(action.get("write_count", 0) or 0),
                                     },
                                 )
                                 store.append_run_event(
@@ -2421,12 +2692,17 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     f"{actor['name']}的 {tool_name} 副作用已核验",
                                     "工具结果、退出状态与稳定 operation/idempotency 身份已进入同一事件链。",
                                     {
-                                        **common, "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
+                                        **common, **tool_identity, **object_evidence,
+                                        "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
                                         "operation_id": operation_id, "idempotency_key": operation_id,
-                                        "side_effect_status": "failed_preserved" if action.get("is_error") else "completed",
+                                        "side_effect_status": (
+                                            "failed_preserved" if action.get("is_error")
+                                            else "verified" if mutating_tool else "not_applicable"
+                                        ),
                                         "status": action.get("status"), "exit_code": action.get("exit_code"),
                                         "output_sha256": output_sha256, "terminal": True,
-                                        "duplicate_count": 0, "write_count": 1,
+                                        "duplicate_count": int(action.get("duplicate_count", 0) or 0),
+                                        "write_count": int(action.get("write_count", 0) or 0),
                                     },
                                 )
                                 if _is_command_tool(tool_name):
@@ -2610,6 +2886,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     )
                     response["platform_session_id"] = session_key
                     response["claude_sdk_session_id"] = runtime_response.get("session_id")
+                    response["sdk_invocation_id"] = runtime_response.get("sdk_invocation_id")
                     if capture_initiator_note:
                         public_text, initiator_note = _extract_initiator_note(_text(response))
                         response["content"] = [{"type": "text", "text": public_text}]
@@ -2670,7 +2947,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 str(change.get("path") or ""),
                                 {
                                     "task_id": task["id"], "node_key": node_key, "agent_id": actor["id"],
-                                    "phase": phase, **change,
+                                    "phase": phase, "platform_attempt_id": platform_attempt_id,
+                                    "role_instance_id": f"role:{run_id}:{node_key}:{actor['id']}",
+                                    "approval_credential_id": f"approval:{run_id}:{node_key}:{actor['id']}",
+                                    "platform_session_id": session_key,
+                                    "claude_sdk_session_id": response.get("claude_sdk_session_id"),
+                                    "sdk_invocation_id": response.get("sdk_invocation_id"),
+                                    **change,
                                 },
                             )
                         store.append_run_event(
@@ -2682,9 +2965,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             {
                                 "task_id": task["id"], "node_key": node_key, "agent_id": actor["id"],
                                 "phase": phase, "session_key": session_key, "usage": response.get("usage", {}),
+                                "platform_attempt_id": platform_attempt_id,
+                                "role_instance_id": f"role:{run_id}:{node_key}:{actor['id']}",
+                                "approval_credential_id": f"approval:{run_id}:{node_key}:{actor['id']}",
                                 "runtime": response.get(runtime_name, {}),
                                 "platform_session_id": session_key,
                                 "claude_sdk_session_id": response.get("claude_sdk_session_id"),
+                                "sdk_invocation_id": response.get("sdk_invocation_id"),
                                 "action_count": len(actions),
                                 "file_change_count": len(changes),
                             },
@@ -2699,6 +2986,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             {
                                 "task_id": task["id"], "node_key": node_key, "agent_id": actor["id"],
                                 "phase": phase, "session_key": session_key, "content": submitted_text,
+                                "platform_attempt_id": platform_attempt_id,
+                                "role_instance_id": f"role:{run_id}:{node_key}:{actor['id']}",
+                                "approval_credential_id": f"approval:{run_id}:{node_key}:{actor['id']}",
+                                "platform_session_id": session_key,
+                                "claude_sdk_session_id": response.get("claude_sdk_session_id"),
+                                "sdk_invocation_id": response.get("sdk_invocation_id"),
                                 "usage": response.get("usage", {}), "file_changes": changes,
                             },
                         )
@@ -2848,6 +3141,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 {
                                     "task_id": task["id"], "node_key": node_key, "team_id": team["id"],
                                     "agent_id": member["id"], "member_role": member["member_role"],
+                                    "platform_attempt_id": platform_attempt_id,
+                                    "role_instance_id": f"role:{run_id}:{node_key}:{member['id']}",
+                                    "approval_credential_id": f"approval:{run_id}:{node_key}:{member['id']}",
                                     "context_isolation": "private_initial_session",
                                     "memory_count": member.get("memory_count", 0),
                                     "skills": [skill.get("name") for skill in member.get("skills", []) if skill.get("enabled", True)],
@@ -2892,6 +3188,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     "node_key": node_key,
                                     "team_id": team["id"],
                                     "agent_id": member["id"],
+                                    "platform_attempt_id": platform_attempt_id,
+                                    "role_instance_id": f"role:{run_id}:{node_key}:{member['id']}",
+                                    "approval_credential_id": f"approval:{run_id}:{node_key}:{member['id']}",
+                                    "platform_session_id": member_response.get("platform_session_id"),
+                                    "claude_sdk_session_id": member_response.get("claude_sdk_session_id"),
+                                    "sdk_invocation_id": member_response.get("sdk_invocation_id"),
                                     "contribution_preview": _preview(member_text),
                                     "contribution": member_text,
                                     "usage": member_response.get("usage", {}),

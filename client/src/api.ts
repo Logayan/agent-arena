@@ -205,8 +205,13 @@ export const api = {
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/download?inline=true${organizationId ? `&organization_id=${encodeURIComponent(organizationId)}` : ''}`,
   artifactThumbnailUrl: (artifactId: string, organizationId?: string) =>
     `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/thumbnail${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
-  artifactContentUrl: (artifactId: string, organizationId?: string) =>
-    `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/content${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`,
+  artifactContentUrl: (artifactId: string, organizationId?: string, download = false) => {
+    const query = new URLSearchParams()
+    if (organizationId) query.set('organization_id', organizationId)
+    if (download) query.set('download', 'true')
+    const suffix = query.toString()
+    return `${API_BASE}/api/platform/artifacts/${encodeURIComponent(artifactId)}/content${suffix ? `?${suffix}` : ''}`
+  },
   artifactDetail: (artifactId: string, organizationId?: string) =>
     request<Record<string, unknown>>(`/api/platform/artifacts/${encodeURIComponent(artifactId)}${organizationId ? `?organization_id=${encodeURIComponent(organizationId)}` : ''}`),
   artifactTextPreview: async (artifactId: string, organizationId?: string, previewBytes = 512_000, resolveContent = false) => {

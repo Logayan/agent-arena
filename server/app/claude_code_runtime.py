@@ -9,6 +9,9 @@ import shutil
 import signal
 import subprocess
 import threading
+import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -412,7 +415,13 @@ class ClaudeCodeRuntime:
     def _copy_tree(source: Path, destination: Path) -> None:
         if not source.is_dir():
             return
-        ignored = {".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv"}
+        ignored = {
+            ".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv",
+            # The platform evidence bundle is a read-only seed measured by its
+            # own immutable Registry. Hashing several gigabytes of it once per
+            # Agent before and after every turn cannot reveal deliverable changes.
+            ".jianghu-platform-evidence",
+        }
         destination.mkdir(parents=True, exist_ok=True)
         def handle_walk_error(error: OSError) -> None:
             if not isinstance(error, (FileNotFoundError, NotADirectoryError)):
@@ -436,6 +445,14 @@ class ClaudeCodeRuntime:
                 path = directory_path / file_name
                 target = target_directory / file_name
                 try:
+                    source_stat = path.stat()
+                    if target.is_file():
+                        target_stat = target.stat()
+                        if (
+                            source_stat.st_size == target_stat.st_size
+                            and source_stat.st_mtime_ns == target_stat.st_mtime_ns
+                        ):
+                            continue
                     shutil.copy2(path, target)
                 except (FileNotFoundError, NotADirectoryError):
                     # A transient browser trace may disappear after os.walk
@@ -506,6 +523,7 @@ class ClaudeCodeRuntime:
             else {}
         )
         policy = await asyncio.to_thread(self._policy, agent_id)
+        sdk_invocation_id = f"sdk-invocation-{uuid.uuid4().hex}"
         payload = {
             "agent_id": agent_id,
             "prompt": prompt,
@@ -516,6 +534,7 @@ class ClaudeCodeRuntime:
             "token": token,
             "engineering": bool(policy.get("engineering")),
             "skill_ids": list(policy.get("skill_ids") or []),
+            "sdk_invocation_id": sdk_invocation_id,
             "resume_session_id": self._session_id(agent_id, session_key),
             "command_timeout_seconds": max(1, min(int(timeout_seconds), 600)),
             # This is an internal liveness signal, not a wall-clock execution
@@ -544,6 +563,9 @@ class ClaudeCodeRuntime:
         actions: list[dict[str, Any]] = []
         final: dict[str, Any] | None = None
         bridge_error: dict[str, Any] | None = None
+        bridge_session_id = ""
+        request_digests: dict[str, str] = {}
+        last_public_heartbeat_at = 0.0
 
         async def read_stderr() -> str:
             raw = await process.stderr.read()
@@ -577,9 +599,52 @@ class ClaudeCodeRuntime:
                 except json.JSONDecodeError as exc:
                     raise ClaudeCodeRuntimeError("claude_bridge_non_json_output", category="invalid_output") from exc
                 if event.get("type") == "heartbeat":
+                    now = time.monotonic()
+                    heartbeat_publish_interval = min(60.0, max(1.0, float(timeout_seconds)))
+                    if on_action and now - last_public_heartbeat_at >= heartbeat_publish_interval:
+                        heartbeat_action = {
+                            "kind": "heartbeat",
+                            "sdk_invocation_id": sdk_invocation_id,
+                            "claude_sdk_session_id": bridge_session_id,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                        last_public_heartbeat_at = now
+                        try:
+                            await on_action(heartbeat_action)
+                        except Exception:
+                            # Liveness telemetry must never terminate an otherwise
+                            # healthy SDK turn; the inactivity watchdog remains authoritative.
+                            pass
                     continue
-                if event.get("type") == "action" and isinstance(event.get("action"), dict):
+                if event.get("type") == "meta":
+                    bridge_session_id = str(event.get("session_id") or bridge_session_id)
+                elif event.get("type") == "action" and isinstance(event.get("action"), dict):
                     action = self._redact_value(event["action"], [token])
+                    tool_call_id = str(action.get("tool_call_id") or action.get("tool_use_id") or "")
+                    action.setdefault("tool_call_id", tool_call_id)
+                    action.setdefault("tool_use_id", tool_call_id)
+                    action.setdefault("sdk_invocation_id", sdk_invocation_id)
+                    action.setdefault("claude_sdk_session_id", bridge_session_id)
+                    if action.get("kind") == "tool_call":
+                        canonical_arguments = json.dumps(
+                            action.get("arguments") if isinstance(action.get("arguments"), dict) else {},
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            default=str,
+                        )
+                        request_sha256 = str(action.get("request_sha256") or hashlib.sha256(
+                            canonical_arguments.encode("utf-8")
+                        ).hexdigest())
+                        action["request_sha256"] = request_sha256
+                        if tool_call_id:
+                            request_digests[tool_call_id] = request_sha256
+                    elif action.get("kind") == "tool_result":
+                        action.setdefault("request_sha256", request_digests.get(tool_call_id, ""))
+                        action.setdefault(
+                            "result_sha256",
+                            hashlib.sha256(str(action.get("output") or "").encode("utf-8")).hexdigest(),
+                        )
                     if (
                         action.get("kind") == "tool_result"
                         and action.get("tool_name") == "Bash"
@@ -652,6 +717,7 @@ class ClaudeCodeRuntime:
             "file_changes": file_changes,
             "claude_code": {
                 "runtime": "agent-sdk-bridge",
+                "sdk_invocation_id": str(final.get("sdk_invocation_id") or sdk_invocation_id),
                 "agent_id": agent_id,
                 "session_key": session_key,
                 "session_id": session_id,

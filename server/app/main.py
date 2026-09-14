@@ -2294,7 +2294,12 @@ def get_platform_run(
     # and dossiers intentionally retain rich evidence, so parallel projections
     # can otherwise multiply memory usage enough to terminate a local worker.
     with platform_run_projection_lock:
-        run = scoped_platform_run(run_id, organization_id, event_limit=event_limit)
+        run = scoped_platform_run(
+            run_id,
+            organization_id,
+            event_limit=event_limit,
+            include_artifact_content=False,
+        )
         return {"run": public_platform_run(run)}
 
 
@@ -2314,7 +2319,7 @@ async def download_platform_artifact(
             detail="run_not_found_in_organization" if organization_id else "run_not_found",
         )
     try:
-        path = platform_store.artifact_file_path(artifact_id)
+        path, content_artifact, _ = platform_store.artifact_content_file_path(artifact_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     source_name = Path(str(artifact.get("title") or "artifact")).name
@@ -2322,7 +2327,7 @@ async def download_platform_artifact(
     suffix = source_path.suffix or Path(str(artifact.get("relative_path") or "")).suffix or ".md"
     stem = source_path.stem or "artifact"
     filename = f"{stem}-v{artifact['version']}{suffix}"
-    stored_media_type = str(artifact.get("media_type") or "")
+    stored_media_type = str(content_artifact.get("media_type") or artifact.get("media_type") or "")
     media_type = (
         workspace_file_media_type(source_name or str(artifact.get("relative_path") or ""))
         if stored_media_type in {"", "application/octet-stream"}
@@ -2354,6 +2359,7 @@ async def get_platform_artifact_detail(
 async def get_platform_artifact_content(
     artifact_id: str,
     organization_id: str | None = None,
+    download: bool = False,
 ) -> FileResponse:
     artifact = platform_store.get_artifact(artifact_id)
     if not artifact:
@@ -2365,8 +2371,17 @@ async def get_platform_artifact_content(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     source_name = Path(str(artifact.get("title") or content_artifact.get("title") or "artifact")).name
-    media_type = str(content_artifact.get("media_type") or workspace_file_media_type(source_name))
-    return FileResponse(path, media_type=media_type, filename=None)
+    stored_media_type = str(content_artifact.get("media_type") or "")
+    media_type = (
+        workspace_file_media_type(source_name or str(content_artifact.get("title") or path.name))
+        if stored_media_type in {"", "application/octet-stream"}
+        else stored_media_type
+    )
+    source_path = Path(source_name)
+    suffix = source_path.suffix or path.suffix or ".bin"
+    stem = source_path.stem or "artifact"
+    filename = f"{stem}-v{artifact['version']}{suffix}"
+    return FileResponse(path, media_type=media_type, filename=filename if download else None)
 
 
 @app.get("/api/platform/artifacts/{artifact_id}/thumbnail")
@@ -2533,7 +2548,13 @@ async def recover_platform_run(
 
 @app.post("/api/platform/runs/{run_id}/cancel")
 async def cancel_platform_run(run_id: str, organization_id: str | None = None) -> dict[str, object]:
-    run = scoped_platform_run(run_id, organization_id)
+    run = await asyncio.to_thread(
+        scoped_platform_run,
+        run_id,
+        organization_id,
+        event_limit=200,
+        include_artifact_content=False,
+    )
     if run["status"] in {"completed", "failed", "cancelled", "budget_exhausted", "revision_exhausted"}:
         raise HTTPException(status_code=409, detail="run_is_terminal")
     active = platform_tasks.get(run_id)
@@ -2544,7 +2565,12 @@ async def cancel_platform_run(run_id: str, organization_id: str | None = None) -
     if active and not active.done():
         active.cancel()
     platform_store.append_run_event(run_id, "run.cancelled", "system", "执行已取消", "发起人停止了本次真实执行；已有事件和产物继续保留。")
-    current_run = platform_store.get_run(run_id)
+    current_run = await asyncio.to_thread(
+        platform_store.get_run,
+        run_id,
+        event_limit=300,
+        include_artifact_content=False,
+    )
     return {"run": public_platform_run(current_run) if current_run else None}
 
 

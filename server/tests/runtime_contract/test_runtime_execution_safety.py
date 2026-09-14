@@ -10,6 +10,7 @@ from server.app import claude_code_runtime as claude_runtime_module
 from server.app.agent_runtime import AgentRuntimeError
 from server.app.claude_code_runtime import ClaudeCodeRuntime, _bridge_stream_limit_bytes, _configured_max_turns
 from server.app.platform_executor import (
+    RUNTIME_SOURCE_PATHS,
     _AttemptEvidenceBundleCache,
     _agent_timeout_seconds,
     _apply_run_execution_policy_amendments,
@@ -21,9 +22,12 @@ from server.app.platform_executor import (
     _gather_cancel_on_error,
     _interrupted_tool_calls,
     _public_event_projection,
+    _public_event_projection_omission,
     _runtime_attestation,
     _runtime_mode,
     _runtime_source_attestation,
+    _ensure_runtime_source_artifacts,
+    _runtime_tool_authorization_matrix,
     _runtime_tool_enabled_agent_ids,
     _run_time_limit_enabled,
     _tool_schema_validation,
@@ -363,6 +367,25 @@ def test_runtime_tool_policy_can_explicitly_disable_keyword_inference() -> None:
     assert _runtime_tool_enabled_agent_ids({"summary": node}, lambda _agent_id: {"role": "文案"}) == set()
 
 
+def test_runtime_tool_authorization_matrix_covers_positive_negative_roles_and_forbidden_tool() -> None:
+    matrix = _runtime_tool_authorization_matrix(
+        {
+            "engineer": {"id": "engineer", "role": "工程师"},
+            "reviewer": {"id": "reviewer", "role": "审计员"},
+        },
+        {"engineer"},
+        7,
+    )
+
+    assert len(matrix) == 10
+    decisions = {(item["agent_id"], item["tool_name"]): item["authorization_decision"] for item in matrix}
+    assert decisions[("engineer", "Write")] == "allow"
+    assert decisions[("reviewer", "Write")] == "deny"
+    assert decisions[("engineer", "OpenClawGateway")] == "deny"
+    assert all(item["authorization_policy_version"] == "1.0.0" for item in matrix)
+    assert all(item["side_effect_status"] == "not_started" for item in matrix)
+
+
 def test_public_event_projection_keeps_evidence_ids_but_excludes_private_audit() -> None:
     public = _public_event_projection(
         {
@@ -394,6 +417,23 @@ def test_public_event_projection_keeps_evidence_ids_but_excludes_private_audit()
     assert public["payload"]["decision"] == {"verdict": "revise", "score": 42}
     assert len(public["source_event_sha256"]) == 64
     assert private is None
+    omission = _public_event_projection_omission(
+        {
+            "id": "evt_private_43",
+            "run_id": "run_42",
+            "organization_id": "org_jianghu",
+            "sequence": 43,
+            "type": "agent.rationale.submitted",
+            "category": "private_audit",
+            "payload": {"content": "private"},
+        }
+    )
+    assert omission is not None
+    assert omission["sequence"] == 43
+    assert omission["projection_status"] == "omitted"
+    assert omission["reason_code"] == "private_audit_not_shared_with_agents"
+    assert omission["policy_version"] == "1.0.0"
+    assert len(omission["source_event_sha256"]) == 64
 
 
 def test_public_event_projection_keeps_runtime_recovery_and_memory_machine_evidence() -> None:
@@ -490,6 +530,8 @@ def test_run_local_policy_amendment_changes_participants_without_new_workflow_ve
 def test_tool_schema_receipt_and_terminal_reconciliation_are_machine_complete() -> None:
     schema = _tool_schema_validation("Read", {"path": "README.md"})
     assert schema["passed"] is True
+    assert schema["schema_version"] == "1.0.0"
+    assert schema["input_schema"]["schema_id"] == schema["schema_id"]
     assert len(schema["schema_sha256"]) == 64
     assert len(schema["arguments_sha256"]) == 64
 
@@ -549,6 +591,8 @@ def test_runtime_attestation_exposes_host_sdk_and_session_binding() -> None:
                 "node_key": "audit",
                 "phase": "独立审计",
                 "session_key": "platform-session-1",
+                "platform_attempt_id": "attempt:run_88:audit:epoch1:loop1:node1",
+                "sdk_invocation_id": "sdk-invocation-1",
                 "runtime": {
                     "runtime": "agent-sdk-bridge",
                     "agent_id": "agent_quality",
@@ -575,6 +619,8 @@ def test_runtime_attestation_exposes_host_sdk_and_session_binding() -> None:
     assert attestation["session_bindings"][0]["run_id"] == "run_88"
     assert attestation["session_bindings"][0]["role_instance_id"] == "role:run_88:audit:agent_quality"
     assert attestation["session_bindings"][0]["platform_session_id"] == "platform-session-1"
+    assert attestation["session_bindings"][0]["platform_attempt_id"] == "attempt:run_88:audit:epoch1:loop1:node1"
+    assert attestation["session_bindings"][0]["sdk_invocation_id"] == "sdk-invocation-1"
 
 
 def test_artifact_creation_provenance_keeps_current_and_inherited_event_identity() -> None:
@@ -722,6 +768,38 @@ def test_runtime_source_attestation_proves_claude_only_product_route() -> None:
         for item in attestation["files"]
     )
     assert attestation["historical_exclusions"][0]["path"] == "experiments/openclaw_baseline/openclaw_runtime.py"
+
+
+def test_runtime_source_files_are_registered_as_exact_run_level_artifacts(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "runtime-source-artifacts.db"))
+    agent = platform.create_agent(
+        name="源码审计", role="质量工程师", description="复核生产源码", persona="逐字节核验",
+        capabilities=["源码重建"],
+    )
+    workflow = platform.create_workflow(
+        "源码证据章法", "登记生产 Runtime 源字节", "test",
+        {
+            "nodes": [{"key": "runtime_probe_harness", "name": "Runtime 取证", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "建立可隔离重建的源码证据")
+
+    registered = _ensure_runtime_source_artifacts(platform, run)
+    refreshed = platform.get_run_execution_snapshot(run["id"])
+    repeated = _ensure_runtime_source_artifacts(platform, refreshed)
+
+    assert len(registered) == len(RUNTIME_SOURCE_PATHS)
+    assert repeated == []
+    assert all(item["task_id"] is None for item in registered)
+    assert {item["title"] for item in registered} == set(RUNTIME_SOURCE_PATHS)
+    assert all(platform.verify_artifact_bytes(run["id"], item["id"])["matched"] for item in registered)
+    source_events = [
+        event for event in platform.get_run_execution_snapshot(run["id"])["events"]
+        if event["type"] == "runtime.source.registry.completed"
+    ]
+    assert len(source_events) == 1
+    assert source_events[0]["payload"]["matched_source_file_count"] == len(RUNTIME_SOURCE_PATHS)
 
 
 def test_claude_workspace_promotion_retries_transient_windows_file_error(monkeypatch, tmp_path) -> None:

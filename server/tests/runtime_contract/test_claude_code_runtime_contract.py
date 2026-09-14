@@ -167,6 +167,44 @@ def test_claude_sync_projects_context_memory_skills_and_policy_without_token(tmp
     assert not skill.exists()
 
 
+def test_workspace_seed_copy_skips_unchanged_large_files(monkeypatch, tmp_path) -> None:
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    source.mkdir()
+    payload = source / "large-evidence.bin"
+    payload.write_bytes(b"evidence" * 1024)
+
+    ClaudeCodeRuntime._copy_tree(source, destination)
+    copied: list[tuple[Path, Path]] = []
+    real_copy2 = shutil.copy2
+
+    def track_copy(source_path, destination_path, *args, **kwargs):
+        copied.append((Path(source_path), Path(destination_path)))
+        return real_copy2(source_path, destination_path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copy2", track_copy)
+    ClaudeCodeRuntime._copy_tree(source, destination)
+    assert copied == []
+
+    time.sleep(0.01)
+    payload.write_bytes(b"changed-evidence" * 1024)
+    ClaudeCodeRuntime._copy_tree(source, destination)
+    assert copied == [(payload, destination / payload.name)]
+    assert (destination / payload.name).read_bytes() == payload.read_bytes()
+
+
+def test_workspace_change_snapshot_excludes_platform_evidence_cache(tmp_path) -> None:
+    delivery = tmp_path / "delivery"
+    evidence = delivery / ".jianghu-platform-evidence" / "artifacts"
+    evidence.mkdir(parents=True)
+    (evidence / "large-immutable-evidence.bin").write_bytes(b"immutable" * 1024)
+    (delivery / "actual-delivery.txt").write_text("changed", encoding="utf-8")
+
+    snapshot = ClaudeCodeRuntime._workspace_snapshot(delivery)
+
+    assert set(snapshot) == {"actual-delivery.txt"}
+
+
 @pytest.mark.anyio
 async def test_claude_message_normalizes_stream_resume_and_file_changes(monkeypatch, tmp_path) -> None:
     runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
@@ -193,6 +231,12 @@ async def test_claude_message_normalizes_stream_resume_and_file_changes(monkeypa
     assert [item["kind"] for item in streamed] == ["tool_call", "tool_result"]
     assert streamed[0]["arguments"]["token_probe"] == "[REDACTED]"
     assert streamed[1]["exit_code"] == 0
+    assert str(streamed[0]["sdk_invocation_id"]).startswith("sdk-invocation-")
+    assert streamed[0]["claude_sdk_session_id"] == "sdk-session-1"
+    assert streamed[0]["tool_use_id"] == "call-1"
+    assert len(str(streamed[0]["request_sha256"])) == 64
+    assert streamed[1]["request_sha256"] == streamed[0]["request_sha256"]
+    assert len(str(streamed[1]["result_sha256"])) == 64
     assert first["file_changes"][0]["path"] == "artifact.txt"
     assert first["usage"] == {"input_tokens": 12, "output_tokens": 3}
     assert json.loads(runtime.sessions_path.read_text(encoding="utf-8"))[f'{agent["id"]}:workflow:node-1'] == "sdk-session-1"
@@ -255,6 +299,11 @@ async def test_claude_message_has_no_total_deadline_while_bridge_is_alive(
     runtime.sync([agent], {}, MODEL_CONFIG)
     bridge = _heartbeat_bridge(tmp_path)
     monkeypatch.setattr(runtime, "_base_command", lambda: [sys.executable, str(bridge)])
+    heartbeats: list[dict[str, object]] = []
+
+    async def on_action(action: dict[str, object]) -> None:
+        if action.get("kind") == "heartbeat":
+            heartbeats.append(action)
 
     started = time.monotonic()
     result = await runtime.message(
@@ -263,10 +312,13 @@ async def test_claude_message_has_no_total_deadline_while_bridge_is_alive(
         session_key="long-running-heartbeat",
         model_config=MODEL_CONFIG,
         timeout_seconds=1,
+        on_action=on_action,
     )
 
     assert time.monotonic() - started >= 1.2
     assert result["content"][0]["text"] == "LONG_RUNNING_OK"
+    assert heartbeats
+    assert str(heartbeats[0]["sdk_invocation_id"]).startswith("sdk-invocation-")
 
 
 @pytest.mark.anyio

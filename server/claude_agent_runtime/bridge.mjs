@@ -235,8 +235,22 @@ function workspaceServer(workspace, delivery, commandTimeoutSeconds) {
         const target = resolveInside(delivery, path, { deliveryPrefix: true });
         mkdirSync(dirname(target), { recursive: true });
         rejectSymlinkSegments(delivery, target);
+        const before = existsSync(target) ? readFileSync(target) : Buffer.alloc(0);
+        const beforeSha256 = createHash('sha256').update(before).digest('hex');
         writeFileSync(target, content, 'utf8');
-        return mcpResult({ path: relative(delivery, target).replaceAll('\\', '/'), bytes: Buffer.byteLength(content, 'utf8') });
+        const readBack = readFileSync(target);
+        const relativePath = relative(delivery, target).replaceAll('\\', '/');
+        const afterSha256 = createHash('sha256').update(Buffer.from(content, 'utf8')).digest('hex');
+        return mcpResult({
+          path: relativePath,
+          object_id: `delivery:${relativePath}`,
+          bytes: readBack.length,
+          before_sha256: beforeSha256,
+          after_sha256: afterSha256,
+          read_back_sha256: createHash('sha256').update(readBack).digest('hex'),
+          write_count: 1,
+          duplicate_count: 0,
+        });
       } catch (error) {
         return mcpResult({ error: publicError(error).message }, true);
       }
@@ -255,8 +269,20 @@ function workspaceServer(workspace, delivery, commandTimeoutSeconds) {
         if (count === 0) throw new Error('edit_text_not_found');
         if (!replace_all && count !== 1) throw new Error('edit_text_not_unique');
         const updated = replace_all ? original.split(old_text).join(new_text) : original.replace(old_text, new_text);
+        const beforeSha256 = createHash('sha256').update(Buffer.from(original, 'utf8')).digest('hex');
         writeFileSync(target, updated, 'utf8');
-        return mcpResult({ path: relative(delivery, target).replaceAll('\\', '/'), replacements: replace_all ? count : 1 });
+        const readBack = readFileSync(target);
+        const relativePath = relative(delivery, target).replaceAll('\\', '/');
+        return mcpResult({
+          path: relativePath,
+          object_id: `delivery:${relativePath}`,
+          replacements: replace_all ? count : 1,
+          before_sha256: beforeSha256,
+          after_sha256: createHash('sha256').update(Buffer.from(updated, 'utf8')).digest('hex'),
+          read_back_sha256: createHash('sha256').update(readBack).digest('hex'),
+          write_count: 1,
+          duplicate_count: 0,
+        });
       } catch (error) {
         return mcpResult({ error: publicError(error).message }, true);
       }
@@ -343,7 +369,21 @@ function parseJsonObject(value) {
   }
 }
 
-export function normalizedToolResult(block, toolUseResult, toolName = '') {
+function stableJsonValue(value) {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, stableJsonValue(value[key])]),
+    );
+  }
+  return value;
+}
+
+export function canonicalDigest(value) {
+  return createHash('sha256').update(JSON.stringify(stableJsonValue(redact(value)))).digest('hex');
+}
+
+export function normalizedToolResult(block, toolUseResult, toolName = '', identity = {}) {
   let payload = toolUseResult;
   if (payload && typeof payload === 'object' && payload.structuredContent && typeof payload.structuredContent === 'object') {
     payload = payload.structuredContent;
@@ -358,10 +398,22 @@ export function normalizedToolResult(block, toolUseResult, toolName = '') {
   const publicPayload = redact(payload);
   const payloadStatus = publicPayload && typeof publicPayload === 'object' ? String(publicPayload.status || '') : '';
   const isError = Boolean(block?.is_error) || ['failed', 'timeout', 'error'].includes(payloadStatus.toLowerCase());
+  const objectEvidence = publicPayload && typeof publicPayload === 'object'
+    ? Object.fromEntries(
+      ['object_id', 'before_sha256', 'after_sha256', 'read_back_sha256', 'write_count', 'duplicate_count']
+        .filter((key) => publicPayload[key] !== undefined && publicPayload[key] !== null)
+        .map((key) => [key, publicPayload[key]]),
+    )
+    : {};
   return {
     kind: 'tool_result',
     tool_call_id: String(block?.tool_use_id || ''),
+    tool_use_id: String(block?.tool_use_id || ''),
     tool_name: normalizeToolName(toolName),
+    sdk_invocation_id: String(identity.sdk_invocation_id || ''),
+    claude_sdk_session_id: String(identity.claude_sdk_session_id || ''),
+    request_sha256: String(identity.request_sha256 || ''),
+    result_sha256: canonicalDigest(publicPayload),
     output: typeof publicPayload === 'string' ? publicPayload : JSON.stringify(publicPayload),
     is_error: isError,
     status: payloadStatus || (isError ? 'failed' : 'completed'),
@@ -371,6 +423,7 @@ export function normalizedToolResult(block, toolUseResult, toolName = '') {
     cwd: publicPayload && typeof publicPayload === 'object' ? String(publicPayload.cwd || '') : '',
     shell: publicPayload && typeof publicPayload === 'object' ? String(publicPayload.shell || '') : '',
     environment: publicPayload && typeof publicPayload === 'object' ? String(publicPayload.environment || '') : '',
+    ...objectEvidence,
     timestamp: new Date().toISOString(),
   };
 }
@@ -381,6 +434,7 @@ async function main() {
     return;
   }
   const input = await readStdinJson();
+  const sdkInvocationId = String(input.sdk_invocation_id || '');
   providerToken = String(input.token || '');
   const workspace = resolve(String(input.workspace));
   const delivery = resolve(workspace, 'delivery');
@@ -446,8 +500,10 @@ async function main() {
     : String(input.prompt);
 
   let finalResult = null;
+  let currentSessionId = '';
   const seenActions = new Set();
   const toolNamesById = new Map();
+  const toolRequestsById = new Map();
   const heartbeat = setInterval(() => {
     emit({ type: 'heartbeat', timestamp: new Date().toISOString() });
   }, heartbeatIntervalMs(input.heartbeat_interval_seconds));
@@ -456,6 +512,7 @@ async function main() {
   try {
     for await (const message of activeQuery) {
       if (message.type === 'system' && message.subtype === 'init') {
+        currentSessionId = String(message.session_id || '');
         emit({ type: 'meta', session_id: message.session_id, model: message.model, runtime_version: message.claude_code_version });
       }
       const content = message?.message?.content;
@@ -465,17 +522,34 @@ async function main() {
           if (message.type === 'assistant' && block?.type === 'text' && block.text) {
             action = { kind: 'progress', content: redact(block.text), timestamp: new Date().toISOString() };
           } else if (message.type === 'assistant' && block?.type === 'tool_use') {
-            toolNamesById.set(String(block.id || ''), String(block.name || ''));
+            const toolCallId = String(block.id || '');
+            const publicArguments = redact(block.input || {});
+            const requestSha256 = canonicalDigest(publicArguments);
+            toolNamesById.set(toolCallId, String(block.name || ''));
+            toolRequestsById.set(toolCallId, requestSha256);
             action = {
               kind: 'tool_call',
-              tool_call_id: String(block.id || ''),
+              tool_call_id: toolCallId,
+              tool_use_id: toolCallId,
               tool_name: normalizeToolName(block.name),
-              arguments: redact(block.input || {}),
+              sdk_invocation_id: sdkInvocationId,
+              claude_sdk_session_id: currentSessionId,
+              request_sha256: requestSha256,
+              arguments: publicArguments,
               timestamp: new Date().toISOString(),
             };
           } else if (message.type === 'user' && block?.type === 'tool_result') {
             const toolCallId = String(block.tool_use_id || '');
-            action = normalizedToolResult(block, message.tool_use_result, toolNamesById.get(toolCallId) || '');
+            action = normalizedToolResult(
+              block,
+              message.tool_use_result,
+              toolNamesById.get(toolCallId) || '',
+              {
+                sdk_invocation_id: sdkInvocationId,
+                claude_sdk_session_id: currentSessionId,
+                request_sha256: toolRequestsById.get(toolCallId) || '',
+              },
+            );
           }
           if (action) {
             const fingerprint = createHash('sha256').update(JSON.stringify(action)).digest('hex');
@@ -489,6 +563,7 @@ async function main() {
       if (message.type === 'result') {
         finalResult = {
           session_id: message.session_id,
+          sdk_invocation_id: sdkInvocationId,
           model: String(input.model || ''),
           is_error: Boolean(message.is_error),
           subtype: message.subtype,

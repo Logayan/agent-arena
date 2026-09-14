@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   applyOptionalMaxTurns,
+  canonicalDigest,
   commandHasPathEscape,
   commandShell,
   heartbeatIntervalMs,
@@ -47,11 +48,21 @@ test('normalizes MCP structured command results with tool name and exit code', (
       },
     },
     'mcp__jianghu_workspace__bash',
+    {
+      sdk_invocation_id: 'sdk-invocation-1',
+      claude_sdk_session_id: 'sdk-session-1',
+      request_sha256: canonicalDigest({ command: 'echo ok' }),
+    },
   );
 
   assert.equal(action.kind, 'tool_result');
   assert.equal(action.tool_call_id, 'call-1');
+  assert.equal(action.tool_use_id, 'call-1');
   assert.equal(action.tool_name, 'Bash');
+  assert.equal(action.sdk_invocation_id, 'sdk-invocation-1');
+  assert.equal(action.claude_sdk_session_id, 'sdk-session-1');
+  assert.equal(action.request_sha256, canonicalDigest({ command: 'echo ok' }));
+  assert.equal(action.result_sha256.length, 64);
   assert.equal(action.status, 'completed');
   assert.equal(action.is_error, false);
   assert.equal(action.exit_code, 0);
@@ -59,6 +70,14 @@ test('normalizes MCP structured command results with tool name and exit code', (
   assert.equal(action.shell, 'git-bash');
   assert.equal(action.environment, 'credential-isolated');
   assert.match(action.output, /RUNTIME_PARITY_OK/);
+});
+
+
+test('canonical tool digests are stable across object key order', () => {
+  assert.equal(
+    canonicalDigest({ path: 'delivery/result.json', content: { b: 2, a: 1 } }),
+    canonicalDigest({ content: { a: 1, b: 2 }, path: 'delivery/result.json' }),
+  );
 });
 
 
@@ -73,6 +92,32 @@ test('normalizes string MCP results and failed status', () => {
   assert.equal(action.status, 'failed');
   assert.equal(action.is_error, true);
   assert.equal(action.exit_code, 7);
+});
+
+
+test('preserves object-level write evidence from MCP structured results', () => {
+  const digest = 'a'.repeat(64);
+  const action = normalizedToolResult(
+    { tool_use_id: 'call-write', type: 'tool_result', is_error: false },
+    {
+      structuredContent: {
+        object_id: 'delivery:reports/result.md',
+        before_sha256: digest,
+        after_sha256: 'b'.repeat(64),
+        read_back_sha256: 'b'.repeat(64),
+        write_count: 1,
+        duplicate_count: 0,
+      },
+    },
+    'mcp__jianghu_workspace__write',
+  );
+
+  assert.equal(action.object_id, 'delivery:reports/result.md');
+  assert.equal(action.before_sha256, digest);
+  assert.equal(action.after_sha256, 'b'.repeat(64));
+  assert.equal(action.read_back_sha256, action.after_sha256);
+  assert.equal(action.write_count, 1);
+  assert.equal(action.duplicate_count, 0);
 });
 
 
