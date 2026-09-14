@@ -1378,6 +1378,12 @@ class PlatformStore:
                             materialized["id"],
                         ),
                     )
+            # A worker can be terminated after Registry insertion but before a
+            # deferred manifest batch is flushed.  Reconcile only missing IDs
+            # during startup so the immutable Registry remains authoritative
+            # and a hard interruption cannot leave the workspace manifest
+            # permanently incomplete.
+            self.reconcile_workspace_artifact_manifest(str(run_record["id"]))
 
     def get_artifact(self, artifact_id: str) -> dict[str, Any] | None:
         with self._connect() as db:
@@ -4987,6 +4993,29 @@ class PlatformStore:
         with self._connect() as db:
             self._event(db, run_id, type_, category, title, summary, payload or {})
 
+    def append_run_events(self, run_id: str, events: list[dict[str, Any]]) -> None:
+        """Append an ordered event batch in one database transaction.
+
+        Large Agent deliveries can contain thousands of independently
+        inspectable files.  Opening and committing a new SQLite transaction
+        for every receipt both amplifies write load and can starve the API
+        event loop while the delivery is archived.  The ordering and payload
+        contract remain identical; only the transaction boundary is grouped.
+        """
+        if not events:
+            return
+        with self._connect() as db:
+            for event in events:
+                self._event(
+                    db,
+                    run_id,
+                    str(event["type"]),
+                    str(event["category"]),
+                    str(event["title"]),
+                    str(event["summary"]),
+                    dict(event.get("payload") or {}),
+                )
+
     def update_run(self, run_id: str, *, status: str | None = None, progress: int | None = None, stage: str | None = None, token_count: int | None = None, estimated_cost: float | None = None) -> None:
         fields: list[str] = ["updated_at=?"]
         values: list[Any] = [utc_now()]
@@ -5065,6 +5094,7 @@ class PlatformStore:
         previous_sha256: str = "",
         file_category: str | None = None,
         source_root: str | Path | None = None,
+        update_manifest: bool = True,
     ) -> dict[str, Any]:
         """Register a delivered file, or a deletion receipt, as an immutable Artifact.
 
@@ -5181,31 +5211,101 @@ class PlatformStore:
                     artifact["created_at"], artifact["relative_path"], artifact["sha256"], artifact["media_type"], artifact["size_bytes"],
                 ),
             )
+        if update_manifest:
+            self.append_workspace_artifacts_to_manifest(run_id, [artifact])
+        return artifact
+
+    def append_workspace_artifacts_to_manifest(
+        self,
+        run_id: str,
+        artifacts: list[dict[str, Any]],
+    ) -> None:
+        """Merge delivered-file Artifact rows into the Run manifest once.
+
+        ``register_workspace_file_artifact`` keeps its immediate-update
+        default for API callers and tests.  The executor can defer a bounded
+        batch so a large delivery does not repeatedly rewrite an ever-growing
+        JSON manifest for every single file.
+        """
+        if not artifacts:
+            return
+        with self._connect() as db:
+            run_row = db.execute(
+                "SELECT project_id FROM runs WHERE id=?",
+                (run_id,),
+            ).fetchone()
+        if not run_row:
+            raise ValueError("run_not_found")
+        workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
         manifest_path = workspace_root / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        entries = [item for item in manifest.get("artifacts", []) if item.get("id") != artifact_id]
-        entries.append(
-            {
-                "id": artifact_id,
-                "task_id": task_id,
-                "kind": artifact["kind"],
-                "title": artifact["title"],
-                "status": status,
-                "version": version,
-                "path": artifact["relative_path"],
-                "media_type": media_type,
-                "size_bytes": len(data),
-                "sha256": digest,
-                "created_at": now,
-                "source_relative_path": relative_path,
-                "change_action": normalized_action,
-                "file_category": category,
-                "previous_sha256": previous_sha256,
-            }
+        artifact_ids = {str(item["id"]) for item in artifacts}
+        entries = [
+            item for item in manifest.get("artifacts", [])
+            if str(item.get("id") or "") not in artifact_ids
+        ]
+        for artifact in artifacts:
+            if str(artifact.get("run_id") or "") != run_id:
+                raise ValueError("artifact_run_mismatch")
+            try:
+                metadata = json.loads(str(artifact.get("content") or "{}"))
+            except json.JSONDecodeError:
+                metadata = {}
+            entries.append(
+                {
+                    "id": artifact["id"],
+                    "task_id": artifact.get("task_id"),
+                    "kind": artifact["kind"],
+                    "title": artifact["title"],
+                    "status": artifact["status"],
+                    "version": artifact["version"],
+                    "path": artifact["relative_path"],
+                    "media_type": artifact["media_type"],
+                    "size_bytes": artifact["size_bytes"],
+                    "sha256": artifact["sha256"],
+                    "created_at": artifact["created_at"],
+                    "source_relative_path": str(metadata.get("source_relative_path") or artifact["title"]),
+                    "change_action": str(metadata.get("change_action") or "recorded"),
+                    "file_category": str(metadata.get("file_category") or workspace_file_category(str(artifact["title"]))),
+                    "previous_sha256": str(metadata.get("previous_sha256") or ""),
+                }
+            )
+        manifest["artifacts"] = sorted(
+            entries,
+            key=lambda item: (str(item.get("created_at")), str(item.get("id"))),
         )
-        manifest["artifacts"] = sorted(entries, key=lambda item: (str(item.get("created_at")), str(item.get("id"))))
         self._write_json_atomic(manifest_path, manifest)
-        return artifact
+
+    def reconcile_workspace_artifact_manifest(self, run_id: str) -> int:
+        """Restore Registry rows missing from the durable workspace manifest.
+
+        Returns the number of entries restored.  Existing manifest entries are
+        left untouched, making the operation safe to run repeatedly at process
+        startup after a crash or forced termination.
+        """
+        with self._connect() as db:
+            run_row = db.execute(
+                "SELECT project_id FROM runs WHERE id=?",
+                (run_id,),
+            ).fetchone()
+            artifact_rows = db.execute(
+                "SELECT * FROM artifacts WHERE run_id=? ORDER BY created_at,id",
+                (run_id,),
+            ).fetchall()
+        if not run_row:
+            raise ValueError("run_not_found")
+        workspace_root = self._run_workspace(str(run_row["project_id"]), run_id).resolve()
+        manifest_path = workspace_root / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_ids = {
+            str(item.get("id") or "")
+            for item in manifest.get("artifacts", [])
+            if isinstance(item, dict)
+        }
+        missing = [dict(row) for row in artifact_rows if str(row["id"]) not in manifest_ids]
+        if missing:
+            self.append_workspace_artifacts_to_manifest(run_id, missing)
+        return len(missing)
 
     def verify_artifact_bytes(self, run_id: str, artifact_id: str) -> dict[str, Any]:
         """Re-read a materialized Artifact and compare it with the Registry receipt."""

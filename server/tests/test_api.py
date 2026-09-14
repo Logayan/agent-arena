@@ -1436,6 +1436,121 @@ def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, 
     assert metadata["file_category"] == "other"
 
 
+def test_workspace_file_artifacts_can_flush_manifest_in_one_batch(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "file-artifact-batch.db"))
+    agent = platform.create_agent(
+        name="林批归", role="工程师", description="批量登记真实文件", persona="保持逐文件证据",
+        capabilities=["文件交付"],
+    )
+    workflow = platform.create_workflow(
+        "批量归档章法", "批量登记但不丢失逐文件证据", "test",
+        {
+            "nodes": [{"key": "build", "name": "构建", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "批量登记交付文件")
+    task = run["tasks"][0]
+    code_root = Path(run["workspace"]["code"])
+    (code_root / "delivery").mkdir(parents=True, exist_ok=True)
+    (code_root / "delivery" / "a.txt").write_text("alpha\n", encoding="utf-8")
+    (code_root / "delivery" / "b.json").write_text('{"beta":true}\n', encoding="utf-8")
+
+    artifacts = [
+        platform.register_workspace_file_artifact(
+            run["id"], task["id"], relative_path,
+            change_action="created", update_manifest=False,
+        )
+        for relative_path in ("delivery/a.txt", "delivery/b.json")
+    ]
+    manifest_path = Path(run["workspace"]["root"]) / "manifest.json"
+    before = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert not {item["id"] for item in artifacts}.intersection(
+        {str(item.get("id")) for item in before.get("artifacts", [])}
+    )
+
+    platform.append_workspace_artifacts_to_manifest(run["id"], artifacts)
+
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = {
+        str(item["id"]): item for item in after["artifacts"]
+        if str(item.get("id")) in {artifact["id"] for artifact in artifacts}
+    }
+    assert set(entries) == {artifact["id"] for artifact in artifacts}
+    assert entries[artifacts[0]["id"]]["source_relative_path"] == "delivery/a.txt"
+    assert entries[artifacts[0]["id"]]["change_action"] == "created"
+    assert entries[artifacts[1]["id"]]["media_type"] == "application/json"
+    assert platform.reconcile_workspace_artifact_manifest(run["id"]) == 0
+
+
+def test_workspace_manifest_reconciles_registry_rows_after_interruption(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "file-artifact-reconcile.db"))
+    agent = platform.create_agent(
+        name="沈续卷", role="恢复工程师", description="恢复中断的清单批次", persona="以 Registry 为准",
+        capabilities=["中断恢复"],
+    )
+    workflow = platform.create_workflow(
+        "清单恢复章法", "硬中断后补齐 Manifest", "test",
+        {
+            "nodes": [{"key": "recover", "name": "恢复", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "模拟 Registry 已提交但 Manifest 未刷新")
+    task = run["tasks"][0]
+    code_root = Path(run["workspace"]["code"])
+    (code_root / "recovery.txt").write_text("durable registry bytes\n", encoding="utf-8")
+    artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "recovery.txt",
+        change_action="created", update_manifest=False,
+    )
+
+    manifest_path = Path(run["workspace"]["root"]) / "manifest.json"
+    before = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert artifact["id"] not in {str(item.get("id")) for item in before.get("artifacts", [])}
+
+    assert platform.reconcile_workspace_artifact_manifest(run["id"]) == 1
+    assert platform.reconcile_workspace_artifact_manifest(run["id"]) == 0
+    after = json.loads(manifest_path.read_text(encoding="utf-8"))
+    restored = next(item for item in after["artifacts"] if item["id"] == artifact["id"])
+    assert restored["sha256"] == artifact["sha256"]
+    assert restored["size_bytes"] == artifact["size_bytes"]
+    assert restored["source_relative_path"] == "recovery.txt"
+
+
+def test_append_run_events_preserves_order_in_one_batch(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "event-batch.db"))
+    agent = platform.create_agent(
+        name="序列审计", role="审计师", description="核验事件批次", persona="保持顺序",
+        capabilities=["事件审计"],
+    )
+    workflow = platform.create_workflow(
+        "事件批次章法", "按序登记审计回执", "test",
+        {
+            "nodes": [{"key": "audit", "name": "审计", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "登记三段审计链")
+    platform.append_run_events(
+        run["id"],
+        [
+            {"type": "artifact.created", "category": "artifact", "title": "已登记", "summary": "created"},
+            {"type": "artifact.collected", "category": "artifact", "title": "已采集", "summary": "collected"},
+            {"type": "artifact.download.verified", "category": "validation", "title": "已复算", "summary": "verified"},
+        ],
+    )
+
+    refreshed = platform.get_run(run["id"])
+    assert refreshed is not None
+    assert [event["type"] for event in refreshed["events"][-3:]] == [
+        "artifact.created", "artifact.collected", "artifact.download.verified",
+    ]
+    assert [event["sequence"] for event in refreshed["events"][-3:]] == sorted(
+        event["sequence"] for event in refreshed["events"][-3:]
+    )
+
+
 def test_register_workspace_image_artifact_is_browser_renderable(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "image-artifact.db"))
     agent = platform.create_agent(

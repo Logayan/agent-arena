@@ -3871,6 +3871,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             {**artifact_payload, "status": "matched"},
                         )
                 registered_file_artifacts: list[dict[str, Any]] = []
+                pending_manifest_artifacts: list[dict[str, Any]] = []
                 latest_file_change_by_path: dict[str, tuple[dict[str, Any], str]] = {}
                 for runtime_response in node_runtime_responses:
                     for change in runtime_response.get("recorded_file_changes", []):
@@ -3882,7 +3883,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             )
                 for relative_path, (change, source_root) in sorted(latest_file_change_by_path.items()):
                     try:
-                        file_artifact = store.register_workspace_file_artifact(
+                        file_artifact = await asyncio.to_thread(
+                            store.register_workspace_file_artifact,
                             run_id,
                             task["id"],
                             relative_path,
@@ -3890,10 +3892,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             change_action=str(change.get("action") or "recorded"),
                             previous_sha256=str(change.get("previous_sha256") or ""),
                             source_root=source_root or None,
+                            update_manifest=False,
                         )
                     except (OSError, ValueError):
                         continue
                     registered_file_artifacts.append(file_artifact)
+                    pending_manifest_artifacts.append(file_artifact)
                     file_payload = {
                         "task_id": task["id"], "node_key": node_key,
                         "artifact_id": file_artifact["id"], "artifact_version": file_artifact["version"],
@@ -3907,24 +3911,46 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     # every file has been copied leaves the Registry and event
                     # stream inconsistent if the worker is interrupted midway.
                     async with event_lock:
-                        store.append_run_event(
-                            run_id, "artifact.created", "artifact",
-                            f"文件 Artifact 已登记：{file_artifact['title']}",
-                            "平台按原始字节登记了 Agent 交付文件。",
-                            file_payload,
+                        await asyncio.to_thread(
+                            store.append_run_events,
+                            run_id,
+                            [
+                                {
+                                    "type": "artifact.created",
+                                    "category": "artifact",
+                                    "title": f"文件 Artifact 已登记：{file_artifact['title']}",
+                                    "summary": "平台按原始字节登记了 Agent 交付文件。",
+                                    "payload": file_payload,
+                                },
+                                {
+                                    "type": "artifact.collected",
+                                    "category": "artifact",
+                                    "title": f"文件 Artifact 已采集：{file_artifact['title']}",
+                                    "summary": "登记后的文件已复制到 Run 不可变 Artifact 区并完成 SHA-256 复读。",
+                                    "payload": {**file_payload, "status": "sha256_verified"},
+                                },
+                                {
+                                    "type": "artifact.download.verified",
+                                    "category": "validation",
+                                    "title": f"文件 Artifact 下载字节已复算：{file_artifact['title']}",
+                                    "summary": "平台下载路径读取的字节数和 SHA-256 与 Registry 一致。",
+                                    "payload": {**file_payload, "status": "matched"},
+                                },
+                            ],
                         )
-                        store.append_run_event(
-                            run_id, "artifact.collected", "artifact",
-                            f"文件 Artifact 已采集：{file_artifact['title']}",
-                            "登记后的文件已复制到 Run 不可变 Artifact 区并完成 SHA-256 复读。",
-                            {**file_payload, "status": "sha256_verified"},
+                    if len(pending_manifest_artifacts) >= 100:
+                        await asyncio.to_thread(
+                            store.append_workspace_artifacts_to_manifest,
+                            run_id,
+                            pending_manifest_artifacts,
                         )
-                        store.append_run_event(
-                            run_id, "artifact.download.verified", "validation",
-                            f"文件 Artifact 下载字节已复算：{file_artifact['title']}",
-                            "平台下载路径读取的字节数和 SHA-256 与 Registry 一致。",
-                            {**file_payload, "status": "matched"},
-                        )
+                        pending_manifest_artifacts.clear()
+                if pending_manifest_artifacts:
+                    await asyncio.to_thread(
+                        store.append_workspace_artifacts_to_manifest,
+                        run_id,
+                        pending_manifest_artifacts,
+                    )
                 store.update_task(
                     task["id"],
                     status="completed",

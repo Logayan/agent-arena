@@ -59,15 +59,18 @@ page.on('requestfailed', request => {
 page.on('response', response => { if (response.status() >= 400) httpErrors.push({ url: response.url(), status: response.status() }) })
 
 try {
-  const [stateResponse, artifactsResponse, runsResponse] = await Promise.all([
+  const [stateResponse, detailResponse, artifactsResponse, runsResponse] = await Promise.all([
     context.request.get(`${backendUrl}/api/platform/runs/${runId}/state?event_limit=100&organization_id=org_jianghu`, { timeout: 60000 }),
+    context.request.get(`${backendUrl}/api/platform/runs/${runId}?event_limit=100&organization_id=org_jianghu`, { timeout: 60000 }),
     context.request.get(`${backendUrl}/api/platform/runs/${runId}/artifacts?organization_id=org_jianghu`, { timeout: 60000 }),
     context.request.get(`${backendUrl}/api/platform/runs?organization_id=org_jianghu`, { timeout: 60000 }),
   ])
   if (!stateResponse.ok()) throw new Error(`Run state HTTP ${stateResponse.status()}`)
+  if (!detailResponse.ok()) throw new Error(`Run detail HTTP ${detailResponse.status()}`)
   if (!artifactsResponse.ok()) throw new Error(`Artifact listing HTTP ${artifactsResponse.status()}`)
   if (!runsResponse.ok()) throw new Error(`Run listing HTTP ${runsResponse.status()}`)
   const run = (await stateResponse.json()).run_state
+  Object.assign(run, (await detailResponse.json()).run)
   run.artifacts = (await artifactsResponse.json()).artifacts
   const runSummary = (await runsResponse.json()).find(item => String(item.id) === runId)
   if (runSummary) Object.assign(run, runSummary)

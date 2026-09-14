@@ -184,3 +184,32 @@ deliverables/run_bda13e93b2ea/evidence-center-e2e/not-found-final-20260914/
 - Windows 取消合同测试不再固定等待 0.2 秒，而是等待 Bridge 写入启动 marker 后取消，消除高负载竞态。
 
 隔离快照 `5175 + 8005` 的最终真实 E2E 为 7/7 PASS，`console_errors=0`、`failed_requests=0`、`http_errors=0`，结果目录为 `deliverables/run_bda13e93b2ea/evidence-center-e2e/isolated-current/`。后端 API/Runtime 完整回归更新为 184 passed，Runtime 合同 91 passed，前端生产构建 1778 modules。正式 5173 页面已人工复验真实 JSON 正文与真实截图；正式 8003 因 Run 仍有 Claude Bridge 心跳，继续等待真实 paused 安全边界后再加载本轮 Python 接口变更。
+
+## 19:25 正式后端版本错配复核与最终现场验证
+
+用户再次看到 `Not Found` 和“只有元数据”后，对正式端口进行源码、进程能力与浏览器三方比对，确认当时存在明确的前后端版本错配：
+
+- 5173 已通过 Vite 热更新加载 Artifact 轻量清单和应用内正文代码；
+- 工作区当前提交已声明 `artifact_listing=true`，并实现 `/api/platform/runs/{run_id}/artifacts`；
+- 但 8003 仍是提交前启动的旧 Python 进程，健康响应没有 `artifact_listing`，请求轻量清单直接返回 `404 {"detail":"Not Found"}`。
+
+Run 已处于 `failed` 安全终态，因此受控重启正式 8003 加载当前代码，不创建新 Run、不改变 Version 9，也不覆盖任何历史事件或 Artifact。重启后：
+
+- `/api/health.capabilities.artifact_listing=true`；
+- `/api/platform/runs/run_bda13e93b2ea/artifacts` 返回 4,170 份 Artifact；
+- 物化文件完整性扫描为 4,170/4,170 存在、0 缺失、0 大小不一致；
+- 其中 4,134 条数据库 `content` 是不可变的文件变更审计回执，页面正文必须通过 `/content` 解析真实物化字节，不能直接把该字段当正文；
+- Markdown、JSON、PNG、HTML、TypeScript 五类正式样本均通过 HTTP Range 返回 `206` 和真实字节，没有 404。
+
+同时修复 E2E 导航：轻量 `/state` 投影不包含 `run_family_id`，而历史事件列表展示的是 Run Family，不是 Version 9 的物理 Run ID。测试现在并行读取 Run Detail，取得 `run_0886dd109c15` 后再选择 Version 9，避免在进入测试步骤前误超时。
+
+正式 `5173 + 8003` 最终结果：
+
+- Evidence Center E2E：7/7 PASS；
+- console errors：0；
+- failed requests：0；
+- HTTP errors：0；
+- 输出目录：`.codex-build/evidence-center-e2e/formal-final/`；
+- API/业务完整回归：108 passed；Runtime 合同：91 passed；前端生产构建：1778 modules；
+- 批量 Artifact 归档增加启动对账：若进程在 Registry 已提交、Manifest 批次未刷新时中断，重启会只补齐缺失 ID；恢复操作幂等；
+- 正式应用已停留在 Run `run_bda13e93b2ea` Version 9 的证据中心，并打开 `x/r/test-cases.json` 的真实 JSON 正文供现场复核。
