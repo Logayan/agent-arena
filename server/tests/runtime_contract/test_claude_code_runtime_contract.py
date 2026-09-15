@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from server.app import claude_code_runtime as claude_runtime_module
 from server.app.agent_runtime import AgentRuntimePort
 from server.app.agent_runtime_registry import agent_runtime
 from server.app.claude_code_runtime import (
@@ -423,6 +424,43 @@ async def test_claude_message_keeps_event_loop_responsive_during_large_seed_copy
 
     assert heartbeat_elapsed < 0.15
     assert result["content"][0]["text"] == "G4_ADAPTER_OK"
+
+
+@pytest.mark.anyio
+async def test_claude_message_wraps_process_start_oserror_as_retryable_runtime_failure(
+    monkeypatch, tmp_path
+) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG)
+
+    async def fail_process_start(*_args, **_kwargs):
+        error = OSError(13, "process creation denied")
+        error.winerror = 5
+        raise error
+
+    monkeypatch.setattr(
+        claude_runtime_module.asyncio,
+        "create_subprocess_exec",
+        fail_process_start,
+    )
+
+    with pytest.raises(ClaudeCodeRuntimeError, match="claude_bridge_start_failed") as captured:
+        await runtime.message(
+            agent=agent,
+            prompt="验证进程启动失败归一化",
+            session_key="process-start-failure",
+            model_config=MODEL_CONFIG,
+            timeout_seconds=5,
+        )
+
+    assert captured.value.category == "runtime_failure"
+    assert captured.value.retryable is True
+    assert captured.value.details == {
+        "error_type": "PermissionError",
+        "errno": 13,
+        "winerror": 5,
+    }
 
 
 @pytest.mark.anyio

@@ -147,6 +147,7 @@ class ClaudeCodeRuntime:
         self.sessions_path = self.state_root / "sessions.json"
         self.policy_path = self.state_root / "agent-policies.json"
         self._state_lock = threading.Lock()
+        self._process_start_lock = asyncio.Lock()
 
     def for_run(self, run_id: str, execution_root: str | Path | None = None) -> "ClaudeCodeRuntime":
         safe_run_id = _safe_name(run_id, "run")
@@ -687,16 +688,33 @@ class ClaudeCodeRuntime:
         if max_turns is not None:
             payload["max_turns"] = max_turns
         creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
-        process = await asyncio.create_subprocess_exec(
-            *self._base_command(),
-            cwd=str(workspace),
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            creationflags=creationflags,
-            start_new_session=os.name != "nt",
-            limit=_bridge_stream_limit_bytes(),
-        )
+        try:
+            # Windows process creation can fail transiently when several team
+            # members start Node/Claude bridge trees at the same instant. Keep
+            # only the short creation section serialized; completed startups
+            # continue concurrently under the executor's Runtime session cap.
+            async with self._process_start_lock:
+                process = await asyncio.create_subprocess_exec(
+                    *self._base_command(),
+                    cwd=str(workspace),
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    creationflags=creationflags,
+                    start_new_session=os.name != "nt",
+                    limit=_bridge_stream_limit_bytes(),
+                )
+        except OSError as exc:
+            raise ClaudeCodeRuntimeError(
+                f"claude_bridge_start_failed:{self._redact_text(exc)}",
+                category="runtime_failure",
+                retryable=True,
+                details={
+                    "error_type": type(exc).__name__,
+                    "errno": getattr(exc, "errno", None),
+                    "winerror": getattr(exc, "winerror", None),
+                },
+            ) from exc
         assert process.stdin is not None and process.stdout is not None and process.stderr is not None
         process.stdin.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         await process.stdin.drain()

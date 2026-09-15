@@ -1726,6 +1726,38 @@ def _dependencies(workflow: dict[str, Any]) -> dict[str, set[str]]:
     return deps
 
 
+def _runtime_parallel_session_limit(
+    runtime_name: str,
+    max_parallel: int,
+    *,
+    platform_name: str | None = None,
+    configured_value: str | None = None,
+) -> int:
+    """Bound heavy Claude SDK process trees without reducing workflow parallelism."""
+    maximum = max(1, int(max_parallel))
+    if str(runtime_name) != "claude_code":
+        return maximum
+    raw = (
+        os.getenv("JIANGHU_CLAUDE_MAX_PARALLEL_SESSIONS", "").strip()
+        if configured_value is None
+        else str(configured_value).strip()
+    )
+    if raw:
+        try:
+            configured = int(raw)
+        except ValueError:
+            configured = 0
+        if configured > 0:
+            return max(1, min(maximum, configured))
+    # This is an execution-host adaptation, not a Windows-first product rule.
+    # Node plus the bundled Claude process is materially heavier on Windows;
+    # limiting active SDK trees prevents transient CreateProcess OSError while
+    # retaining all agents, evidence and workflow semantics.
+    if (platform_name or os.name) == "nt":
+        return min(maximum, 2)
+    return maximum
+
+
 async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
     # Mature Runs can contain tens of thousands of events and hundreds of
     # materialized Artifacts. Hydrating that projection is blocking I/O/CPU and
@@ -1793,6 +1825,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         )
         max_parallel = int(policies.get("max_parallel_agents", 5) or 5)
         max_parallel = max(1, min(max_parallel, 5))
+        runtime_parallel_sessions = _runtime_parallel_session_limit(runtime_name, max_parallel)
         enforce_run_time_limit = _run_time_limit_enabled(policies)
         base_max_run_minutes = int(policies.get("max_run_minutes", 180) or 180)
         extension_minutes = sum(
@@ -1812,7 +1845,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         def bounded_run_timeout(seconds: int) -> int:
             return min(seconds, max_run_minutes * 60) if enforce_run_time_limit else seconds
         node_semaphore = asyncio.Semaphore(max_parallel)
-        llm_semaphore = asyncio.Semaphore(max_parallel)
+        llm_semaphore = asyncio.Semaphore(runtime_parallel_sessions)
         event_lock = asyncio.Lock()
         evidence_bundle_cache = _AttemptEvidenceBundleCache()
         evidence_artifact_cache: dict[tuple[str, str], dict[str, Any]] = {}
@@ -2330,6 +2363,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 ),
                 {
                     "model": model_config["model"], "task_count": len(tasks), "max_parallel_agents": max_parallel,
+                    "max_parallel_runtime_sessions": runtime_parallel_sessions,
                     "runtime": runtime_name, "runtime_mode": runtime_mode,
                     "runtime_sync": runtime_sync,
                     "execution_epoch": execution_epoch,

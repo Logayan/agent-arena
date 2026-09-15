@@ -199,3 +199,37 @@ Frontend production build: 1778 modules transformed, PASS
 第一次使用系统 Python 启动 pytest 时，测试尚未收集便因全局 `logfire` 与 `opentelemetry` 插件版本冲突失败；改用项目锁定的 `.venv`（pytest 9.1.1）后 Runtime 合同和后端全量均通过。该环境失败不计为产品回归失败，但保留在执行记录中。
 
 下一步是在安全边界加载已提交 Bridge 修复，然后从 `task_764f124e78e1` 原地恢复同一 Run。恢复必须保留前 8 个已完成节点、历史失败 Attempt 和全部 Artifact，只重新执行最终报告与最终独立 Judge。
+
+## 2026-09-16 epoch48：Bridge Tool 修复后发现进程树启动并发的第二层故障
+
+提交 `2d52916` 已推送至 `origin/master`，后端重启后 Runtime health 为：
+
+```text
+available=true
+runtime=claude_code
+mode=agent-sdk-bridge
+version=0.3.268
+model=gpt-5.6-sol
+```
+
+同一 Run 随后从 `task_764f124e78e1` 原地恢复到 execution epoch 48，恢复结果准确保留 8 个已完成节点，只重开最终报告和最终 Judge。epoch48 在 sequence `188643..188718` 启动六名报告参与者，但在产生任何 SDK meta、Tool call 或 Tool result 前，于 sequence `188719 task.failed → 188720 run.failed` 再次以 `OSError / diag-52014e2ab3f0bc87` 终止。
+
+该失败与已修复的“单 Session 内并发 Bash”不同。代码路径证明 `ClaudeCodeRuntime.message()` 的 `asyncio.create_subprocess_exec()` 原先可能直接抛出原生 `OSError`；人物级和节点级重试只捕获 `AgentRuntimeError/LLMRequestError`，因此该异常绕过所有自动重试并直接击穿节点。与此同时，工作流允许最多 5 个成员并发启动 Node + Claude SDK 进程树，在当前 Windows 宿主上放大了瞬时 `CreateProcess` 资源/权限竞争。
+
+第二层宿主修复包括：
+
+- 对 Bridge 进程创建临界区做短时串行化，不限制已成功启动会话的后续执行；
+- 将进程启动 `OSError` 包装为 `ClaudeCodeRuntimeError(category=runtime_failure,retryable=true)`，保留 `error_type/errno/winerror` 诊断元数据，从而进入既有人物级和节点级重试；
+- 新增 Claude Runtime Session 并发限制：Windows 默认最多 2 个重型 SDK 进程树，可通过 `JIANGHU_CLAUDE_MAX_PARALLEL_SESSIONS` 配置；非 Windows、非 Claude Runtime 和工作流节点并行语义保持原行为；
+- `run.started/run.recovered` 事件新增 `max_parallel_runtime_sessions`，使实际宿主并发口径可审计。
+
+验证结果：
+
+```text
+Runtime targeted contracts: 78 passed
+Backend full regression: 236 passed, 1 warning
+Claude SDK Bridge: 13 passed
+Frontend production build: 1778 modules transformed, PASS
+```
+
+下一次恢复必须在加载第二层宿主修复后执行，并确认 `run.recovered` 明确记录 `max_parallel_runtime_sessions=2`。若再次发生进程启动失败，应出现 `agent.action.retrying/failed` 及 Claude Runtime 诊断元数据，而不能再以原生 `OSError` 直接从 `agent.turn.started` 跳到 `task.failed`。

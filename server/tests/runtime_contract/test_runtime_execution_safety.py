@@ -37,6 +37,7 @@ from server.app.platform_executor import (
     _recover_public_text_from_file_changes,
     _runtime_attestation,
     _runtime_mode,
+    _runtime_parallel_session_limit,
     _runtime_source_attestation,
     _sdk_session_continuation_payload,
     _revision_limit_exhausted,
@@ -59,6 +60,14 @@ from server.app.run_budget import active_execution_epoch_seconds, active_run_sec
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
+
+
+def test_claude_runtime_parallel_session_limit_adapts_windows_host_only() -> None:
+    assert _runtime_parallel_session_limit("claude_code", 5, platform_name="nt", configured_value="") == 2
+    assert _runtime_parallel_session_limit("claude_code", 5, platform_name="posix", configured_value="") == 5
+    assert _runtime_parallel_session_limit("openclaw", 5, platform_name="nt", configured_value="") == 5
+    assert _runtime_parallel_session_limit("claude_code", 5, platform_name="nt", configured_value="1") == 1
+    assert _runtime_parallel_session_limit("claude_code", 2, platform_name="nt", configured_value="4") == 2
 
 
 @pytest.mark.anyio
