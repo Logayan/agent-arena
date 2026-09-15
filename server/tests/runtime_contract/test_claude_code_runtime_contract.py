@@ -196,6 +196,19 @@ def test_run_workspace_root_reserves_space_for_agent_and_delivery_segments(tmp_p
     assert selected.parent == (tmp_path / "short" / "jianghu-claude-agents").resolve()
 
 
+def test_run_workspace_root_keeps_default_short_root_on_execution_volume(monkeypatch) -> None:
+    deep_execution_root = Path("D:/workspace/") / ("nested-" * 20)
+    monkeypatch.setattr(claude_runtime_module.tempfile, "gettempdir", lambda: "C:/Temp")
+
+    selected = _run_workspace_root(
+        deep_execution_root,
+        "run-cross-volume",
+        platform_name="nt",
+    )
+
+    assert selected.parent == Path("D:/.jianghu-claude-agents").resolve()
+
+
 def test_claude_sync_projects_context_memory_skills_and_policy_without_token(tmp_path) -> None:
     runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
     agent = _agent()
@@ -461,6 +474,35 @@ async def test_claude_message_wraps_process_start_oserror_as_retryable_runtime_f
         "errno": 13,
         "winerror": 5,
     }
+
+
+@pytest.mark.anyio
+async def test_claude_message_wraps_evidence_mirror_oserror_with_phase(
+    monkeypatch, tmp_path
+) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    runtime.sync([agent], {}, MODEL_CONFIG)
+
+    def fail_evidence_mirror(*_args, **_kwargs):
+        raise OSError(28, "disk full")
+
+    monkeypatch.setattr(runtime, "_mirror_evidence_bundle", fail_evidence_mirror)
+
+    with pytest.raises(ClaudeCodeRuntimeError, match="claude_runtime_io_failed:evidence_mirror") as captured:
+        await runtime.message(
+            agent=agent,
+            prompt="验证证据镜像失败归一化",
+            session_key="evidence-mirror-failure",
+            model_config=MODEL_CONFIG,
+            timeout_seconds=5,
+            evidence_directory=tmp_path / "evidence",
+        )
+
+    assert captured.value.category == "runtime_failure"
+    assert captured.value.retryable is True
+    assert captured.value.details["phase"] == "evidence_mirror"
+    assert captured.value.details["errno"] == 28
 
 
 @pytest.mark.anyio

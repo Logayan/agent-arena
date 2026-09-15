@@ -280,3 +280,25 @@ LIMIT ?
 每批完成后以最后一个 sequence 继续，不再进行全量临时排序，同时保持事件顺序、无重复、无遗漏和原 payload 可审计。新增测试覆盖 250 条交错事件、两个真实批次 `[100,25]` 及完整 sequence 顺序。
 
 验证结果：定向 Runtime 安全合同 `56 passed`；后端全量 `237 passed, 1 warning`。下一次恢复应越过历史 Tool 恢复扫描并进入最终报告人物回合。
+
+## 2026-09-16 epoch50：跨卷证据镜像耗尽系统盘
+
+提交 `08d13cb` 加载后，epoch50 已成功完成历史 Tool 恢复扫描、`duplicate_side_effect_count=0` 和原生 `sdk.session.continued`，证明 keyset 修复有效。最终报告随后进入 running，但在人物 SDK meta/Tool 事件之前，于 sequence `188966 task.failed → 188967 run.failed` 再次出现原生 `OSError`。
+
+现场目录核验确认，Windows 长路径适配此前把短 workspace 放在：
+
+```text
+C:\Users\User\AppData\Local\Temp\jianghu-claude-agents\
+```
+
+而 Run execution root、冻结快照和 Artifact 原字节位于 D 盘。`_mirror_evidence_bundle()` 优先使用硬链接，但 Windows 硬链接不能跨卷，因此自动退化为 `shutil.copy2()`。当前 Run 的 C 盘临时 workspace 逻辑文件约 `65,436 MB`，其中绝大多数是各人物 `delivery/.jianghu-platform-evidence` 的重复镜像；C 盘现场只剩约 `0.57 GB`。这解释了 OSError 发生在人物准备阶段、尚无 SDK meta 或 Tool 事件。
+
+修复内容：
+
+- 当 Windows 深路径需要短 workspace 且系统 TEMP 与 execution root 不同卷时，默认选择 execution root 同卷的短根，例如 `D:\.jianghu-claude-agents`；
+- 同卷后 evidence bundle 和 materialized Artifact 继续使用硬链接，不再复制十几 GB 原字节；
+- 显式配置 `JIANGHU_CLAUDE_RUN_WORKSPACE_ROOT` 或测试传入的 temporary root 仍保持最高优先级；
+- 非 Windows 和无需短路径的 Windows execution root 行为不变；
+- seed copy、evidence mirror、前后 workspace snapshot 的 `OSError` 均包装为可重试 `ClaudeCodeRuntimeError`，并在安全诊断元数据中公开 `phase/error_type/errno/winerror`，不再以 `runtime=unknown` 绕过自动重试。
+
+定向合同 `81 passed`，后端全量 `239 passed, 1 warning`。尝试删除 C 盘重复镜像时被当前执行策略阻止，现场未删除任何文件；后续收敛不依赖删除，而依赖新同卷根不再产生跨卷副本。权威证据源、事件数据库、Registry 和正式 Artifact 始终保留在 D 盘。

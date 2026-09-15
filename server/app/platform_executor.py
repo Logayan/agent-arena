@@ -151,6 +151,12 @@ def _load_reusable_evidence_artifact_cache(
 def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
     public_error = public_runtime_error(exc)
     if isinstance(exc, AgentRuntimeError):
+        diagnostic_details = {
+            key: value
+            for key, value in exc.details.items()
+            if key in {"phase", "error_type", "errno", "winerror"}
+            and isinstance(value, (str, int, float, bool, type(None)))
+        }
         return {
             **public_error,
             "runtime_error": {
@@ -159,6 +165,7 @@ def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
                 "retryable": exc.retryable,
                 "runtime": exc.runtime,
                 "diagnostic_id": public_error["diagnostic_id"],
+                "details": diagnostic_details,
             },
         }
     return public_error

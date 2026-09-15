@@ -65,7 +65,20 @@ def _run_workspace_root(
     projected_delivery_root = default_root / ("agent-" + "x" * 64) / "delivery"
     if current_platform != "nt" or len(str(projected_delivery_root)) < 120:
         return default_root
-    base = Path(temporary_root or tempfile.gettempdir()).resolve() / "jianghu-claude-agents"
+    temporary_base = Path(temporary_root or tempfile.gettempdir()).resolve()
+    if (
+        temporary_root is None
+        and temporary_base.drive
+        and resolved_execution_root.drive
+        and temporary_base.drive.casefold() != resolved_execution_root.drive.casefold()
+    ):
+        # Evidence bundles and their materialized Artifact files live beside
+        # the Run execution root. Keeping the short workspace on the same
+        # Windows volume preserves hard-link mirroring; a system TEMP on a
+        # different drive would copy tens of gigabytes and can exhaust disk.
+        base = Path(resolved_execution_root.anchor).resolve() / ".jianghu-claude-agents"
+    else:
+        base = temporary_base / "jianghu-claude-agents"
     execution_key = hashlib.sha256(str(resolved_execution_root).encode("utf-8")).hexdigest()[:16]
     return base / f"{_safe_name(run_id, 'run')}-{execution_key}"
 
@@ -218,6 +231,19 @@ class ClaudeCodeRuntime:
         if isinstance(value, str):
             return cls._redact_text(value, secrets, 100_000)
         return value
+
+    def _runtime_io_failure(self, phase: str, exc: OSError) -> ClaudeCodeRuntimeError:
+        return ClaudeCodeRuntimeError(
+            f"claude_runtime_io_failed:{phase}:{self._redact_text(exc)}",
+            category="runtime_failure",
+            retryable=True,
+            details={
+                "phase": phase,
+                "error_type": type(exc).__name__,
+                "errno": getattr(exc, "errno", None),
+                "winerror": getattr(exc, "winerror", None),
+            },
+        )
 
     def health(self) -> dict[str, Any]:
         try:
@@ -647,23 +673,32 @@ class ClaudeCodeRuntime:
             # Mature Runs seed hundreds of evidence files. Copying them on the
             # event-loop thread made /api/health and browser polling time out
             # even though the Claude bridge itself was healthy.
-            await asyncio.to_thread(
-                self._copy_tree,
-                Path(seed_directory).resolve(),
-                delivery,
-            )
+            try:
+                await asyncio.to_thread(
+                    self._copy_tree,
+                    Path(seed_directory).resolve(),
+                    delivery,
+                )
+            except OSError as exc:
+                raise self._runtime_io_failure("seed_copy", exc) from exc
         if evidence_directory:
-            await asyncio.to_thread(
-                self._mirror_evidence_bundle,
-                Path(evidence_directory),
-                delivery,
+            try:
+                await asyncio.to_thread(
+                    self._mirror_evidence_bundle,
+                    Path(evidence_directory),
+                    delivery,
+                )
+            except OSError as exc:
+                raise self._runtime_io_failure("evidence_mirror", exc) from exc
+        try:
+            await asyncio.to_thread(delivery.mkdir, parents=True, exist_ok=True)
+            before = (
+                await asyncio.to_thread(self._workspace_snapshot, delivery)
+                if capture_workspace
+                else {}
             )
-        await asyncio.to_thread(delivery.mkdir, parents=True, exist_ok=True)
-        before = (
-            await asyncio.to_thread(self._workspace_snapshot, delivery)
-            if capture_workspace
-            else {}
-        )
+        except OSError as exc:
+            raise self._runtime_io_failure("workspace_snapshot_before", exc) from exc
         policy = await asyncio.to_thread(self._policy, agent_id)
         sdk_invocation_id = f"sdk-invocation-{uuid.uuid4().hex}"
         payload = {
@@ -856,11 +891,14 @@ class ClaudeCodeRuntime:
             raise ClaudeCodeRuntimeError("claude_empty_output", category="invalid_output", retryable=True)
         session_id = str(final.get("session_id") or "")
         await asyncio.to_thread(self._save_session_id, agent_id, session_key, session_id)
-        after = (
-            await asyncio.to_thread(self._workspace_snapshot, delivery)
-            if capture_workspace
-            else {}
-        )
+        try:
+            after = (
+                await asyncio.to_thread(self._workspace_snapshot, delivery)
+                if capture_workspace
+                else {}
+            )
+        except OSError as exc:
+            raise self._runtime_io_failure("workspace_snapshot_after", exc) from exc
         file_changes = (
             await asyncio.to_thread(self._workspace_changes, before, after)
             if capture_workspace
