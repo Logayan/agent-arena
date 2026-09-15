@@ -461,7 +461,7 @@ class ClaudeCodeRuntime:
                     continue
 
     @staticmethod
-    def _mirror_evidence_bundle(bundle_root: Path, workspace: Path) -> Path:
+    def _mirror_evidence_bundle(bundle_root: Path, visible_root: Path) -> Path:
         """Expose one immutable Attempt evidence bundle inside an Agent workspace.
 
         The normal seed copy deliberately excludes ``.jianghu-platform-evidence``
@@ -479,7 +479,12 @@ class ClaudeCodeRuntime:
                 retryable=False,
             )
         source_evidence_root = source_bundle.parent.parent.resolve()
-        destination_evidence_root = (workspace.resolve() / ".jianghu-platform-evidence").resolve()
+        # Claude Code executes with delivery/ as cwd and the executor prompt
+        # names the bundle relative to that project root.  Mirror into delivery
+        # so the documented path is actually readable.  Workspace snapshots
+        # already exclude this directory, so evidence cannot be promoted as a
+        # user-authored deliverable.
+        destination_evidence_root = (visible_root.resolve() / ".jianghu-platform-evidence").resolve()
         destination_bundle = destination_evidence_root / "snapshots" / source_bundle.name
 
         def mirror_file(source: Path, destination: Path) -> None:
@@ -610,7 +615,7 @@ class ClaudeCodeRuntime:
             await asyncio.to_thread(
                 self._mirror_evidence_bundle,
                 Path(evidence_directory),
-                workspace,
+                delivery,
             )
         await asyncio.to_thread(delivery.mkdir, parents=True, exist_ok=True)
         before = (

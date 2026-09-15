@@ -3,6 +3,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import subprocess
 import threading
 import time
@@ -28,6 +29,7 @@ from server.app.platform_executor import (
     _continues_after_expected_rejection,
     _extract_initiator_note,
     _judge_decision_from_delivery,
+    _load_reusable_evidence_artifact_cache,
     _resolve_gate_targets,
     _team_knowledge,
     execute_platform_run,
@@ -209,6 +211,60 @@ def test_run_operational_projection_can_skip_large_artifact_content(tmp_path) ->
 
     assert compact is not None and compact["artifacts"][0]["content"] == ""
     assert full is not None and len(full["artifacts"][0]["content"]) == 100_000
+
+
+def test_run_projection_keeps_latest_revision_outside_event_window(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "revision-projection.db"))
+    agent = platform.create_agent(
+        name="返工说明工程师",
+        role="运行工程师",
+        description="让页面解释进度回退",
+        persona="保留裁判返工事实",
+        capabilities=["运行控制"],
+    )
+    workflow = platform.create_workflow(
+        "返工进度说明",
+        "即使最近事件窗口截断也保留最新裁判退回",
+        "test",
+        {"nodes": [{"key": "report", "name": "报告", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "解释 90% 回到 80%")
+    platform.append_run_event(
+        run["id"],
+        "gate.rejected",
+        "gate",
+        "裁判第 8 次退回修订",
+        "报告与裁决节点重新进入 pending。",
+        {"revision_round": 8, "target_node_keys": ["report"]},
+    )
+    for index in range(5):
+        platform.append_run_event(
+            run["id"], "agent.action.heartbeat", "execution", f"心跳 {index}", "仍在返工。"
+        )
+
+    projected = platform.get_run(run["id"], event_limit=1, include_artifact_content=False)
+
+    assert projected is not None
+    assert [event["type"] for event in projected["events"]] == ["agent.action.heartbeat"]
+    assert projected["latest_revision_event"]["payload"]["revision_round"] == 8
+
+
+def test_run_projection_queries_use_covering_run_indexes(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "projection-indexes.db"))
+
+    with platform._connect() as db:
+        event_plan = db.execute(
+            "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM events WHERE run_id=? AND organization_id=?",
+            ("run_probe", "org_jianghu"),
+        ).fetchall()
+        artifact_plan = db.execute(
+            "EXPLAIN QUERY PLAN SELECT id,created_at FROM artifacts "
+            "WHERE run_id=? AND organization_id=? ORDER BY created_at",
+            ("run_probe", "org_jianghu"),
+        ).fetchall()
+
+    assert any("idx_events_run_projection" in str(tuple(row)) for row in event_plan)
+    assert any("idx_artifacts_run_projection" in str(tuple(row)) for row in artifact_plan)
 
 
 @pytest.mark.anyio
@@ -1396,6 +1452,50 @@ async def test_recover_endpoint_reuses_same_run_and_schedules_execution(monkeypa
     assert scheduled == [run["id"]]
 
 
+@pytest.mark.anyio
+async def test_execution_policy_endpoint_records_unbounded_revision_loop(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "execution-policy-endpoint.db"))
+    agent = platform.create_agent(
+        name="顾循环", role="独立裁判", description="持续裁决直至闭环", persona="不接受伪通过",
+        capabilities=["独立验收"],
+    )
+    workflow = platform.create_workflow(
+        "无界返工章法", "同一 Run 持续整改", "test",
+        {
+            "nodes": [
+                {
+                    "key": "final_report",
+                    "name": "最终报告",
+                    "agent_id": agent["id"],
+                    "agent_role": agent["role"],
+                }
+            ],
+            "edges": [],
+            "policies": {"max_revision_rounds": 3},
+        },
+    )
+    run = platform.create_run(workflow["id"], "持续执行直到独立 Judge 接受")
+    platform.update_run(run["id"], status="revision_exhausted", stage="revision_exhausted")
+    monkeypatch.setattr("server.app.main.platform_store", platform)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            f"/api/platform/runs/{run['id']}/execution-policy",
+            json={
+                "node_key": "final_report",
+                "max_revision_rounds": 0,
+                "reason": "发起人要求持续 Loop，直到独立 Judge 给出可复核结论。",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["amendment"]["revision_policy_mode"] == "unbounded"
+    latest = platform.get_run(run["id"])["events"][-1]
+    assert latest["type"] == "workflow.execution_policy.amended"
+    assert latest["payload"]["max_revision_rounds"] == 0
+    assert latest["payload"]["node_key"] == "final_report"
+
+
 def test_register_workspace_file_artifact_keeps_exact_binary_bytes(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "file-artifact.db"))
     agent = platform.create_agent(
@@ -1551,6 +1651,81 @@ def test_append_run_events_preserves_order_in_one_batch(tmp_path) -> None:
     )
 
 
+def test_evidence_artifact_cache_warms_from_latest_unchanged_snapshot(tmp_path) -> None:
+    evidence_root = tmp_path / ".jianghu-platform-evidence"
+    artifacts_root = evidence_root / "artifacts"
+    older_bundle = evidence_root / "snapshots" / "attempt-older"
+    current_bundle = evidence_root / "snapshots" / "attempt-current"
+    artifacts_root.mkdir(parents=True)
+    older_bundle.mkdir(parents=True)
+    current_bundle.mkdir(parents=True)
+    artifact_id = "artifact_cache_probe"
+    data = b"immutable artifact bytes\n"
+    digest = hashlib.sha256(data).hexdigest()
+    target = artifacts_root / f"{artifact_id}-{digest[:16]}.txt"
+    target.write_bytes(data)
+    registry_path = older_bundle / "artifact-registry.json"
+    registry_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": artifact_id,
+                    "materialized": True,
+                    "materialized_path": f"../../artifacts/{target.name}",
+                    "expected_sha256": digest,
+                    "observed_sha256": digest,
+                    "size_bytes": len(data),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cache = _load_reusable_evidence_artifact_cache(
+        evidence_root,
+        exclude_bundle=current_bundle,
+    )
+
+    assert cache[(artifact_id, digest)] == {
+        "observed_sha256": digest,
+        "size_bytes": len(data),
+    }
+
+
+def test_evidence_artifact_cache_rejects_file_changed_after_snapshot(tmp_path) -> None:
+    evidence_root = tmp_path / ".jianghu-platform-evidence"
+    artifacts_root = evidence_root / "artifacts"
+    bundle = evidence_root / "snapshots" / "attempt-older"
+    artifacts_root.mkdir(parents=True)
+    bundle.mkdir(parents=True)
+    data = b"original bytes\n"
+    digest = hashlib.sha256(data).hexdigest()
+    target = artifacts_root / f"artifact_changed-{digest[:16]}.txt"
+    target.write_bytes(data)
+    registry_path = bundle / "artifact-registry.json"
+    registry_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "artifact_changed",
+                    "materialized": True,
+                    "materialized_path": f"../../artifacts/{target.name}",
+                    "expected_sha256": digest,
+                    "observed_sha256": digest,
+                    "size_bytes": len(data),
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    registry_mtime = registry_path.stat().st_mtime_ns
+    target.write_bytes(b"tampered bytes\n")
+    os.utime(target, ns=(registry_mtime + 1_000_000_000, registry_mtime + 1_000_000_000))
+    assert target.stat().st_mtime_ns > registry_mtime
+
+    assert _load_reusable_evidence_artifact_cache(evidence_root) == {}
+
+
 def test_register_workspace_image_artifact_is_browser_renderable(tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "image-artifact.db"))
     agent = platform.create_agent(
@@ -1665,6 +1840,23 @@ async def test_artifact_detail_exposes_task_attempt_and_verification_receipts(mo
     ]
 
 
+def test_artifact_lookup_indexes_cover_receipts_and_content_lineage(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-lookup-indexes.db"))
+
+    with platform._connect() as db:
+        event_indexes = {
+            str(row["name"] if hasattr(row, "keys") else row[1])
+            for row in db.execute("PRAGMA index_list('events')").fetchall()
+        }
+        artifact_indexes = {
+            str(row["name"] if hasattr(row, "keys") else row[1])
+            for row in db.execute("PRAGMA index_list('artifacts')").fetchall()
+        }
+
+    assert "idx_events_artifact_lookup" in event_indexes
+    assert "idx_artifacts_content_source" in artifact_indexes
+
+
 @pytest.mark.anyio
 async def test_artifact_content_resolves_legacy_inherited_receipt(monkeypatch, tmp_path) -> None:
     platform = PlatformStore(str(tmp_path / "artifact-content-lineage.db"))
@@ -1716,6 +1908,43 @@ async def test_artifact_content_resolves_legacy_inherited_receipt(monkeypatch, t
     assert payload["content_resolution"]["state"] == "resolved"
     assert payload["content_resolution"]["bytes_are_original"] is True
     assert payload["content_resolution"]["content_available"] is True
+
+
+def test_artifact_content_lineage_falls_back_to_inherited_event(tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-content-event-lineage.db"))
+    agent = platform.create_agent(
+        name="顾旧链", role="质量工程师", description="回溯旧版继承事件", persona="以事件血缘补齐旧回执",
+        capabilities=["证据溯源"],
+    )
+    workflow = platform.create_workflow(
+        "旧事件血缘章法", "在回执 SHA 无法直接命中时读取继承事件", "test",
+        {
+            "nodes": [{"key": "evidence", "name": "证据归档", "agent_id": agent["id"], "agent_role": agent["role"]}],
+            "edges": [], "policies": {},
+        },
+    )
+    run = platform.create_run(workflow["id"], "验证继承事件备用路径")
+    task = run["tasks"][0]
+    source = Path(run["workspace"]["code"]) / "evidence" / "actual.txt"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("event lineage source\n", encoding="utf-8")
+    source_artifact = platform.register_workspace_file_artifact(
+        run["id"], task["id"], "evidence/actual.txt", change_action="created"
+    )
+    receipt = platform.create_artifact(
+        run["id"], task["id"], "runtime_file", "evidence/legacy.txt",
+        json.dumps({"source_relative_path": "evidence/legacy.txt", "sha256": "f" * 64}),
+        supersede_candidates=False,
+    )
+    platform.append_run_event(
+        run["id"], "artifact.inherited", "artifact", "继承旧文件", "通过事件保留来源 Artifact",
+        {"artifact_id": receipt["id"], "source_artifact_id": source_artifact["id"]},
+    )
+
+    resolved = platform.get_artifact_content_source(receipt["id"])
+
+    assert resolved["artifact"]["id"] == source_artifact["id"]
+    assert [item["artifact_id"] for item in resolved["lineage"]] == [receipt["id"], source_artifact["id"]]
 
 
 @pytest.mark.anyio
@@ -2883,6 +3112,79 @@ async def test_team_synthesis_does_not_deadlock_the_event_ledger(monkeypatch, tm
     assert len(conclusions) == 1
     assert conclusions[0]["task_id"] is None
     assert all(section in conclusions[0]["content"] for section in ["核心发现", "使用边界", "下一步"])
+
+
+@pytest.mark.anyio
+async def test_empty_team_synthesis_never_records_empty_decision(monkeypatch, tmp_path) -> None:
+    platform = PlatformStore(str(tmp_path / "empty-team-synthesis.db"))
+    lead = platform.create_agent(
+        name="负责人", role="架构师", description="整合交付", persona="基于证据决定", capabilities=["整合"],
+    )
+    reviewer = platform.create_agent(
+        name="审计员", role="审计师", description="独立审计", persona="拒绝空结论", capabilities=["审计"],
+    )
+    team = platform.create_team(
+        organization_id="org_jianghu",
+        name="空输出防护小队",
+        purpose="验证空公开正文不会形成团队决定",
+        operating_mode="collaborative",
+        members=[
+            {"agent_id": lead["id"], "member_role": "leader", "responsibility": "整合"},
+            {"agent_id": reviewer["id"], "member_role": "member", "responsibility": "审计"},
+        ],
+    )
+    platform.save_model_config(
+        config_id=None, name="empty-synthesis-test", provider="openai-responses",
+        base_url="https://example.invalid", model="test-model", token="unit-test-secret", active=True,
+    )
+    workflow = platform.create_workflow(
+        "空团队决定防护", "不得记录空团队决定", "test",
+        {
+            "nodes": [{
+                "key": "report", "name": "形成正式报告", "purpose": "形成非空报告",
+                "agent_id": lead["id"], "agent_role": lead["role"], "team_id": team["id"],
+                "participant_agent_ids": [lead["id"], reviewer["id"]],
+            }],
+            "edges": [], "policies": {"max_debate_rounds": 1, "max_parallel_agents": 2},
+        },
+    )
+    run = platform.create_run(workflow["id"], "验证空输出防护")
+
+    class EmptySynthesisRuntime:
+        def sync(self, agents, memories, model_config):
+            return {"agent_count": len(agents), "config_path": "isolated-test", "model": "test/test-model"}
+
+        async def message(self, *, agent, prompt, session_key, model_config, timeout_seconds):
+            if "message-" in session_key:
+                target = reviewer["id"] if agent["id"] == lead["id"] else lead["id"]
+                text = json.dumps(
+                    {"to_agent_id": target, "message_type": "challenge", "content": "请给出非空正式结论。"},
+                    ensure_ascii=False,
+                )
+            elif "synthesis" in session_key:
+                text = "<initiator_note>事实依据：只形成了私享说明。\n下一步验证：要求重新提交公开结论。</initiator_note>"
+            else:
+                text = f"{agent['name']}的非空独立贡献。"
+            return {
+                "id": session_key,
+                "content": [{"type": "text", "text": text}],
+                "usage": {"input_tokens": 10, "output_tokens": 5},
+                "claude_code": {"runtime": "team-test", "session_id": f"sdk-{session_key}"},
+            }
+
+    monkeypatch.setattr(agent_runtime, "for_run", lambda run_id, execution_root=None: EmptySynthesisRuntime())
+    await asyncio.wait_for(execute_platform_run(platform, run["id"]), timeout=30)
+
+    failed = platform.get_run(run["id"])
+    event_types = [event["type"] for event in failed["events"]]
+    assert failed["status"] == "failed"
+    assert "team.synthesis.started" in event_types
+    assert "team.synthesis.completed" not in event_types
+    assert "team.decision.recorded" not in event_types
+    assert not any(
+        event["type"] == "agent.action.submitted" and not str(event["payload"].get("content") or "").strip()
+        for event in failed["events"]
+    )
 
 
 @pytest.mark.anyio

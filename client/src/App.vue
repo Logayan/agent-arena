@@ -165,6 +165,10 @@ const worldBroadcasts = computed(() => activeRunEvents.value
 const latestFailureEvent = computed(() => activeRunEvents.value.find((event: Json) => [
   'task.failed', 'run.failed', 'run.cancelled', 'run.budget_exhausted', 'run.revision_exhausted',
 ].includes(String(event.type))))
+const latestRevisionEvent = computed(() => activeRun.value?.latest_revision_event ?? activeRunEvents.value.find((event: Json) =>
+  String(event.type) === 'gate.rejected' && event.payload?.expected_rejection !== true,
+))
+const activeRevisionRound = computed(() => Number(latestRevisionEvent.value?.payload?.revision_round ?? 0))
 const runTimeLimitExhausted = computed(() => Boolean(
   activeRun.value?.status === 'budget_exhausted'
     && (latestFailureEvent.value?.payload?.budget_kind === 'run_time_limit'
@@ -1058,6 +1062,18 @@ function selectedArtifactHasResolvedBytes(): boolean {
 
 function selectedArtifactContentAvailable(): boolean {
   return selectedEvidenceDetail.value?.content_resolution?.content_available !== false
+}
+
+function selectedEvidenceContentArtifact(): Json {
+  return (selectedEvidenceDetail.value?.content_artifact as Json | undefined)
+    ?? selectedEvidenceArtifact.value
+    ?? {}
+}
+
+function selectedArtifactUsesResolvedSource(): boolean {
+  const selectedId = String(selectedEvidenceArtifact.value?.id ?? '')
+  const contentId = String(selectedEvidenceDetail.value?.content_artifact?.id ?? '')
+  return Boolean(selectedId && contentId && selectedId !== contentId)
 }
 
 function selectedArtifactReceiptOnly(): boolean {
@@ -3104,6 +3120,7 @@ onUnmounted(() => {
 
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>事件 {{ activeRun.run_family_id || activeRun.id }} · 第 {{ activeRun.run_version || 1 }} 版</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
+          <section v-if="activeRun.status === 'running' && latestRevisionEvent" class="run-revision-notice"><span>↺</span><div><strong>第 {{ activeRevisionRound || '?' }} 轮裁判退回正在返工</strong><p>进度按已完成节点实时计算。最终报告与独立裁决共占 2 个节点，因此裁判退回时会从 90% 回到 80%；历史产物和失败证据没有丢失。</p></div></section>
           <section v-if="activeRun.attempts?.length > 1" class="run-version-history"><div><strong>同一事件的执行版本</strong><small>重试不会创建新事件；每次执行作为不可覆盖的版本保留。</small></div><button v-for="attempt in activeRun.attempts" :key="attempt.id" :class="{ active: attempt.id === activeRun.id }" @click="openRun(attempt.id)">第 {{ attempt.run_version }} 版 · {{ runStatusLabel(attempt.status) }}</button></section>
           <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status) && !runTimeLimitExhausted" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? 'Token 或成本预算已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>{{ activeRun.status === 'budget_exhausted' ? 'Token 或成本上限不会自动放开，需要调整预算策略。' : '恢复会沿用原 Run 和原版本，保留失败证据与已有产物，只执行未完成节点及受影响下游。' }}</small></div></div><div v-if="activeRun.status !== 'budget_exhausted'" class="failure-retry-actions"><button v-if="selectedSceneTask && selectedSceneTask.status !== 'completed'" class="jh-primary" :disabled="busy" @click="recoverActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”恢复</button><button class="jh-secondary" :disabled="busy" @click="recoverActiveRun()"><RefreshCw />恢复全部未完成节点</button></div></section>
           <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><button type="button" @click="openArtifactInEvidenceCenter(runConclusionArtifact)"><BookOpen />应用内查看</button><button v-if="runConclusionArtifact.relative_path" type="button" @click="downloadArtifact(runConclusionArtifact)"><Download />下载</button></header><pre v-if="runConclusionArtifact.content">{{ runConclusionArtifact.content }}</pre><p v-else>结论正文按需从 Artifact Registry 读取，避免加载事件现场时传输全部历史文件内容。</p></section>
@@ -3265,15 +3282,18 @@ onUnmounted(() => {
                     <div><dt>Artifact ID</dt><dd><code>{{ selectedEvidenceArtifact.id }}</code></dd></div>
                     <div><dt>测试 Case ID</dt><dd><code>{{ artifactMetadata(selectedEvidenceArtifact)?.case_id ?? artifactMetadata(selectedEvidenceArtifact)?.test_case_id ?? '未在 Artifact 元数据中声明' }}</code></dd></div>
                     <div><dt>文件名</dt><dd>{{ String(selectedEvidenceArtifact.title).split(/[\\/]/).pop() }}</dd></div>
-                    <div><dt>SHA-256</dt><dd><code>{{ selectedEvidenceArtifact.sha256 ?? '未登记' }}</code></dd></div>
-                    <div><dt>大小 / 类型</dt><dd>{{ fileSizeLabel(Number(selectedEvidenceArtifact.size_bytes ?? 0)) }} · {{ selectedEvidenceArtifact.media_type ?? '未知' }}</dd></div>
+                    <div><dt>实际文件 SHA-256</dt><dd><code>{{ selectedEvidenceContentArtifact().sha256 ?? selectedEvidenceArtifact.sha256 ?? '未登记' }}</code></dd></div>
+                    <div><dt>实际文件大小 / 类型</dt><dd>{{ fileSizeLabel(Number(selectedEvidenceContentArtifact().size_bytes ?? selectedEvidenceArtifact.size_bytes ?? 0)) }} · {{ selectedEvidenceContentArtifact().media_type ?? selectedEvidenceArtifact.media_type ?? '未知' }}</dd></div>
                     <div><dt>生成时间</dt><dd>{{ new Date(selectedEvidenceArtifact.created_at).toLocaleString('zh-CN') }}</dd></div>
                     <div><dt>来源节点</dt><dd><code>{{ selectedEvidenceDetail?.task?.node_key ?? artifactSourceTask(selectedEvidenceArtifact)?.node_key ?? selectedEvidenceArtifact.task_id ?? 'Run 级产物' }}</code></dd></div>
                     <div><dt>来源 Attempt</dt><dd><code>{{ selectedEvidenceAttemptId || '当前事件窗口未包含该历史 Attempt' }}</code></dd></div>
-                    <div v-if="selectedEvidenceDetail?.content_artifact?.id && selectedEvidenceDetail.content_artifact.id !== selectedEvidenceArtifact.id"><dt>实际内容来源</dt><dd><code>{{ selectedEvidenceDetail.content_artifact.id }} · {{ selectedEvidenceDetail.content_artifact.sha256 }}</code></dd></div>
+                    <div v-if="selectedArtifactUsesResolvedSource()"><dt>实际内容来源 Artifact</dt><dd><code>{{ selectedEvidenceDetail?.content_artifact?.id }}</code></dd></div>
+                    <div v-if="selectedArtifactUsesResolvedSource()"><dt>登记回执 SHA-256</dt><dd><code>{{ selectedEvidenceArtifact.sha256 ?? '未登记' }}</code></dd></div>
+                    <div v-if="selectedArtifactUsesResolvedSource()"><dt>登记回执大小 / 类型</dt><dd>{{ fileSizeLabel(Number(selectedEvidenceArtifact.size_bytes ?? 0)) }} · {{ selectedEvidenceArtifact.media_type ?? '未知' }}</dd></div>
                     <div v-if="artifactIsDeletionReceipt(selectedEvidenceArtifact)"><dt>删除证据状态</dt><dd>{{ selectedArtifactHasResolvedBytes() ? '已按 previous SHA-256 回溯到删除前原文件' : '仅保留删除凭据；原字节未进入 Artifact Registry' }}</dd></div>
                   </dl>
                   <p v-if="evidenceDetailError" class="evidence-detail-warning">{{ evidenceDetailError }}</p>
+                  <p v-if="selectedArtifactUsesResolvedSource()" class="evidence-content-resolved">当前条目是继承或重试后的登记回执。页面已按 SHA-256 与 Artifact 血缘解析到真实原文件；下方展示和下载的是实际文件字节，登记回执信息已单独列出。</p>
                   <p v-if="selectedArtifactReceiptOnly()" class="evidence-detail-warning">这是一条删除操作凭据，删除前原文件没有进入 Artifact Registry。下方展示的是删除证据元数据，不会把它冒充为文件正文。</p>
                   <iframe v-if="artifactCanEmbed(selectedEvidenceArtifact) && evidenceEmbedUrl" class="evidence-document-preview" :src="evidenceEmbedUrl" :title="selectedEvidenceArtifact.title" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
                   <section v-if="evidencePreviewText" class="evidence-text-preview"><header><strong>{{ artifactPreviewHeading() }}</strong><small>只读</small></header><pre>{{ evidencePreviewText }}</pre></section>

@@ -12,7 +12,13 @@ from typing import Any, Awaitable, Callable
 
 from .agent_runtime import AgentRuntimeError, public_runtime_error
 from .agent_runtime_registry import agent_runtime
-from .git_delivery import GitDeliveryError, commit_run_changes, deliver_commit_to_remote, ensure_run_repository
+from .git_delivery import (
+    GitDeliveryError,
+    commit_run_changes,
+    deliver_commit_to_remote,
+    ensure_run_repository,
+    ensure_run_source_checkout,
+)
 from .llm_client import LLMRequestError
 from .platform_store import PlatformStore
 from .run_budget import active_execution_epoch_seconds, effective_run_minutes
@@ -50,6 +56,72 @@ class _AttemptEvidenceBundleCache:
             created = await builder()
             self._paths[platform_attempt_id] = created
             return created
+
+
+def _load_reusable_evidence_artifact_cache(
+    evidence_root: Path,
+    *,
+    exclude_bundle: Path | None = None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Warm the content-addressed Artifact cache from a prior frozen snapshot.
+
+    A service restart clears the in-memory cache.  Without a durable warm-up,
+    every later Attempt rereads and rewrites every historical Artifact even
+    though the shared target name already contains its registered SHA-256.
+    Reuse is allowed only when a prior immutable registry recorded a matching
+    observed digest and the shared file has not changed in size or mtime since
+    that registry was sealed.
+    """
+    snapshots_root = evidence_root / "snapshots"
+    shared_root = (evidence_root / "artifacts").resolve()
+    if not snapshots_root.is_dir() or not shared_root.is_dir():
+        return {}
+    excluded = exclude_bundle.resolve() if exclude_bundle else None
+    registry_paths = sorted(
+        snapshots_root.glob("*/artifact-registry.json"),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    for registry_path in registry_paths:
+        if excluded is not None and registry_path.parent.resolve() == excluded:
+            continue
+        try:
+            registry_mtime_ns = registry_path.stat().st_mtime_ns
+            payload = json.loads(registry_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(payload, list):
+            continue
+        reusable: dict[tuple[str, str], dict[str, Any]] = {}
+        for item in payload:
+            if not isinstance(item, dict) or not item.get("materialized"):
+                continue
+            artifact_id = str(item.get("id") or "")
+            expected_sha256 = str(item.get("expected_sha256") or "")
+            observed_sha256 = str(item.get("observed_sha256") or "")
+            materialized_path = str(item.get("materialized_path") or "")
+            if not artifact_id or not expected_sha256 or observed_sha256 != expected_sha256 or not materialized_path:
+                continue
+            try:
+                target = (registry_path.parent / materialized_path).resolve()
+                stat = target.stat()
+            except OSError:
+                continue
+            expected_size = int(item.get("size_bytes", -1) or -1)
+            if (
+                not target.is_relative_to(shared_root)
+                or not target.is_file()
+                or stat.st_size != expected_size
+                or stat.st_mtime_ns > registry_mtime_ns
+            ):
+                continue
+            reusable[(artifact_id, expected_sha256)] = {
+                "observed_sha256": observed_sha256,
+                "size_bytes": expected_size,
+            }
+        if reusable:
+            return reusable
+    return {}
 
 
 def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
@@ -236,6 +308,101 @@ def _public_event_projection_omission(event: dict[str, Any]) -> dict[str, Any] |
     }
 
 
+CRITICAL_EVIDENCE_EVENT_PREFIXES = (
+    "run.", "task.", "artifact.", "gate.", "workflow.", "agent.runtime.",
+    "runtime.", "worker.", "attempt.", "agent.session.", "agent.tool.",
+    "agent.side_effect.", "agent.memory.", "agent.message.",
+    "engineering.submission.", "team.",
+)
+
+
+def _write_public_event_snapshot(
+    store: PlatformStore,
+    run_id: str,
+    bundle_root: Path,
+) -> dict[str, Any]:
+    """Stream public event evidence to disk with bounded process memory."""
+    events_path = bundle_root / "events.ndjson"
+    critical_path = bundle_root / "critical-events.json"
+    omissions_path = bundle_root / "projection-omissions.json"
+    events_tmp = events_path.with_suffix(events_path.suffix + ".tmp")
+    critical_tmp = critical_path.with_suffix(critical_path.suffix + ".tmp")
+    omissions_tmp = omissions_path.with_suffix(omissions_path.suffix + ".tmp")
+    projection_count = 0
+    critical_count = 0
+    omission_count = 0
+    runtime_binding_projections: list[dict[str, Any]] = []
+    for path in (events_tmp, critical_tmp, omissions_tmp):
+        path.unlink(missing_ok=True)
+    try:
+        with (
+            events_tmp.open("w", encoding="utf-8", newline="\n") as events_file,
+            critical_tmp.open("w", encoding="utf-8", newline="\n") as critical_file,
+            omissions_tmp.open("w", encoding="utf-8", newline="\n") as omissions_file,
+        ):
+            critical_file.write("[\n")
+            omissions_file.write(
+                "{\n"
+                '  "schema_version": "jianghu.public-projection-omissions.v1",\n'
+                '  "projection": "public_agent_safe",\n'
+                '  "policy_id": "jianghu.public-agent-safe-projection",\n'
+                '  "policy_version": "1.0.0",\n'
+                '  "omissions": [\n'
+            )
+            first_critical = True
+            first_omission = True
+            for batch in store.iter_run_events(run_id, batch_size=1_000):
+                for event in batch:
+                    projection = _public_event_projection(event)
+                    if projection is not None:
+                        events_file.write(
+                            json.dumps(projection, ensure_ascii=False, sort_keys=True) + "\n"
+                        )
+                        projection_count += 1
+                        if projection.get("type") == "agent.turn.completed":
+                            runtime_binding_projections.append(projection)
+                        if str(projection.get("type") or "").startswith(
+                            CRITICAL_EVIDENCE_EVENT_PREFIXES
+                        ):
+                            if not first_critical:
+                                critical_file.write(",\n")
+                            critical_file.write(
+                                json.dumps(projection, ensure_ascii=False, sort_keys=True)
+                            )
+                            first_critical = False
+                            critical_count += 1
+                        continue
+                    omission = _public_event_projection_omission(event)
+                    if omission is None:
+                        continue
+                    if not first_omission:
+                        omissions_file.write(",\n")
+                    omissions_file.write(
+                        "    " + json.dumps(omission, ensure_ascii=False, sort_keys=True)
+                    )
+                    first_omission = False
+                    omission_count += 1
+            critical_file.write("\n]\n")
+            omissions_file.write(
+                "\n  ],\n"
+                f'  "omission_count": {omission_count}\n'
+                "}\n"
+            )
+        os.replace(events_tmp, events_path)
+        os.replace(critical_tmp, critical_path)
+        os.replace(omissions_tmp, omissions_path)
+    except BaseException:
+        for path in (events_tmp, critical_tmp, omissions_tmp):
+            path.unlink(missing_ok=True)
+        raise
+    return {
+        "projection_count": projection_count,
+        "critical_count": critical_count,
+        "omission_count": omission_count,
+        "runtime_binding_projections": runtime_binding_projections,
+    }
+
+
 def _runtime_attestation(
     projections: list[dict[str, Any]],
     runtime_health: dict[str, Any],
@@ -409,6 +576,59 @@ def _unreviewed_failed_tool_events(events: list[dict[str, Any]]) -> list[dict[st
     return failed
 
 
+_TOOL_RECOVERY_EVENT_TYPES = (
+    "agent.tool.authorization.decided",
+    "agent.tool.started",
+    "agent.tool.completed",
+    "agent.command.started",
+    "agent.command.completed",
+    "agent.side_effect.verified",
+    "agent.tool.terminal.reconciled",
+    "agent.tool.failure.reviewed",
+)
+
+_TOOL_RECOVERY_PAYLOAD_KEYS = {
+    "task_id", "node_key", "agent_id", "phase", "platform_attempt_id",
+    "role_instance_id", "approval_credential_id", "platform_session_id",
+    "session_key", "sdk_invocation_id", "claude_sdk_session_id",
+    "tool_call_id", "tool_use_id", "tool_name", "operation_id",
+    "idempotency_key", "authorization_decision", "authorization_policy_id",
+    "authorization_policy_version", "status", "is_error", "error_type",
+    "error_detail", "exit_code", "command", "source_event_id",
+}
+
+
+def _compact_tool_recovery_history(
+    store: PlatformStore,
+    run_id: str,
+) -> list[dict[str, Any]]:
+    """Load only small identity and terminal fields used by recovery scans."""
+    compact: list[dict[str, Any]] = []
+    for batch in store.iter_run_events_by_types(
+        run_id,
+        _TOOL_RECOVERY_EVENT_TYPES,
+        batch_size=1_000,
+    ):
+        for event in batch:
+            payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+            compact.append(
+                {
+                    "id": event.get("id"),
+                    "sequence": event.get("sequence"),
+                    "type": event.get("type"),
+                    "payload": {
+                        key: _compact_evidence_value(
+                            value,
+                            max_string=4_000 if key == "command" else 2_000,
+                        )
+                        for key, value in payload.items()
+                        if key in _TOOL_RECOVERY_PAYLOAD_KEYS
+                    },
+                }
+            )
+    return compact
+
+
 def _attempt_rework_run_id(
     run_id: str,
     run: dict[str, Any],
@@ -443,6 +663,29 @@ def _attempt_rework_attempt_id(
     return str(platform_attempt_id) if platform_attempt_id else None
 
 
+def _normalized_max_revision_rounds(value: Any, *, default: int = 3) -> int:
+    """Normalize the Judge rework policy while preserving an explicit unbounded loop.
+
+    ``0`` is the auditable sentinel for an unlimited number of Judge-driven
+    revisions. Positive values are preserved instead of being silently capped;
+    missing or malformed values retain the product default.
+    """
+    if value is None or value == "":
+        return max(1, int(default))
+    try:
+        configured = int(value)
+    except (TypeError, ValueError):
+        return max(1, int(default))
+    if configured == 0:
+        return 0
+    return max(1, configured)
+
+
+def _revision_limit_exhausted(revision_round: int, max_revision_rounds: int) -> bool:
+    """Return whether a bounded revision policy has been exhausted."""
+    return max_revision_rounds > 0 and revision_round > max_revision_rounds
+
+
 def _apply_run_execution_policy_amendments(
     run: dict[str, Any],
     node_def_by_key: dict[str, dict[str, Any]],
@@ -462,8 +705,11 @@ def _apply_run_execution_policy_amendments(
                 str(item) for item in participant_ids if str(item)
             ]
         if payload.get("max_revision_rounds") is not None:
-            amended_policies["max_revision_rounds"] = max(
-                1, min(int(payload.get("max_revision_rounds") or 1), 6)
+            amended_policies["max_revision_rounds"] = _normalized_max_revision_rounds(
+                payload.get("max_revision_rounds"),
+                default=_normalized_max_revision_rounds(
+                    amended_policies.get("max_revision_rounds"),
+                ),
             )
     return amended_nodes, amended_policies
 
@@ -1022,27 +1268,39 @@ async def _gather_cancel_on_error(*awaitables):
 
 
 def _code_manifest(root: Path) -> list[dict[str, Any]]:
-    ignored = {".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv"}
+    ignored = {
+        ".git",
+        ".jianghu-platform-evidence",
+        "node_modules",
+        "dist",
+        "build",
+        "coverage",
+        "__pycache__",
+        ".pytest_cache",
+        ".venv",
+        "venv",
+    }
     manifest: list[dict[str, Any]] = []
     if not root.is_dir():
         return manifest
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(root)
-        if any(part in ignored for part in relative.parts):
-            continue
-        try:
-            data = path.read_bytes()
-        except OSError:
-            continue
-        manifest.append(
-            {
-                "path": relative.as_posix(),
-                "sha256": hashlib.sha256(data).hexdigest(),
-                "size_bytes": len(data),
-            }
-        )
+    for current_root, directory_names, file_names in os.walk(root):
+        directory_names[:] = [name for name in directory_names if name not in ignored]
+        current_path = Path(current_root)
+        for file_name in file_names:
+            path = current_path / file_name
+            relative = path.relative_to(root)
+            try:
+                data = path.read_bytes()
+            except OSError:
+                continue
+            manifest.append(
+                {
+                    "path": relative.as_posix(),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "size_bytes": len(data),
+                }
+            )
+    manifest.sort(key=lambda item: str(item["path"]))
     return manifest
 
 
@@ -1051,6 +1309,102 @@ def _text(response: dict[str, Any]) -> str:
     return "\n".join(
         str(block.get("text", "")) for block in blocks if isinstance(block, dict)
     ).strip()
+
+
+_RECOVERABLE_PUBLIC_TEXT_SUFFIXES = {
+    ".md", ".markdown", ".txt", ".json", ".yaml", ".yml", ".xml", ".html",
+    ".csv", ".tsv", ".log", ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx",
+    ".vue", ".sql", ".toml", ".ini", ".cfg",
+}
+
+
+def _recover_public_text_from_file_changes(
+    response: dict[str, Any],
+    *,
+    promoted_root: str | Path,
+    node_name: str,
+    phase: str,
+    max_chars: int = 12_000,
+) -> tuple[str, dict[str, Any] | None]:
+    """Recover public delivery text only from files produced by the same SDK turn."""
+    existing = _text(response)
+    if existing:
+        return existing, None
+    root = Path(promoted_root).resolve()
+    changes = list(response.get("recorded_file_changes") or response.get("workspace_file_changes") or [])
+    candidates: list[tuple[int, str, Path, dict[str, Any]]] = []
+    preferred_name = re.compile(
+        r"报告|结论|裁决|验收|清单|总结|说明|索引|report|summary|verdict|decision|readme|manifest",
+        re.IGNORECASE,
+    )
+    for change in changes:
+        if not isinstance(change, dict) or str(change.get("action") or "") == "deleted":
+            continue
+        relative_value = str(change.get("path") or "").replace("\\", "/").strip("/")
+        if not relative_value:
+            continue
+        candidate = (root / Path(relative_value)).resolve()
+        if not candidate.is_relative_to(root) or candidate.suffix.lower() not in _RECOVERABLE_PUBLIC_TEXT_SUFFIXES:
+            continue
+        candidates.append((0 if preferred_name.search(relative_value) else 1, relative_value, candidate, change))
+    candidates.sort(key=lambda item: (item[0], item[1].count("/"), item[1].lower()))
+    recovered_sections: list[str] = []
+    recovered_files: list[dict[str, Any]] = []
+    remaining = max(1_000, int(max_chars))
+    for _, relative_value, candidate, change in candidates:
+        try:
+            if not candidate.is_file() or candidate.stat().st_size > 4 * 1024 * 1024:
+                continue
+            content = candidate.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+        if not content:
+            continue
+        digest = str(change.get("sha256") or "")
+        if not digest:
+            try:
+                digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            except OSError:
+                digest = ""
+        allowance = min(remaining, 8_000 if not recovered_sections else 2_000)
+        excerpt = content[:allowance].rstrip()
+        if not excerpt:
+            continue
+        recovered_sections.append(
+            f"## 文件交付：{relative_value}\n\n{excerpt}"
+            + ("\n\n[正文过长，完整内容请在应用内查看该 Artifact。]" if len(content) > len(excerpt) else "")
+        )
+        recovered_files.append(
+            {
+                "path": relative_value,
+                "sha256": digest,
+                "size_bytes": int(change.get("size_bytes") or candidate.stat().st_size),
+            }
+        )
+        remaining -= len(excerpt)
+        if remaining <= 500 or len(recovered_files) >= 4:
+            break
+    if not recovered_sections:
+        return "", None
+    file_lines = "\n".join(
+        f"- `{item['path']}` · SHA-256 `{item['sha256']}` · {item['size_bytes']} bytes"
+        for item in recovered_files
+    )
+    recovered = (
+        f"# {node_name}：真实文件交付恢复摘要\n\n"
+        "Claude Code SDK 本回合完成了真实文件与工具动作，但最终公开文本在剥离发起人私享说明后为空。"
+        "平台没有记录空决定，而是只依据同一回合已晋升并校验的文件恢复公开交付。\n\n"
+        f"- 执行阶段：{phase}\n"
+        f"- 已恢复文件：{len(recovered_files)}\n"
+        f"{file_lines}\n\n"
+        + "\n\n".join(recovered_sections)
+    )[:max_chars]
+    return recovered, {
+        "recovery_source": "same_sdk_turn_promoted_files",
+        "file_count": len(recovered_files),
+        "files": recovered_files,
+        "content_sha256": hashlib.sha256(recovered.encode("utf-8")).hexdigest(),
+    }
 
 
 def _preview(value: str, limit: int = 320) -> str:
@@ -1236,9 +1590,32 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
     # Mature Runs can contain tens of thousands of events and hundreds of
     # materialized Artifacts. Hydrating that projection is blocking I/O/CPU and
     # must never monopolize the FastAPI event-loop thread.
-    run = await asyncio.to_thread(store.get_run_execution_snapshot, run_id)
+    run = await asyncio.to_thread(
+        store.get_run_execution_snapshot,
+        run_id,
+        include_events=False,
+    )
     if not run:
         return
+    # Keep only the compact control history that initializes execution state.
+    # A mature Run can hold hundreds of megabytes of tool payloads; retaining
+    # all of them here kept several GB of decoded Python objects alive for the
+    # full process lifetime and starved Artifact preview requests.
+    run["events"] = await asyncio.to_thread(
+        store.list_run_events_by_types,
+        run_id,
+        (
+            "workflow.execution_policy.amended",
+            "run.time_extended",
+            "gate.rejected",
+            "run.started",
+            "run.recovered",
+            "worker.lease.acquired",
+            "artifact.created",
+            "artifact.collected",
+            "artifact.download.verified",
+        ),
+    )
     workflow = store.get_workflow(run["workflow_id"])
     if not workflow:
         store.update_run(run_id, status="failed", stage="workflow_not_found")
@@ -1324,8 +1701,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 store.update_task(str(task["id"]), status="pending")
         pending = set(task_by_key) - completed
         total_tokens = int(run.get("token_count", 0) or 0)
-        max_revision_rounds = int(policies.get("max_revision_rounds", policies.get("max_debate_rounds", 3)) or 3)
-        max_revision_rounds = max(1, min(max_revision_rounds, 6))
+        max_revision_rounds = _normalized_max_revision_rounds(
+            policies.get("max_revision_rounds", policies.get("max_debate_rounds", 3))
+        )
         revision_counts: dict[str, int] = {}
         revision_feedback: dict[str, list[str]] = {}
         for event in run.get("events", []):
@@ -1371,6 +1749,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             if _is_engineering_node(node, store.get_agent(str(node.get("agent_id") or "")))
             and str(node.get("type") or "") not in {"judge", "gate", "quality_gate"}
         }
+        execution_code_root = Path(str(run["workspace"]["code"])).resolve()
         git_workspace: dict[str, Any] | None = None
         git_workspace_error = ""
         git_delivery_config = store.get_run_git_delivery_config(run_id, include_secret=True)
@@ -1381,7 +1760,17 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             git_delivery_config = None
         if engineering_node_keys:
             try:
-                git_workspace = ensure_run_repository(run["workspace"]["code"], run_id)
+                if git_delivery_config and str(git_delivery_config.get("repository_url") or "").strip():
+                    execution_code_root = (
+                        Path(str(run["workspace"]["root"])).resolve() / "product-source"
+                    )
+                    git_workspace = ensure_run_source_checkout(
+                        execution_code_root,
+                        run_id,
+                        git_delivery_config,
+                    )
+                else:
+                    git_workspace = ensure_run_repository(execution_code_root, run_id)
             except (GitDeliveryError, OSError) as exc:
                 git_workspace_error = str(exc)
         tool_enabled_agent_ids = _runtime_tool_enabled_agent_ids(node_def_by_key, store.get_agent)
@@ -1422,11 +1811,15 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     async with event_lock:
                         # Full checkpoint materialization is only needed after a
                         # real pause request. Normal control checks stay light.
-                        latest = await asyncio.to_thread(store.get_run_execution_snapshot, run_id)
+                        latest = await asyncio.to_thread(
+                            store.get_run_execution_snapshot,
+                            run_id,
+                            include_events=False,
+                        )
                         if latest and latest["status"] == "pause_requested":
-                            latest_sequence = max(
-                                (int(item.get("sequence") or 0) for item in latest.get("events", [])),
-                                default=0,
+                            latest_sequence = await asyncio.to_thread(
+                                store.get_run_latest_event_sequence,
+                                run_id,
                             )
                             # Three Artifact lifecycle events are written before
                             # run.paused, so the immutable checkpoint can name the
@@ -1502,7 +1895,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
 
         async def materialize_public_evidence_bundle(platform_attempt_id: str) -> Path:
             async def build() -> Path:
-                latest_run = await asyncio.to_thread(store.get_run_execution_snapshot, run_id) or run
+                latest_run = await asyncio.to_thread(
+                    store.get_run_execution_snapshot,
+                    run_id,
+                    include_events=False,
+                ) or run
                 workspace = latest_run.get("workspace") or run.get("workspace") or {}
                 run_root = Path(str(workspace.get("root") or "")).resolve()
                 code_root = Path(str(workspace.get("code") or "")).resolve()
@@ -1519,68 +1916,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 )
                 bundle_root.mkdir(parents=True, exist_ok=True)
 
-                projections = await asyncio.to_thread(
-                    lambda: [
-                        projection
-                        for item in latest_run.get("events", [])
-                        if (projection := _public_event_projection(item)) is not None
-                    ]
-                )
-                events_payload = await asyncio.to_thread(
-                    lambda: "\n".join(
-                        json.dumps(item, ensure_ascii=False, sort_keys=True) for item in projections
-                    ) + "\n"
-                )
-                await asyncio.to_thread(
-                    (bundle_root / "events.ndjson").write_text,
-                    events_payload,
-                    encoding="utf-8",
-                    newline="\n",
-                )
-                projection_omissions = await asyncio.to_thread(
-                    lambda: [
-                        omission
-                        for item in latest_run.get("events", [])
-                        if (omission := _public_event_projection_omission(item)) is not None
-                    ]
-                )
-                await asyncio.to_thread(
-                    (bundle_root / "projection-omissions.json").write_text,
-                    json.dumps(
-                        {
-                            "schema_version": "jianghu.public-projection-omissions.v1",
-                            "projection": "public_agent_safe",
-                            "policy_id": "jianghu.public-agent-safe-projection",
-                            "policy_version": "1.0.0",
-                            "omission_count": len(projection_omissions),
-                            "omissions": projection_omissions,
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                    ) + "\n",
-                    encoding="utf-8",
-                    newline="\n",
-                )
-                critical_prefixes = (
-                    "run.", "task.", "artifact.", "gate.", "workflow.", "agent.runtime.",
-                    "runtime.", "worker.", "attempt.", "agent.session.", "agent.tool.",
-                    "agent.side_effect.", "agent.memory.",
-                    "agent.message.", "engineering.submission.", "team.",
-                )
-                critical = await asyncio.to_thread(
-                    lambda: [
-                        item for item in projections
-                        if str(item.get("type") or "").startswith(critical_prefixes)
-                    ]
-                )
-                await asyncio.to_thread(
-                    (bundle_root / "critical-events.json").write_text,
-                    json.dumps(critical, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8",
-                    newline="\n",
+                event_snapshot = await asyncio.to_thread(
+                    _write_public_event_snapshot,
+                    store,
+                    run_id,
+                    bundle_root,
                 )
                 runtime_attestation = _runtime_attestation(
-                    projections,
+                    event_snapshot["runtime_binding_projections"],
                     _runtime_health(run_runtime),
                     dict(runtime_sync or {}),
                 )
@@ -1605,16 +1948,39 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 # repeated nodes avoid rewriting hundreds of identical files.
                 artifacts_root = evidence_root / "artifacts"
                 artifacts_root.mkdir(parents=True, exist_ok=True)
+                if not evidence_artifact_cache:
+                    evidence_artifact_cache.update(
+                        await asyncio.to_thread(
+                            _load_reusable_evidence_artifact_cache,
+                            evidence_root,
+                            exclude_bundle=bundle_root,
+                        )
+                    )
+                lineage_event_types = (
+                    "artifact.created", "artifact.inherited", "run.retry_created",
+                )
+                latest_run["events"] = await asyncio.to_thread(
+                    store.list_run_events_by_types,
+                    run_id,
+                    lineage_event_types,
+                )
                 lineage_runs = [latest_run]
                 lineage_ids = {str(latest_run.get("id") or "")}
                 ancestor_id = str(latest_run.get("parent_run_id") or "")
                 while ancestor_id and ancestor_id not in lineage_ids:
                     lineage_ids.add(ancestor_id)
                     ancestor = await asyncio.to_thread(
-                        store.get_run_execution_snapshot, ancestor_id
+                        store.get_run_execution_snapshot,
+                        ancestor_id,
+                        include_events=False,
                     )
                     if not ancestor:
                         break
+                    ancestor["events"] = await asyncio.to_thread(
+                        store.list_run_events_by_types,
+                        ancestor_id,
+                        lineage_event_types,
+                    )
                     lineage_runs.append(ancestor)
                     ancestor_id = str(ancestor.get("parent_run_id") or "")
                 creation_provenance = _artifact_creation_provenance(lineage_runs)
@@ -1649,6 +2015,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         f"{_safe_segment(artifact.get('id'), 'artifact')}"
                         f"-{_safe_segment(expected_sha256[:16], 'nohash')}{suffix}"
                     )
+                    if cached_artifact is not None:
+                        try:
+                            if target.stat().st_size != int(cached_artifact["size_bytes"]):
+                                cached_artifact = None
+                                evidence_artifact_cache.pop(cache_key, None)
+                        except OSError:
+                            cached_artifact = None
+                            evidence_artifact_cache.pop(cache_key, None)
                     if cached_artifact is None or not target.is_file():
                         data = await asyncio.to_thread(source.read_bytes)
                         observed_sha256 = hashlib.sha256(data).hexdigest()
@@ -1692,7 +2066,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "parent_run_id": item.get("parent_run_id"),
                         "status": item.get("status"),
                         "artifact_count": len(item.get("artifacts", [])),
-                        "event_count": len(item.get("events", [])),
+                        "event_count": int(
+                            item.get("event_count_total")
+                            or len(item.get("events", []))
+                        ),
                     }
                     for item in lineage_runs
                 ]
@@ -1722,7 +2099,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     ),
                     "task_count": len(latest_run.get("tasks", [])),
                     "artifact_count": len(latest_run.get("artifacts", [])),
-                    "event_count": len(latest_run.get("events", [])),
+                    "event_count": int(
+                        latest_run.get("event_count_total")
+                        or event_snapshot["projection_count"] + event_snapshot["omission_count"]
+                    ),
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "runtime": runtime_name,
                     "execution_epoch": execution_epoch,
@@ -1837,6 +2217,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "repository": git_workspace["repository"],
                         "baseline_commit": git_workspace["baseline_commit"],
                         "created": git_workspace["created"],
+                        "authoritative_source": bool(git_workspace.get("authoritative_source")),
+                        "target_branch": git_workspace.get("target_branch"),
+                        "target_commit": git_workspace.get("target_commit"),
+                        "run_branch": git_workspace.get("run_branch"),
+                        "update_status": git_workspace.get("update_status"),
                         "execution_epoch": execution_epoch,
                     },
                 )
@@ -2166,7 +2551,12 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "恢复时通过正式下载路径对应文件复算字节数和 SHA-256。",
                             {**artifact_payload, "status": "matched"},
                         )
-                for interrupted_tool in _interrupted_tool_calls(list(run.get("events", []))):
+                tool_recovery_events = await asyncio.to_thread(
+                    _compact_tool_recovery_history,
+                    store,
+                    run_id,
+                )
+                for interrupted_tool in _interrupted_tool_calls(tool_recovery_events):
                     common = {
                         key: value
                         for key, value in interrupted_tool.items()
@@ -2205,25 +2595,29 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         "平台确认未以同一 operation/idempotency 身份静默重放；未知结果保持可见，等待后续节点全量重跑覆盖。",
                         {**terminal_payload, "status": "interrupted_unknown_preserved"},
                     )
-                recovery_snapshot = await asyncio.to_thread(
-                    store.get_run_execution_snapshot, run_id
-                ) or run
-                for reconciliation in _tool_terminal_reconciliations(list(recovery_snapshot.get("events", []))):
+                tool_recovery_events = await asyncio.to_thread(
+                    _compact_tool_recovery_history,
+                    store,
+                    run_id,
+                )
+                for reconciliation in _tool_terminal_reconciliations(tool_recovery_events):
                     store.append_run_event(
                         run_id, "agent.tool.terminal.reconciled", "validation",
                         "重复 Tool 终态已确定唯一规范记录",
                         "平台保留全部原事件，并以显式 supersedes 关系选定唯一 canonical terminal；未删除失败证据。",
                         {**reconciliation, "status": "resolved"},
                     )
-                recovery_snapshot = await asyncio.to_thread(
-                    store.get_run_execution_snapshot, run_id
-                ) or recovery_snapshot
+                tool_recovery_events = await asyncio.to_thread(
+                    _compact_tool_recovery_history,
+                    store,
+                    run_id,
+                )
                 completed_by_identity: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
-                for event in recovery_snapshot.get("events", []):
+                for event in tool_recovery_events:
                     if event.get("type") != "agent.tool.completed":
                         continue
                     completed_by_identity.setdefault(_tool_event_identity(event), []).append(event)
-                for failed_event in _unreviewed_failed_tool_events(list(recovery_snapshot.get("events", []))):
+                for failed_event in _unreviewed_failed_tool_events(tool_recovery_events):
                     identity = _tool_event_identity(failed_event)
                     later_success = next(
                         (
@@ -2255,11 +2649,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "status": "reviewed",
                         },
                     )
-                recovery_snapshot = await asyncio.to_thread(
-                    store.get_run_execution_snapshot, run_id
-                ) or recovery_snapshot
                 unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
-                    list(recovery_snapshot.get("events", []))
+                    tool_recovery_events
                 )
                 store.append_run_event(
                     run_id, "worker.duplicate_side_effect.scan", "validation",
@@ -2383,8 +2774,15 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 role_instance_id = f"role:{run_id}:{node_key}:{agent['id']}"
                 approval_credential_id = f"approval:{run_id}:{node_key}:{agent['id']}"
                 latest_snapshot = await asyncio.to_thread(
-                    store.get_run_execution_snapshot, run_id
+                    store.get_run_execution_snapshot,
+                    run_id,
+                    include_events=False,
                 ) or run
+                latest_snapshot["events"] = await asyncio.to_thread(
+                    store.list_run_events_by_types,
+                    run_id,
+                    ("gate.rejected", "attempt.created"),
+                )
                 latest_rejection = next(
                     (item for item in reversed(latest_snapshot.get("events", [])) if item.get("type") == "gate.rejected"),
                     None,
@@ -2803,7 +3201,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         if actor_has_tools and hasattr(run_runtime, "workspace_path"):
                             message_arguments.update(
                                 {
-                                    "seed_directory": run.get("workspace", {}).get("code"),
+                                    "seed_directory": str(execution_code_root),
                                     "evidence_directory": evidence_root,
                                     # 工具型人物获得候选代码和平台证据的隔离副本；只有工程节点会晋升回正式代码区。
                                     "capture_workspace": True,
@@ -2918,13 +3316,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         if hasattr(run_runtime, "promote_workspace_tree"):
                             changes = run_runtime.promote_workspace_tree(
                                 agent=actor,
-                                destination=run["workspace"]["code"],
+                                destination=execution_code_root,
                             )
                         elif workspace_changes:
                             changes = run_runtime.promote_workspace_changes(
                                 agent=actor,
                                 changes=workspace_changes,
-                                destination=run["workspace"]["code"],
+                                destination=execution_code_root,
                             )
                     response["workspace_file_changes"] = workspace_changes
                     response["recorded_file_changes"] = changes
@@ -2935,6 +3333,22 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         else ""
                     )
                     response["files_promoted"] = bool(is_engineering and promote_files)
+                    recovered_public_text, public_text_recovery = _recover_public_text_from_file_changes(
+                        response,
+                        promoted_root=(
+                            execution_code_root
+                            if response["files_promoted"]
+                            else response["delivery_root"]
+                        ),
+                        node_name=str(task["node_name"]),
+                        phase=phase,
+                    )
+                    if recovered_public_text:
+                        response["content"] = [{"type": "text", "text": recovered_public_text}]
+                    if capture_initiator_note and not recovered_public_text:
+                        raise RuntimeError(
+                            f"empty_public_output_after_initiator_note:{task['node_name']}:{actor['id']}"
+                        )
                     actions = list(response.get("actions") or [])
                     for action in actions:
                         if not action.get("live_emitted"):
@@ -2955,6 +3369,25 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     "claude_sdk_session_id": response.get("claude_sdk_session_id"),
                                     "sdk_invocation_id": response.get("sdk_invocation_id"),
                                     **change,
+                                },
+                            )
+                        if public_text_recovery:
+                            store.append_run_event(
+                                run_id,
+                                "agent.output.recovered.from_files",
+                                "validation",
+                                f"{actor['name']}的公开交付已从真实文件恢复",
+                                "平台只读取同一 Claude SDK 回合已晋升且带 SHA-256 的文件，没有生成或猜测业务结论。",
+                                {
+                                    "task_id": task["id"],
+                                    "node_key": node_key,
+                                    "agent_id": actor["id"],
+                                    "phase": phase,
+                                    "platform_attempt_id": platform_attempt_id,
+                                    "platform_session_id": session_key,
+                                    "claude_sdk_session_id": response.get("claude_sdk_session_id"),
+                                    "sdk_invocation_id": response.get("sdk_invocation_id"),
+                                    **public_text_recovery,
                                 },
                             )
                         store.append_run_event(
@@ -3038,10 +3471,35 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 decision: dict[str, Any] | None = None
                 if is_judge:
                     judge_knowledge, judge_matches = _team_knowledge(store, team, knowledge_query, agent["id"]) if team else ("", [])
-                    allowed_targets = sorted(dependencies.get(node_key, set()))
-                    judge_run_snapshot = await asyncio.to_thread(
-                        store.get_run_execution_snapshot, run_id
-                    ) or run
+                    allowed_targets = sorted(
+                        _upstream_gate_targets(node_key, dependencies, set(task_by_key))
+                    )
+                    preferred_targets = sorted(
+                        _preferred_gate_rework_targets(
+                            node_key,
+                            dependencies,
+                            set(task_by_key),
+                            node_def_by_key,
+                        )
+                    )
+                    target_catalog = [
+                        {
+                            "key": target_key,
+                            "name": str(node_def_by_key.get(target_key, {}).get("name") or target_key),
+                            "purpose": str(node_def_by_key.get(target_key, {}).get("purpose") or "")[:500],
+                            "recommended_for_fact_change": target_key in preferred_targets,
+                        }
+                        for target_key in allowed_targets
+                    ]
+                    judge_validation_events = await asyncio.to_thread(
+                        store.list_run_events_by_types,
+                        run_id,
+                        (
+                            "artifact.validation.started",
+                            "artifact.validation.passed",
+                            "artifact.validation.failed",
+                        ),
+                    )
                     validation_evidence = [
                         {
                             "type": event.get("type"),
@@ -3049,8 +3507,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             "summary": event.get("summary"),
                             "payload": event.get("payload", {}),
                         }
-                        for event in judge_run_snapshot.get("events", [])
-                        if str(event.get("type", "")).startswith("artifact.validation.")
+                        for event in judge_validation_events
                     ][-12:]
                     judge_delivery_root = (
                         run_runtime.workspace_path(agent) / "delivery"
@@ -3062,11 +3519,18 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         f"候选工程已经以隔离副本放在 {judge_delivery_root}。你可以读取文件、运行构建或测试复验，"
                         "但不得把自己的修改回写为候选产物，也不得以参与者自述替代真实证据。\n"
                         f"平台交付校验证据：\n{json.dumps(validation_evidence, ensure_ascii=False)[:12000]}\n\n"
+                        "裁决工具调用必须收敛：先读取 run-metadata、artifact-registry、最终报告及其明确引用的证据，"
+                        "只有发现冲突时才按 sequence 定向查询 events.ndjson；不要从头重复扫描完整事件流。"
+                        "目标控制在 30 次工具调用内。一旦已经核实足以决定 pass 或 revise 的证据，立即写出 verdict.json 并提交最终 JSON，"
+                        "不得为了增加引用数量继续重复统计、封包或遍历历史快照。\n"
                         "只返回 JSON 对象，不要返回 Markdown 围栏。\n"
                         "Schema: {\"verdict\":\"pass|revise\",\"score\":0-100,\"summary\":\"裁判结论\","
                         "\"feedback\":\"可执行修改意见\",\"target_node_keys\":[\"应返工的上游节点 key\"],"
                         "\"acceptance_evidence\":[\"证据\"],\"remaining_risks\":[\"风险\"]}.\n"
-                        f"允许定向打回的直接责任节点：{allowed_targets or ['无']}。verdict=revise 时至少选择一个允许的节点。\n\n"
+                        f"允许定向打回的全部上游责任节点：{json.dumps(target_catalog, ensure_ascii=False)}。"
+                        f"能够改变代码、运行或测试事实的优先整改节点：{preferred_targets or ['无']}。"
+                        "verdict=revise 时至少选择一个允许的节点；如果缺口涉及源码、实现、Runtime、Bridge、E2E、"
+                        "真实产品测试、恢复机制或 Artifact authority，禁止只打回报告/汇总节点，必须同时选择能够改变事实的整改节点。\n\n"
                         f"获准知识：\n{judge_knowledge or '未检索到相关组织知识。'}"
                     )
                     response = await runtime_call(agent, judge_prompt, "独立裁决", "judge")
@@ -3443,6 +3907,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             capture_initiator_note=True,
                         )
                         content = _text(response)
+                        if not content:
+                            raise RuntimeError(f"empty_team_synthesis_output:{task['node_name']}")
                         synthesis_usage = response.get("usage") or {}
                         usage = {
                             "input_tokens": int(synthesis_usage.get("input_tokens", 0) or 0) + sum(int(item.get("input_tokens", 0) or 0) for item in member_usage),
@@ -3507,6 +3973,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         capture_initiator_note=True,
                     )
                     content = _text(response)
+                    if not content:
+                        raise RuntimeError(f"empty_individual_output:{task['node_name']}")
                     usage = response.get("usage") or {}
                     memory_entries.append((agent, content))
                 if not content:
@@ -3654,7 +4122,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         )
                     try:
                         git_commit = commit_run_changes(
-                            run["workspace"]["code"],
+                            execution_code_root,
                             run_id=run_id,
                             node_key=node_key,
                             node_name=str(task["node_name"]),
@@ -3758,7 +4226,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 try:
                                     remote_delivery = await asyncio.to_thread(
                                         deliver_commit_to_remote,
-                                        run["workspace"]["code"],
+                                        execution_code_root,
                                         commit=public_git_commit,
                                         config=git_delivery_config,
                                     )
@@ -4459,11 +4927,17 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             },
                         )
                     continue
-                target_keys = _resolve_gate_targets(gate_key, decision, dependencies, set(task_by_key))
+                target_keys = _resolve_gate_targets(
+                    gate_key,
+                    decision,
+                    dependencies,
+                    set(task_by_key),
+                    node_def_by_key,
+                )
                 if not target_keys:
                     raise RuntimeError(f"judge_rejected_without_target:{gate_key}")
                 revision_counts[gate_key] = revision_counts.get(gate_key, 0) + 1
-                if revision_counts[gate_key] > max_revision_rounds:
+                if _revision_limit_exhausted(revision_counts[gate_key], max_revision_rounds):
                     raise RuntimeError(f"revision_exhausted:{gate_key}")
                 feedback = str(decision.get("feedback") or decision.get("summary") or "根据裁判意见修订并重新提交。")
                 impacted = downstream_from(target_keys)
@@ -4519,11 +4993,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
             progress = int((len(completed) / max(len(tasks), 1)) * 100)
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
-        convergence_snapshot = await asyncio.to_thread(
-            store.get_run_execution_snapshot, run_id
-        ) or {}
+        convergence_events = await asyncio.to_thread(
+            store.list_run_events_by_types,
+            run_id,
+            ("agent.tool.completed", "agent.tool.terminal.reconciled"),
+        )
         unresolved_duplicate_count = _unresolved_tool_terminal_duplicate_count(
-            list(convergence_snapshot.get("events", []))
+            convergence_events
         )
         store.append_run_event(
             run_id, "worker.duplicate_side_effect.scan", "validation",
@@ -4549,7 +5025,9 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
         )
         store.update_run(run_id, status="completed", stage="completed", progress=100, token_count=total_tokens)
         completed_run = await asyncio.to_thread(
-            store.get_run_execution_snapshot, run_id
+            store.get_run_execution_snapshot,
+            run_id,
+            include_events=False,
         ) or {}
         existing_conclusion = next(
             (item for item in completed_run.get("artifacts", []) if str(item.get("title") or "") == "一页纸结论"),
@@ -4658,19 +5136,110 @@ def _resolve_gate_targets(
     decision: dict[str, Any],
     dependencies: dict[str, set[str]],
     task_keys: set[str],
+    node_definitions: dict[str, dict[str, Any]] | None = None,
 ) -> set[str]:
     """Resolve a rejected judge's legal rework targets."""
+    legal_upstream = _upstream_gate_targets(gate_key, dependencies, task_keys)
     explicit = {
         str(item)
         for item in (decision.get("target_node_keys") or [])
-        if str(item) in task_keys
+        if str(item) in legal_upstream
     }
     if explicit:
+        preferred = _preferred_gate_rework_targets(
+            gate_key,
+            dependencies,
+            task_keys,
+            node_definitions or {},
+        )
+        # A final Judge often receives a polished report immediately upstream,
+        # while its blocking findings concern code, Runtime or real tests.  A
+        # report-only rejection cannot change those facts and creates a stable
+        # 90→80→90 loop. Preserve the Judge's explicit report target, but add
+        # the nearest remediation-capable ancestor so the next Attempt can
+        # actually modify the product and regenerate downstream evidence.
+        if preferred and all(_is_report_only_rework_target(item, node_definitions or {}) for item in explicit):
+            return explicit | preferred
         return explicit
+    preferred = _preferred_gate_rework_targets(
+        gate_key,
+        dependencies,
+        task_keys,
+        node_definitions or {},
+    )
+    if preferred:
+        return preferred
     upstream = {str(item) for item in dependencies.get(gate_key, set()) if str(item) in task_keys}
     if upstream:
         return upstream
     return {gate_key} if gate_key in task_keys else set()
+
+
+def _upstream_gate_targets(
+    gate_key: str,
+    dependencies: dict[str, set[str]],
+    task_keys: set[str],
+) -> set[str]:
+    """Return every legal transitive upstream target for a rejected gate."""
+    result: set[str] = set()
+    pending = list(dependencies.get(gate_key, set()))
+    while pending:
+        candidate = str(pending.pop())
+        if candidate in result or candidate not in task_keys:
+            continue
+        result.add(candidate)
+        pending.extend(dependencies.get(candidate, set()))
+    return result
+
+
+def _is_report_only_rework_target(
+    node_key: str,
+    node_definitions: dict[str, dict[str, Any]],
+) -> bool:
+    node = node_definitions.get(node_key, {})
+    text = " ".join(
+        str(node.get(field) or "") for field in ("key", "name", "purpose", "type")
+    ).lower()
+    if not text:
+        text = node_key.lower()
+    report_markers = ("report", "summary", "gap_list", "报告", "汇总", "清单", "封版")
+    fact_change_markers = (
+        "remediation", "rework", "rerun", "implement", "engineering", "runtime",
+        "整改", "返工", "修复", "实现", "工程", "重跑",
+    )
+    return any(marker in text for marker in report_markers) and not any(
+        marker in text for marker in fact_change_markers
+    )
+
+
+def _preferred_gate_rework_targets(
+    gate_key: str,
+    dependencies: dict[str, set[str]],
+    task_keys: set[str],
+    node_definitions: dict[str, dict[str, Any]],
+) -> set[str]:
+    """Choose the nearest upstream node explicitly capable of changing facts."""
+    distances: dict[str, int] = {}
+    frontier = [(str(item), 1) for item in dependencies.get(gate_key, set())]
+    while frontier:
+        candidate, distance = frontier.pop(0)
+        if candidate not in task_keys or distance >= distances.get(candidate, 10**9):
+            continue
+        distances[candidate] = distance
+        frontier.extend((str(item), distance + 1) for item in dependencies.get(candidate, set()))
+    candidates: list[tuple[int, str]] = []
+    markers = ("remediation", "rework", "rerun", "整改", "返工", "修复", "重跑")
+    for candidate, distance in distances.items():
+        node = node_definitions.get(candidate, {})
+        text = " ".join(
+            [candidate, *(str(node.get(field) or "") for field in ("name", "purpose", "type"))]
+        ).lower()
+        if any(marker in text for marker in markers):
+            candidates.append((distance, candidate))
+    if not candidates:
+        return set()
+    nearest = min(distance for distance, _ in candidates)
+    return {candidate for distance, candidate in candidates if distance == nearest}
 
 
 def _continues_after_expected_rejection(

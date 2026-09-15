@@ -7,6 +7,7 @@ const frontendUrl = process.env.EVIDENCE_E2E_FRONTEND || 'http://127.0.0.1:5175'
 const backendUrl = process.env.EVIDENCE_E2E_BACKEND || 'http://127.0.0.1:8005'
 const runId = process.env.EVIDENCE_E2E_RUN || 'run_bda13e93b2ea'
 const receiptOnlyArtifactId = process.env.EVIDENCE_E2E_RECEIPT_ONLY_ARTIFACT || 'artifact_6c329182d771'
+const inheritedReceiptArtifactId = process.env.EVIDENCE_E2E_INHERITED_RECEIPT_ARTIFACT || 'artifact_a16cef0665d1'
 const allowCompatibilityFallback = process.env.EVIDENCE_E2E_ALLOW_COMPAT === '1'
 const outputRoot = path.resolve(process.env.EVIDENCE_E2E_OUTPUT || `../deliverables/${runId}/evidence-center-e2e/latest`)
 const screenshotRoot = path.join(outputRoot, 'screenshots')
@@ -43,6 +44,7 @@ defineCase('EVC-004', '筛选并查看非图片测试材料', '测试结果/JUni
 defineCase('EVC-005', '从正式交付卡片打开实际文件', '交付物展开后可直接进入应用内文件查看器，不再只显示元数据')
 defineCase('EVC-006', '预览无扩展名与环境配置文本', 'Dockerfile、.env.example 等文本文件直接显示实际正文，不再只显示元数据')
 defineCase('EVC-007', '缺失原字节时保持应用内闭环', '删除凭据明确标识原字节未归档，下载不会把页面带到 Not Found')
+defineCase('EVC-008', '继承回执展示真实文件而非元数据', '应用内按 SHA-256 血缘解析原文件，分开展示实际文件与登记回执的大小、类型和哈希')
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -202,6 +204,24 @@ try {
   const receiptShot = await shot(page, 'EVC-007', '07-receipt-only-friendly-state.png', '原字节缺失时的应用内友好说明与安全下载入口')
   const receiptDetailText = await page.getByTestId('evidence-detail-panel').innerText()
   record('EVC-007', receiptDetailText.includes('不会把它冒充为文件正文') && receiptDetailText.includes('下载删除凭据') ? 'PASS' : 'FAIL', `artifact=${receiptOnlyArtifact.id}; friendly_receipt_only=true`, [receiptShot])
+
+  const inheritedReceiptArtifact = (run.artifacts || []).find(item => String(item.id) === inheritedReceiptArtifactId)
+  if (!inheritedReceiptArtifact) throw new Error('真实 Run 中没有用于继承回执内容解析验证的 Artifact')
+  await evidenceSearch.fill(String(inheritedReceiptArtifact.id))
+  await page.getByTestId(`evidence-item-${inheritedReceiptArtifact.id}`).click()
+  await page.getByText('当前条目是继承或重试后的登记回执。').waitFor({ timeout: 60000 })
+  await page.locator('.evidence-text-preview pre').waitFor({ state: 'visible', timeout: 60000 })
+  const inheritedPreviewBody = await page.locator('.evidence-text-preview pre').innerText()
+  const inheritedDetailText = await page.getByTestId('evidence-detail-panel').innerText()
+  const inheritedShot = await shot(page, 'EVC-008', '08-inherited-receipt-real-content.png', '历史继承回执解析到真实原文件正文与实际字节信息')
+  const inheritedReceiptOnly = /^\s*\{[\s\S]*"source_relative_path"[\s\S]*"sha256"[\s\S]*\}\s*$/.test(inheritedPreviewBody)
+  const inheritedPassed = !inheritedReceiptOnly
+    && inheritedDetailText.includes('实际文件 SHA-256')
+    && inheritedDetailText.includes('实际文件大小 / 类型')
+    && inheritedDetailText.includes('登记回执 SHA-256')
+    && inheritedDetailText.includes('登记回执大小 / 类型')
+    && inheritedDetailText.includes('实际内容来源 Artifact')
+  record('EVC-008', inheritedPassed ? 'PASS' : 'FAIL', `artifact=${inheritedReceiptArtifact.id}; preview_chars=${inheritedPreviewBody.length}; receipt_only=${inheritedReceiptOnly}`, [inheritedShot])
 } catch (error) {
   const pending = cases.filter(item => !results.some(result => result.case_id === item.id))
   for (const item of pending) record(item.id, 'FAIL', error instanceof Error ? error.stack || error.message : String(error))

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,24 +18,32 @@ from server.app.platform_executor import (
     _apply_run_execution_policy_amendments,
     _attempt_rework_attempt_id,
     _attempt_rework_run_id,
+    _code_manifest,
+    _compact_tool_recovery_history,
     _next_timeout_retry_level,
+    _normalized_max_revision_rounds,
     _remember_next_timeout_retry_level,
     _artifact_creation_provenance,
     _gather_cancel_on_error,
     _interrupted_tool_calls,
     _public_event_projection,
     _public_event_projection_omission,
+    _resolve_gate_targets,
+    _recover_public_text_from_file_changes,
     _runtime_attestation,
     _runtime_mode,
     _runtime_source_attestation,
+    _revision_limit_exhausted,
     _ensure_runtime_source_artifacts,
     _runtime_tool_authorization_matrix,
     _runtime_tool_enabled_agent_ids,
     _run_time_limit_enabled,
     _tool_schema_validation,
     _tool_terminal_reconciliations,
+    _write_public_event_snapshot,
     _release_run_execution_lease,
     _try_acquire_run_execution_lease,
+    _upstream_gate_targets,
 )
 from server.app.platform_store import PlatformStore
 from server.app.run_budget import active_execution_epoch_seconds, active_run_seconds, configured_maximum_run_minutes
@@ -63,6 +73,65 @@ async def test_parallel_runtime_failure_cancels_sibling() -> None:
         await _gather_cancel_on_error(fail(), sibling())
 
     assert sibling_cancelled.is_set()
+
+
+def test_code_manifest_excludes_platform_evidence_tree(tmp_path: Path) -> None:
+    candidate = tmp_path / "candidate"
+    source = candidate / "server" / "app.py"
+    evidence = candidate / ".jianghu-platform-evidence" / "snapshots" / "attempt-current" / "events.ndjson"
+    source.parent.mkdir(parents=True)
+    evidence.parent.mkdir(parents=True)
+    source.write_text("print('candidate')\n", encoding="utf-8")
+    evidence.write_bytes(b"platform evidence must not be hashed as candidate code\n" * 1000)
+
+    manifest = _code_manifest(candidate)
+
+    assert [item["path"] for item in manifest] == ["server/app.py"]
+
+
+def test_empty_public_text_recovers_only_from_same_turn_real_files(tmp_path: Path) -> None:
+    delivery = tmp_path / "delivery"
+    report = delivery / "reports" / "迁移验收报告.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("# 迁移验收报告\n\n结论：NO_GO，仍有 16 个真实缺口。\n", encoding="utf-8")
+    digest = hashlib.sha256(report.read_bytes()).hexdigest()
+    response = {
+        "content": [{"type": "text", "text": ""}],
+        "recorded_file_changes": [
+            {
+                "action": "created",
+                "path": "reports/迁移验收报告.md",
+                "sha256": digest,
+                "size_bytes": report.stat().st_size,
+            }
+        ],
+    }
+
+    recovered, receipt = _recover_public_text_from_file_changes(
+        response,
+        promoted_root=delivery,
+        node_name="迁移验收报告与缺口清单封版",
+        phase="团队合议与正式提交",
+    )
+
+    assert "NO_GO" in recovered
+    assert "16 个真实缺口" in recovered
+    assert "reports/迁移验收报告.md" in recovered
+    assert receipt is not None
+    assert receipt["recovery_source"] == "same_sdk_turn_promoted_files"
+    assert receipt["files"][0]["sha256"] == digest
+
+
+def test_empty_public_text_is_not_fabricated_without_real_files(tmp_path: Path) -> None:
+    recovered, receipt = _recover_public_text_from_file_changes(
+        {"content": [{"type": "text", "text": ""}], "recorded_file_changes": []},
+        promoted_root=tmp_path,
+        node_name="封版",
+        phase="团队合议与正式提交",
+    )
+
+    assert recovered == ""
+    assert receipt is None
 
 
 @pytest.mark.anyio
@@ -436,6 +505,118 @@ def test_public_event_projection_keeps_evidence_ids_but_excludes_private_audit()
     assert len(omission["source_event_sha256"]) == 64
 
 
+def test_public_event_snapshot_streams_valid_files_and_keeps_snapshot_bounded(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "streamed-evidence.db"))
+    agent = platform.create_agent(
+        name="流式证据工程师",
+        role="质量工程师",
+        description="验证长 Run 证据按批写出",
+        persona="只保留必要的 Runtime 绑定集合",
+        capabilities=["证据归档"],
+    )
+    workflow = platform.create_workflow(
+        "流式证据章法",
+        "不在内存拼接整个事件历史",
+        "test",
+        {"nodes": [{"key": "evidence", "name": "证据", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证流式证据包")
+    platform.append_run_event(
+        run["id"], "gate.rejected", "judge", "退回", "需要补证",
+        {"node_key": "evidence", "decision": {"verdict": "revise"}},
+    )
+    platform.append_run_event(
+        run["id"], "agent.rationale.submitted", "private_audit", "私有思考", "不公开",
+        {"content": "private"},
+    )
+    platform.append_run_event(
+        run["id"], "agent.turn.completed", "runtime", "人物回合完成", "Claude SDK 已返回",
+        {
+            "agent_id": agent["id"],
+            "node_key": "evidence",
+            "session_key": "session:streamed",
+            "runtime": {"session_id": "claude-session-streamed", "model": "gpt-5.6-sol", "runtime": "claude_code"},
+        },
+    )
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+
+    result = _write_public_event_snapshot(platform, run["id"], bundle)
+    public_events = [json.loads(line) for line in (bundle / "events.ndjson").read_text(encoding="utf-8").splitlines()]
+    critical_events = json.loads((bundle / "critical-events.json").read_text(encoding="utf-8"))
+    omissions = json.loads((bundle / "projection-omissions.json").read_text(encoding="utf-8"))
+    bounded = platform.get_run_execution_snapshot(run["id"], include_events=False)
+
+    assert result["projection_count"] == len(public_events)
+    assert result["critical_count"] == len(critical_events)
+    assert result["omission_count"] == 1
+    assert omissions["omission_count"] == 1
+    assert omissions["omissions"][0]["reason_code"] == "private_audit_not_shared_with_agents"
+    assert all(event["type"] != "agent.rationale.submitted" for event in public_events)
+    assert result["runtime_binding_projections"][0]["type"] == "agent.turn.completed"
+    assert bounded is not None and bounded["events"] == []
+    assert bounded["event_count_total"] == len(public_events) + omissions["omission_count"]
+    assert not list(bundle.glob("*.tmp"))
+
+
+def test_compact_event_queries_preserve_order_and_latest_boundary(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "compact-event-history.db"))
+    agent = platform.create_agent(
+        name="轻量历史审计", role="质量工程师", description="验证执行器不加载整条 Run", persona="只读必要事件",
+        capabilities=["恢复审计"],
+    )
+    workflow = platform.create_workflow(
+        "轻量历史章法", "按类型读取控制历史", "test",
+        {"nodes": [{"key": "audit", "name": "审计", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证轻量事件历史")
+    platform.append_run_event(run["id"], "agent.tool.completed", "runtime", "工具完成", "大载荷", {"blob": "x" * 10000})
+    platform.append_run_event(run["id"], "gate.rejected", "judge", "退回", "需要整改", {"node_key": "audit"})
+    platform.append_run_event(
+        run["id"], "workflow.execution_policy.amended", "intervention", "策略修订", "无限返工", {"max_revision_rounds": 0}
+    )
+
+    selected = platform.list_run_events_by_types(
+        run["id"], ("gate.rejected", "workflow.execution_policy.amended")
+    )
+
+    assert [item["type"] for item in selected] == [
+        "gate.rejected", "workflow.execution_policy.amended",
+    ]
+    assert platform.get_run_latest_event_sequence(run["id"]) == selected[-1]["sequence"]
+    assert all(item["type"] != "agent.tool.completed" for item in selected)
+
+
+def test_tool_recovery_history_discards_large_outputs_but_keeps_identity(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "compact-tool-recovery.db"))
+    agent = platform.create_agent(
+        name="恢复去重审计", role="质量工程师", description="验证 Tool 历史轻量化", persona="保留身份与终态",
+        capabilities=["恢复审计"],
+    )
+    workflow = platform.create_workflow(
+        "恢复去重章法", "不把大输出长期留在执行器内存", "test",
+        {"nodes": [{"key": "audit", "name": "审计", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证 Tool 恢复历史")
+    platform.append_run_event(
+        run["id"], "agent.tool.completed", "tool", "工具完成", "输出已留在原事件",
+        {
+            "agent_id": agent["id"], "platform_session_id": "session-1",
+            "tool_call_id": "call-1", "tool_name": "Bash", "status": "completed",
+            "exit_code": 0, "stdout": "x" * 1_000_000, "result": {"blob": "y" * 1_000_000},
+        },
+    )
+
+    compact = _compact_tool_recovery_history(platform, run["id"])
+
+    assert len(compact) == 1
+    assert compact[0]["payload"] == {
+        "agent_id": agent["id"], "platform_session_id": "session-1",
+        "tool_call_id": "call-1", "tool_name": "Bash", "status": "completed",
+        "exit_code": 0,
+    }
+
+
 def test_public_event_projection_keeps_runtime_recovery_and_memory_machine_evidence() -> None:
     payload = {
         "entrypoint": "retry",
@@ -525,6 +706,97 @@ def test_run_local_policy_amendment_changes_participants_without_new_workflow_ve
         "architect", "product", "quality", "engineer", "risk"
     ]
     assert policies["max_revision_rounds"] == 6
+
+
+def test_run_local_policy_amendment_supports_auditable_unbounded_revision_loop() -> None:
+    run = {
+        "events": [
+            {
+                "sequence": 11,
+                "type": "workflow.execution_policy.amended",
+                "payload": {
+                    "node_key": "final_report",
+                    "max_revision_rounds": 0,
+                },
+            }
+        ]
+    }
+
+    _, policies = _apply_run_execution_policy_amendments(
+        run,
+        {"final_report": {"key": "final_report"}},
+        {"max_revision_rounds": 3},
+    )
+
+    assert policies["max_revision_rounds"] == 0
+    assert _normalized_max_revision_rounds(0) == 0
+    assert _revision_limit_exhausted(6, 0) is False
+    assert _revision_limit_exhausted(600, 0) is False
+
+
+def test_positive_revision_policy_is_not_silently_capped_at_six() -> None:
+    assert _normalized_max_revision_rounds(12) == 12
+    assert _revision_limit_exhausted(12, 12) is False
+    assert _revision_limit_exhausted(13, 12) is True
+    assert _normalized_max_revision_rounds(None) == 3
+    assert _normalized_max_revision_rounds("invalid") == 3
+
+
+def test_final_judge_can_route_rework_to_transitive_fact_changing_ancestor() -> None:
+    dependencies = {
+        "quality_audit": set(),
+        "remediation_rerun": {"quality_audit"},
+        "final_report": {"remediation_rerun", "quality_audit"},
+        "final_judge": {"final_report"},
+    }
+    task_keys = set(dependencies)
+    definitions = {
+        "remediation_rerun": {
+            "key": "remediation_rerun",
+            "name": "缺陷整改与真实产品重跑",
+            "purpose": "修改源码、Runtime 与 E2E 后重新验证",
+            "type": "team_task",
+        },
+        "final_report": {
+            "key": "final_report",
+            "name": "验收报告封版",
+            "purpose": "汇总报告和缺口清单",
+            "type": "team_task",
+        },
+    }
+
+    assert _upstream_gate_targets("final_judge", dependencies, task_keys) == {
+        "quality_audit", "remediation_rerun", "final_report",
+    }
+    assert _resolve_gate_targets(
+        "final_judge",
+        {"verdict": "revise", "target_node_keys": ["final_report"]},
+        dependencies,
+        task_keys,
+        definitions,
+    ) == {"final_report", "remediation_rerun"}
+
+
+def test_gate_rework_rejects_non_upstream_target_and_prefers_remediation() -> None:
+    dependencies = {
+        "audit": set(),
+        "remediation_rerun": {"audit"},
+        "final_report": {"remediation_rerun"},
+        "final_judge": {"final_report"},
+        "unrelated": set(),
+    }
+    definitions = {
+        "remediation_rerun": {"key": "remediation_rerun", "name": "整改重跑"},
+        "final_report": {"key": "final_report", "name": "报告封版"},
+    }
+
+    assert _resolve_gate_targets(
+        "final_judge",
+        {"verdict": "revise", "target_node_keys": ["unrelated"]},
+        dependencies,
+        set(dependencies),
+        definitions,
+    ) == {"remediation_rerun"}
 
 
 def test_tool_schema_receipt_and_terminal_reconciliation_are_machine_complete() -> None:

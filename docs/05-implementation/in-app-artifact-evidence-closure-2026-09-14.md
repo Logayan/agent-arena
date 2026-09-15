@@ -213,3 +213,51 @@ Run 已处于 `failed` 安全终态，因此受控重启正式 8003 加载当前
 - API/业务完整回归：108 passed；Runtime 合同：91 passed；前端生产构建：1778 modules；
 - 批量 Artifact 归档增加启动对账：若进程在 Registry 已提交、Manifest 批次未刷新时中断，重启会只补齐缺失 ID；恢复操作幂等；
 - 正式应用已停留在 Run `run_bda13e93b2ea` Version 9 的证据中心，并打开 `x/r/test-cases.json` 的真实 JSON 正文供现场复核。
+
+## 20:27 登记回执与实际文件信息拆分
+
+用户现场反馈“点开是 Not Found，且看到的都是文件元数据”。复核确认当前 `/content` 已能按 SHA-256 和 `artifact.inherited` 血缘返回真实字节，但历史继承 Artifact 的详情面板仍把“登记回执”的大小、类型和 SHA 当成主文件信息。例如 `artifact_a16cef0665d1` 的回执仅 136B / `text/markdown`，真实内容来源 `artifact_336f6a0da12b` 为 27,494B / `application/json`。这个展示错位会让用户误判为页面仍只有元数据。
+
+前端现已将两者拆分：
+
+- 主信息显示“实际文件 SHA-256”和“实际文件大小 / 类型”；
+- 只在发生血缘解析时单独显示“登记回执 SHA-256”、“登记回执大小 / 类型”和实际内容来源 Artifact；
+- 增加明确提示：下方预览和下载使用真实文件字节，回执仅用于审计。
+
+真实正式服务 `5173 + 8003` 新增 EVC-008 后为 `8/8 PASS`，`console_errors=[]`、`failed_requests=[]`、`http_errors=[]`。EVC-008 实际打开 `artifact_a16cef0665d1`，读取 27,452 个预览字符，`receipt_only=false`，并保存 `08-inherited-receipt-real-content.png`。前端生产构建通过（1778 modules），Artifact 内容解析影响集 4/4 通过，新增启动快照缓存测试 2/2 通过。
+
+20:38 至 20:39 又在正式 `5173 + 8003`、同一 Run Version 9 上按最终工作区代码完整重跑 8 项 Evidence Center E2E，结果仍为 `8/8 PASS`，浏览器 console、failed request、HTTP 4xx/5xx 均为 0；证据目录为 `deliverables/run_bda13e93b2ea/evidence-center-e2e/final-recheck-20260914/`。随后完整 `server/tests` 回归为 201 passed，Runtime 合同为 91 passed，Claude Agent SDK Bridge 为 10/10 passed，差异 Secret Scan 为 0 命中，OpenClaw 生产路径阻断项为 0。最终 Judge 仍以其冻结快照和正式机器 verdict 为准，不能用本地回归提前替代 `gate.accepted`、`run.converged` 或 `run.completed`。
+
+## 21:15 用户现场再次点击复核
+
+再次从正式 `5173 + 8003` 页面检查同一 Run Version 9。历史错误由两个层面组成：旧页面/旧服务曾请求未注册的 Artifact 路由而返回 FastAPI `404 {"detail":"Not Found"}`；历史继承 Artifact 本身又只物化了 `{source_relative_path, sha256}` 登记回执，导致即使请求成功也像“只有元数据”。
+
+当前正式接口与页面验证：
+
+- `GET /api/platform/artifacts/artifact_a16cef0665d1` 返回 `content_resolution.state=resolved`，实际内容来源为 `artifact_336f6a0da12b`；
+- `GET /api/platform/artifacts/artifact_a16cef0665d1/content` 返回 HTTP 200、27,494 字节 `application/json`；
+- 页面主信息显示真实文件 27 KB，登记回执 136 B 单独显示，正文区域实际渲染 27,452 字符 JSON；
+- 正式 E2E 再次为 8/8 PASS，`console_errors=[]`、`failed_requests=[]`、`http_errors=[]`；
+- 本次证据目录为 `deliverables/run_bda13e93b2ea/evidence-center-e2e/user-not-found-recheck-20260914/`，关键截图为 `screenshots/08-inherited-receipt-real-content.png`。
+
+因此当前页面已不再把 Artifact 的数据库 `content`/登记回执当作文件正文，也不再通过文件系统相对路径打开文件；预览和下载统一经 Artifact 内容 API 与 SHA-256 血缘解析读取真实字节。若浏览器仍停留在旧的 `Not Found` 页面，需要返回原事件现场或刷新正式前端页面，旧 404 页面本身不会自动切换成证据中心。
+
+## 22:10 大 Run 下 Artifact 详情查询退化修复
+
+用户再次现场点击时，5173 前端与 `/api/health` 可以立即响应，但 8003 的 Artifact 详情和 `/content` 请求在 12 至 30 秒观察窗内无返回。数据库与页面双向核验确认真实文件没有丢失：`artifact_a16cef0665d1` 仍能解析到 `artifact_336f6a0da12b`，正式页面已展示 27 KB `application/json` 和 27,452 字符真实正文。问题是大 Run 下的来源回执查询退化，而不是文件不存在。
+
+对 1.2GB 正式 SQLite、121,000+ Run 事件进行查询计划和实测：Artifact ID 主键查询为 0.0003 秒，来源 SHA 查询为 0.0218 秒；回执事件查询虽然已有 `idx_events_artifact_lookup(run_id,type,created_at)`，SQLite 为满足 `ORDER BY sequence` 仍错误选择 `UNIQUE(run_id,sequence)`，导致扫描整个 Run，单次耗时 10.4441 秒。显式使用目标索引后同一查询为 0.0066 秒，约快 1,580 倍。
+
+存储层现对 SQLite 的 Artifact 回执查询显式使用 `idx_events_artifact_lookup`，PostgreSQL 保持原生 Planner 语法；同时新增 `idx_artifacts_content_source(organization_id,sha256,created_at DESC)`，避免来源血缘增长后退化。索引创建放在历史库补齐 `sha256` 字段之后，兼容新库和旧库迁移。Artifact 详情、继承正文、删除前原文和 receipt-only 状态影响集 5/5 通过；编译与 `git diff --check` 通过。
+
+当前正式 Run 仍在 Claude Code SDK 人物回合中，因此没有为加载 Python 查询修复而重启 8003。正式页面已经证明真实正文存在；查询计划修复将在本 Run 到达安全终态后随受控重启加载，并再次执行正式 8 项 Evidence Center E2E。
+
+## 22:35 当前 Attempt 证据镜像路径与流式快照修复
+
+实时事件显示本轮质量角色把 required snapshot `attempt-1ca0ec288c311cb8` 判为 `P0_OPEN_FAIL_CLOSED`。宿主 `code/.jianghu-platform-evidence/snapshots/attempt-1ca0ec288c311cb8` 的 9 个文件全部存在，但人物隔离区的 `delivery/.jianghu-platform-evidence/snapshots/` 只到旧的 `attempt-4a033a0d311ace74`。根因是 Executor Prompt 给出相对 delivery 的 `.jianghu-platform-evidence/...`，Runtime 却把新快照镜像到 delivery 的父级 workspace；人物以 delivery 为 cwd，按合同路径无法读取本次快照。
+
+Runtime 现将当前 Attempt 快照及其内容寻址 Artifact 直接镜像到 `delivery/.jianghu-platform-evidence`。该目录已被文件变更快照明确排除，因此只读证据不会被采集或晋升为人物交付。对应 Claude Bridge 合同 2/2 通过。
+
+同时将证据包构建从“全量事件反序列化 + 279MB NDJSON 字符串 + 200MB critical 列表同时驻留内存”改为每批 1,000 条事件流式投影：三个输出先写 `.tmp`，完成后原子替换；只在内存保留 `agent.turn.completed` 的 Runtime Session 绑定小集合。Artifact 血缘只加载 `artifact.created`、`artifact.inherited` 与 `run.retry_created`，Run 元数据使用独立事件计数。流式快照影响集 6/6、完整 Runtime 合同 94/94 通过。
+
+为确保路径修复在下一轮 Judge 前加载，sequence `122868` 已请求安全暂停。当前人物回合继续自然完成，平台只会在节点边界生成 Checkpoint 并暂停，不杀进程、不覆盖本轮 P0 证据。

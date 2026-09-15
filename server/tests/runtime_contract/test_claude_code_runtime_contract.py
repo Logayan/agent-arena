@@ -246,13 +246,15 @@ def test_current_attempt_evidence_bundle_is_mirrored_with_artifact_bytes(tmp_pat
         encoding="utf-8",
     )
 
-    mirrored = runtime._mirror_evidence_bundle(bundle, runtime.workspace_path(agent))
+    delivery = runtime.workspace_path(agent) / "delivery"
+    delivery.mkdir(parents=True, exist_ok=True)
+    mirrored = runtime._mirror_evidence_bundle(bundle, delivery)
 
-    assert mirrored == runtime.workspace_path(agent) / ".jianghu-platform-evidence" / "snapshots" / "attempt-current"
+    assert mirrored == delivery / ".jianghu-platform-evidence" / "snapshots" / "attempt-current"
     assert (mirrored / "events.ndjson").read_text(encoding="utf-8") == '{"sequence":1}\n'
     assert (mirrored / "artifact-registry.json").is_file()
     assert (mirrored / "../../artifacts/artifact-source-deadbeef.py").resolve().read_bytes() == artifact_bytes
-    assert runtime._workspace_snapshot(runtime.workspace_path(agent) / "delivery") == {}
+    assert runtime._workspace_snapshot(delivery) == {}
 
 
 @pytest.mark.anyio

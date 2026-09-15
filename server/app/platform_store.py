@@ -8,7 +8,7 @@ import shutil
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
 
 from .knowledge_index import SUPPORTED_SUFFIXES, chunk_sections, extract_document, score_chunks
@@ -810,6 +810,14 @@ class PlatformStore:
                 db.execute("ALTER TABLE artifacts ADD COLUMN media_type TEXT NOT NULL DEFAULT 'text/markdown'")
             if "size_bytes" not in artifact_columns:
                 db.execute("ALTER TABLE artifacts ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0")
+            db.execute(
+                """CREATE INDEX IF NOT EXISTS idx_artifacts_content_source
+                   ON artifacts(organization_id,sha256,created_at DESC)"""
+            )
+            db.execute(
+                """CREATE INDEX IF NOT EXISTS idx_artifacts_run_projection
+                   ON artifacts(run_id,organization_id,created_at)"""
+            )
             event_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(events)").fetchall()}
             if "organization_id" not in event_columns:
                 db.execute("ALTER TABLE events ADD COLUMN organization_id TEXT NOT NULL DEFAULT 'org_jianghu'")
@@ -819,6 +827,10 @@ class PlatformStore:
                     organization_id,
                     'org_jianghu'
                 )"""
+            )
+            db.execute(
+                """CREATE INDEX IF NOT EXISTS idx_events_run_projection
+                   ON events(run_id,organization_id,sequence)"""
             )
             intervention_columns = {str(_row_value(row, "name", 1)) for row in db.execute("PRAGMA table_info(run_interventions)").fetchall()}
             if "organization_id" not in intervention_columns:
@@ -1439,9 +1451,20 @@ class PlatformStore:
             artifact_created_at = datetime.fromisoformat(str(artifact["created_at"]))
             event_window_start = (artifact_created_at - timedelta(minutes=5)).isoformat()
             event_window_end = (artifact_created_at + timedelta(minutes=30)).isoformat()
+            # SQLite otherwise prefers the UNIQUE(run_id, sequence) index to
+            # satisfy ORDER BY and scans every event in a large Run before it
+            # applies the narrow type/time window.  The production acceptance
+            # Run has 120k+ events, where that plan made one Artifact detail
+            # request take 10+ seconds.  Force the purpose-built lookup index
+            # locally; PostgreSQL keeps its normal planner syntax.
+            event_source = (
+                "events"
+                if db.postgres
+                else "events INDEXED BY idx_events_artifact_lookup"
+            )
             event_rows = db.execute(
-                """SELECT id,sequence,type,title,summary,payload_json,created_at
-                   FROM events
+                f"""SELECT id,sequence,type,title,summary,payload_json,created_at
+                   FROM {event_source}
                    WHERE run_id=?
                      AND type IN ('artifact.created','artifact.collected','artifact.download.verified','artifact.inherited')
                      AND created_at BETWEEN ? AND ?
@@ -1575,8 +1598,18 @@ class PlatformStore:
                 if exact_source_row:
                     current_id = str(exact_source_row["id"])
                     continue
+                # The SHA lookup above intentionally remains the primary path.
+                # Legacy inherited receipts can still require event lineage,
+                # though, and SQLite otherwise chooses UNIQUE(run_id,sequence)
+                # for ORDER BY and scans an entire long Run.  Use the same
+                # selective event index as Artifact provenance details.
+                event_source = (
+                    "events"
+                    if db.postgres
+                    else "events INDEXED BY idx_events_artifact_lookup"
+                )
                 event_rows = db.execute(
-                    """SELECT payload_json FROM events
+                    f"""SELECT payload_json FROM {event_source}
                        WHERE run_id=? AND type='artifact.inherited' AND payload_json LIKE ?
                        ORDER BY sequence DESC""",
                     (artifact["run_id"], f'%{current_id}%'),
@@ -4532,6 +4565,17 @@ class PlatformStore:
                     ) recent_events ORDER BY sequence""",
                     (run_id, run_organization_id, normalized_event_limit),
                 ).fetchall()
+            revision_event_source = (
+                "events"
+                if db.postgres
+                else "events INDEXED BY idx_events_artifact_lookup"
+            )
+            recent_revision_rows = db.execute(
+                f"SELECT * FROM {revision_event_source} "
+                "WHERE run_id=? AND organization_id=? AND type='gate.rejected' "
+                "ORDER BY created_at DESC LIMIT 20",
+                (run_id, run_organization_id),
+            ).fetchall()
             interventions = db.execute(
                 "SELECT * FROM run_interventions WHERE run_id=? AND organization_id=? ORDER BY created_at",
                 (run_id, run_organization_id),
@@ -4551,6 +4595,14 @@ class PlatformStore:
         result["events"] = [self._event_json(item) for item in events]
         result["event_count_total"] = event_count_total
         result["events_truncated"] = len(events) < event_count_total
+        result["latest_revision_event"] = next(
+            (
+                event
+                for event in (self._event_json(item) for item in recent_revision_rows)
+                if (event.get("payload") or {}).get("expected_rejection") is not True
+            ),
+            None,
+        )
         result["interventions"] = [dict(item) for item in interventions]
         result["git_delivery"] = self.get_run_git_delivery_config(run_id)
         workspace = self._run_workspace(str(result["project_id"]), str(result["id"]))
@@ -4574,6 +4626,7 @@ class PlatformStore:
         organization_id: str | None = None,
         *,
         include_artifact_content: bool = True,
+        include_events: bool = True,
     ) -> dict[str, Any] | None:
         """Load the durable fields needed by the executor without UI projections.
 
@@ -4607,10 +4660,18 @@ class PlatformStore:
                 "WHERE run_id=? AND organization_id=? ORDER BY created_at",
                 (run_id, run_organization_id),
             ).fetchall()
-            events = db.execute(
-                "SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence",
+            event_count_row = db.execute(
+                "SELECT COUNT(*) AS value FROM events WHERE run_id=? AND organization_id=?",
                 (run_id, run_organization_id),
-            ).fetchall()
+            ).fetchone()
+            events = (
+                db.execute(
+                    "SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence",
+                    (run_id, run_organization_id),
+                ).fetchall()
+                if include_events
+                else []
+            )
             interventions = db.execute(
                 "SELECT * FROM run_interventions "
                 "WHERE run_id=? AND organization_id=? ORDER BY created_at",
@@ -4621,6 +4682,7 @@ class PlatformStore:
         result["tasks"] = [self._task(item) for item in tasks]
         result["artifacts"] = [self._artifact(item) for item in artifacts]
         result["events"] = [self._event_json(item) for item in events]
+        result["event_count_total"] = int(_row_value(event_count_row, "value") or 0)
         result["interventions"] = [dict(item) for item in interventions]
         workspace = self._run_workspace(str(result["project_id"]), str(result["id"]))
         result["workspace"] = {
@@ -4634,6 +4696,119 @@ class PlatformStore:
             "tmp": str(workspace / "tmp"),
         }
         return result
+
+    def iter_run_events(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+        *,
+        batch_size: int = 1_000,
+    ) -> Iterator[list[dict[str, Any]]]:
+        """Yield chronological event batches without hydrating a long Run at once."""
+        normalized_batch_size = max(100, min(int(batch_size or 1_000), 10_000))
+        with self._connect() as db:
+            if organization_id:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=?",
+                    (run_id,),
+                ).fetchone()
+            if not run_row:
+                return
+            run_organization_id = str(run_row["organization_id"] or "org_jianghu")
+            cursor = db.execute(
+                "SELECT * FROM events WHERE run_id=? AND organization_id=? ORDER BY sequence",
+                (run_id, run_organization_id),
+            )
+            while True:
+                rows = cursor.fetchmany(normalized_batch_size)
+                if not rows:
+                    break
+                yield [self._event_json(row) for row in rows]
+
+    def list_run_events_by_types(
+        self,
+        run_id: str,
+        event_types: tuple[str, ...],
+        organization_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Load only selected event families for compact lineage calculations."""
+        return [
+            event
+            for batch in self.iter_run_events_by_types(
+                run_id,
+                event_types,
+                organization_id,
+            )
+            for event in batch
+        ]
+
+    def iter_run_events_by_types(
+        self,
+        run_id: str,
+        event_types: tuple[str, ...],
+        organization_id: str | None = None,
+        *,
+        batch_size: int = 1_000,
+    ) -> Iterator[list[dict[str, Any]]]:
+        """Yield selected chronological event families in bounded batches."""
+        normalized_types = tuple(str(item) for item in event_types if item)
+        if not normalized_types:
+            return
+        normalized_batch_size = max(100, min(int(batch_size or 1_000), 10_000))
+        with self._connect() as db:
+            if organization_id:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=?",
+                    (run_id,),
+                ).fetchone()
+            if not run_row:
+                return
+            run_organization_id = str(run_row["organization_id"] or "org_jianghu")
+            placeholders = ",".join("?" for _ in normalized_types)
+            event_source = (
+                "events"
+                if db.postgres
+                else "events INDEXED BY idx_events_artifact_lookup"
+            )
+            cursor = db.execute(
+                f"SELECT * FROM {event_source} "
+                f"WHERE run_id=? AND organization_id=? AND type IN ({placeholders}) ORDER BY sequence",
+                (run_id, run_organization_id, *normalized_types),
+            )
+            while True:
+                rows = cursor.fetchmany(normalized_batch_size)
+                if not rows:
+                    break
+                yield [self._event_json(row) for row in rows]
+
+    def get_run_latest_event_sequence(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+    ) -> int:
+        """Return the durable event boundary without hydrating event payloads."""
+        with self._connect() as db:
+            if organization_id:
+                row = db.execute(
+                    "SELECT MAX(sequence) AS value FROM events WHERE run_id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                row = db.execute(
+                    "SELECT MAX(sequence) AS value FROM events WHERE run_id=?",
+                    (run_id,),
+                ).fetchone()
+        return int(_row_value(row, "value") or 0)
 
     def get_run_state(self, run_id: str, organization_id: str | None = None) -> dict[str, Any] | None:
         """Load only the fields needed by control-plane mutation responses."""

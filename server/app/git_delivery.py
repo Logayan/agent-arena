@@ -88,6 +88,100 @@ def ensure_run_repository(code_root: str | Path, run_id: str) -> dict[str, Any]:
     return {"created": created, "repository": str(repository), "baseline_commit": head}
 
 
+def ensure_run_source_checkout(
+    source_root: str | Path,
+    run_id: str,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a Run-local checkout of the configured product repository.
+
+    The historical ``code/`` directory is a Run delivery ledger and may have
+    been initialized before a remote repository was bound.  Reusing it as if
+    it were the product checkout leaves later remediation nodes with reports
+    and harness files but no real ``client/`` or ``server/`` tree.  A separate
+    checkout keeps that immutable history intact while giving engineering and
+    Judge turns the actual target-branch source and a Git history that can be
+    delivered back to the configured remote.
+
+    Existing dirty checkouts are never reset or overwritten.  A clean checkout
+    is fast-forwarded when possible; an ahead/diverged checkout is preserved so
+    an interrupted Run cannot lose Agent changes.
+    """
+    repository_url = str(config.get("repository_url") or "").strip()
+    if not repository_url:
+        raise GitDeliveryError("git_repository_url_required")
+    target_branch = str(config.get("default_branch") or config.get("target_branch") or "main").strip() or "main"
+    repository = Path(source_root).resolve()
+    created = not (repository / ".git").is_dir()
+    if created:
+        if repository.exists() and any(repository.iterdir()):
+            raise GitDeliveryError("run_source_checkout_not_empty")
+        repository.mkdir(parents=True, exist_ok=True)
+        _run_git(repository, "init", "--quiet")
+        _run_git(repository, "config", "user.name", "Jianghu Platform")
+        _run_git(repository, "config", "user.email", "platform@jianghu.local")
+        _run_git(repository, "remote", "add", "origin", repository_url)
+    else:
+        existing = _run_git(repository, "remote", "get-url", "origin", check=False)
+        _run_git(
+            repository,
+            "remote",
+            "set-url" if existing.returncode == 0 else "add",
+            "origin",
+            repository_url,
+        )
+
+    auth_environment = _remote_auth_environment(config)
+    _run_git(
+        repository,
+        "fetch",
+        "--no-tags",
+        "origin",
+        f"refs/heads/{target_branch}:refs/remotes/origin/{target_branch}",
+        env=auth_environment,
+    )
+    target_commit = _run_git(repository, "rev-parse", f"refs/remotes/origin/{target_branch}").stdout.strip()
+    run_branch = f"jianghu-run-{re.sub(r'[^a-zA-Z0-9_-]+', '-', run_id).strip('-')[:48] or 'run'}"
+    update_status = "created"
+    if created:
+        _run_git(
+            repository,
+            "checkout",
+            "--quiet",
+            "-b",
+            run_branch,
+            f"refs/remotes/origin/{target_branch}",
+        )
+    else:
+        dirty = bool(_run_git(repository, "status", "--porcelain").stdout.strip())
+        current_branch = _run_git(repository, "branch", "--show-current").stdout.strip()
+        if dirty:
+            update_status = "preserved_dirty"
+        elif current_branch != run_branch:
+            update_status = "preserved_branch"
+        else:
+            fast_forward = _run_git(
+                repository,
+                "merge",
+                "--ff-only",
+                f"refs/remotes/origin/{target_branch}",
+                check=False,
+            )
+            update_status = "fast_forwarded" if fast_forward.returncode == 0 else "preserved_diverged"
+
+    head = _run_git(repository, "rev-parse", "HEAD").stdout.strip()
+    return {
+        "created": created,
+        "repository": str(repository),
+        "baseline_commit": head,
+        "target_commit": target_commit,
+        "target_branch": target_branch,
+        "run_branch": run_branch,
+        "update_status": update_status,
+        "authoritative_source": True,
+    }
+
+
 def _remote_auth_environment(config: dict[str, Any]) -> dict[str, str]:
     environment = os.environ.copy()
     token = str(config.get("token") or "")

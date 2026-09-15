@@ -59,6 +59,7 @@
 .evidence-text-preview pre{max-height:360px;margin:0;padding:11px;color:#30483f;font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow:auto;overflow-wrap:anywhere}
 .evidence-preview-notice{margin:10px 0;padding:10px;border:2px dashed #9a753e;border-radius:9px;background:#fff0c3;color:#765328;font-size:11px;line-height:1.55}
 .evidence-detail-warning{margin:10px 0;padding:9px;border:2px dashed #8d703d;border-radius:9px;background:#fff2c7;color:#705126;font-size:10px;line-height:1.5}
+.evidence-content-resolved{margin:10px 0;padding:9px;border:2px solid #4f7768;border-radius:9px;background:#e1edd8;color:#31594d;font-size:10px;font-weight:800;line-height:1.55}
 .evidence-document-preview{display:block;width:100%;height:420px;margin:10px 0;border:3px solid #516f65;border-radius:10px;background:#fff}
 .evidence-receipts{background:#eef1df}.evidence-receipts>header b{display:grid;min-width:24px;height:22px;place-items:center;border-radius:12px;background:#315d53;color:#fff;font-size:10px}
 .evidence-receipts ol{display:flex;flex-direction:column;gap:6px;margin:0;padding:8px;list-style:none}.evidence-receipts li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:7px;padding:7px;border:1px solid #91a097;border-radius:7px;background:#fffdf3}

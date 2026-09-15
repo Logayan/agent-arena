@@ -12,6 +12,7 @@ from server.app.git_delivery import (
     commit_run_changes,
     deliver_commit_to_remote,
     ensure_run_repository,
+    ensure_run_source_checkout,
     export_commit_patch,
 )
 
@@ -51,6 +52,65 @@ def test_run_repository_creates_an_empty_baseline_without_swallowing_delivery_fi
     )
     assert commit is not None
     assert commit["files"] == [{"status": "A", "path": "README.md"}]
+
+
+def test_run_source_checkout_exposes_authoritative_product_tree_without_reusing_delivery_ledger(tmp_path: Path) -> None:
+    remote = tmp_path / "product.git"
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
+    seed = tmp_path / "product-seed"
+    seed.mkdir()
+    subprocess.run(["git", "init"], cwd=seed, check=True, capture_output=True)
+    _git(seed, "config", "user.name", "Seed")
+    _git(seed, "config", "user.email", "seed@example.com")
+    (seed / "client").mkdir()
+    (seed / "server").mkdir()
+    (seed / "client" / "package.json").write_text('{"scripts":{"build":"vite build"}}\n', encoding="utf-8")
+    (seed / "server" / "main.py").write_text("RUNTIME = 'claude_code'\n", encoding="utf-8")
+    _git(seed, "add", ".")
+    _git(seed, "commit", "-m", "product baseline")
+    _git(seed, "branch", "-M", "master")
+    _git(seed, "remote", "add", "origin", str(remote))
+    _git(seed, "push", "origin", "master")
+    target_commit = _git(seed, "rev-parse", "HEAD")
+
+    source_root = tmp_path / "run" / "product-source"
+    result = ensure_run_source_checkout(
+        source_root,
+        "run_source_test",
+        {
+            "repository_url": str(remote),
+            "target_branch": "master",
+            "delivery_mode": "push_branch",
+            "username": "",
+            "token": "",
+        },
+    )
+
+    assert result["created"] is True
+    assert result["authoritative_source"] is True
+    assert result["target_commit"] == target_commit
+    assert result["baseline_commit"] == target_commit
+    assert result["run_branch"] == "jianghu-run-run_source_test"
+    assert (source_root / "client" / "package.json").is_file()
+    assert (source_root / "server" / "main.py").is_file()
+    assert _git(source_root, "remote", "get-url", "origin") == str(remote)
+
+    repeated = ensure_run_source_checkout(
+        source_root,
+        "run_source_test",
+        {"repository_url": str(remote), "target_branch": "master", "token": ""},
+    )
+    assert repeated["created"] is False
+    assert repeated["update_status"] == "fast_forwarded"
+
+    (source_root / "local-change.txt").write_text("preserve me\n", encoding="utf-8")
+    preserved = ensure_run_source_checkout(
+        source_root,
+        "run_source_test",
+        {"repository_url": str(remote), "target_branch": "master", "token": ""},
+    )
+    assert preserved["update_status"] == "preserved_dirty"
+    assert (source_root / "local-change.txt").read_text(encoding="utf-8") == "preserve me\n"
 
 
 def test_engineering_changes_create_a_traceable_commit_and_patch(tmp_path: Path) -> None:

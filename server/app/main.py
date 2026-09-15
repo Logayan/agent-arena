@@ -279,6 +279,12 @@ class RunRecoveryRequest(BaseModel):
     from_task_id: str | None = None
 
 
+class RunExecutionPolicyAmendRequest(BaseModel):
+    node_key: str = Field(min_length=1, max_length=200)
+    max_revision_rounds: int = Field(ge=0)
+    reason: str = Field(min_length=1, max_length=2_000)
+
+
 class RunTimeExtensionRequest(BaseModel):
     minutes: Literal[30, 60, 120] = 60
 
@@ -2560,6 +2566,65 @@ async def recover_platform_run(
     return {
         "run_state": platform_store.get_run_state(run_id, organization_id),
         "recovery": {**recovery, "execution": "started", "runtime_snapshot": runtime_snapshot},
+    }
+
+
+@app.post("/api/platform/runs/{run_id}/execution-policy")
+async def amend_platform_run_execution_policy(
+    run_id: str,
+    request: RunExecutionPolicyAmendRequest,
+    organization_id: str | None = None,
+) -> dict[str, object]:
+    run_snapshot = await asyncio.to_thread(
+        platform_store.get_run_live_snapshot,
+        run_id,
+        organization_id,
+        event_limit=10,
+    )
+    if not run_snapshot:
+        raise HTTPException(
+            status_code=404,
+            detail="run_not_found_in_organization" if organization_id else "run_not_found",
+        )
+    task = next(
+        (
+            item
+            for item in run_snapshot.get("tasks", [])
+            if str(item.get("node_key") or "") == request.node_key
+        ),
+        None,
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="execution_policy_node_not_found")
+    mode = "unbounded" if request.max_revision_rounds == 0 else "bounded"
+    payload = {
+        "node_key": request.node_key,
+        "task_id": str(task.get("id") or ""),
+        "max_revision_rounds": request.max_revision_rounds,
+        "revision_policy_mode": mode,
+        "reason": request.reason,
+        "source": "run_local_auditable_amendment",
+    }
+    await asyncio.to_thread(
+        platform_store.append_run_event,
+        run_id,
+        "workflow.execution_policy.amended",
+        "intervention",
+        "当前 Run 的返工循环策略已修订",
+        (
+            "独立 Judge 可持续退回责任节点，直至获得可复核结论。"
+            if request.max_revision_rounds == 0
+            else f"独立 Judge 最多可触发 {request.max_revision_rounds} 轮返工。"
+        ),
+        payload,
+    )
+    return {
+        "run_state": await asyncio.to_thread(
+            platform_store.get_run_state,
+            run_id,
+            organization_id,
+        ),
+        "amendment": payload,
     }
 
 
