@@ -4814,7 +4814,14 @@ class PlatformStore:
         *,
         batch_size: int = 1_000,
     ) -> Iterator[list[dict[str, Any]]]:
-        """Yield selected chronological event families in bounded batches."""
+        """Yield selected chronological event families in bounded keyset batches.
+
+        A single ``type IN (...) ORDER BY sequence`` query can force SQLite to
+        sort hundreds of megabytes of event payloads into the system temp
+        directory. Mature Runs must instead advance through the durable
+        ``(run_id, sequence)`` order so recovery remains independent of temp
+        disk capacity.
+        """
         normalized_types = tuple(str(item) for item in event_types if item)
         if not normalized_types:
             return
@@ -4834,21 +4841,24 @@ class PlatformStore:
                 return
             run_organization_id = str(run_row["organization_id"] or "org_jianghu")
             placeholders = ",".join("?" for _ in normalized_types)
-            event_source = (
-                "events"
-                if db.postgres
-                else "events INDEXED BY idx_events_artifact_lookup"
-            )
-            cursor = db.execute(
-                f"SELECT * FROM {event_source} "
-                f"WHERE run_id=? AND organization_id=? AND type IN ({placeholders}) ORDER BY sequence",
-                (run_id, run_organization_id, *normalized_types),
-            )
+            last_sequence = 0
             while True:
-                rows = cursor.fetchmany(normalized_batch_size)
+                rows = db.execute(
+                    "SELECT * FROM events "
+                    f"WHERE run_id=? AND organization_id=? AND type IN ({placeholders}) "
+                    "AND sequence>? ORDER BY sequence LIMIT ?",
+                    (
+                        run_id,
+                        run_organization_id,
+                        *normalized_types,
+                        last_sequence,
+                        normalized_batch_size,
+                    ),
+                ).fetchall()
                 if not rows:
                     break
                 yield [self._event_json(row) for row in rows]
+                last_sequence = int(rows[-1]["sequence"])
 
     def get_run_latest_event_sequence(
         self,

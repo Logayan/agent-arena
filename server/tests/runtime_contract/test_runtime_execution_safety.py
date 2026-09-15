@@ -769,6 +769,37 @@ def test_compact_event_queries_preserve_order_and_latest_boundary(tmp_path: Path
     assert all(item["type"] != "agent.tool.completed" for item in selected)
 
 
+def test_typed_event_iterator_uses_multiple_sequence_keyset_batches(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "keyset-event-history.db"))
+    agent = platform.create_agent(
+        name="游标历史审计", role="质量工程师", description="验证大 Run 分批读取", persona="不允许全量临时排序",
+        capabilities=["恢复审计"],
+    )
+    workflow = platform.create_workflow(
+        "游标恢复章法", "按 sequence 游标读取 Tool 事件", "test",
+        {"nodes": [{"key": "audit", "name": "审计", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证 keyset 事件读取")
+    initial_sequence = platform.get_run_latest_event_sequence(run["id"])
+    expected_sequences: list[int] = []
+    for index in range(250):
+        event_type = "agent.tool.completed" if index % 2 == 0 else "agent.action.progress"
+        platform.append_run_event(
+            run["id"], event_type, "tool", f"事件 {index}", "payload", {"index": index}
+        )
+        if event_type == "agent.tool.completed":
+            expected_sequences.append(initial_sequence + index + 1)
+
+    batches = list(platform.iter_run_events_by_types(
+        run["id"], ("agent.tool.completed",), batch_size=100
+    ))
+    observed_sequences = [event["sequence"] for batch in batches for event in batch]
+
+    assert [len(batch) for batch in batches] == [100, 25]
+    assert observed_sequences == expected_sequences
+    assert observed_sequences == sorted(observed_sequences)
+
+
 def test_tool_recovery_history_discards_large_outputs_but_keeps_identity(tmp_path: Path) -> None:
     platform = PlatformStore(str(tmp_path / "compact-tool-recovery.db"))
     agent = platform.create_agent(

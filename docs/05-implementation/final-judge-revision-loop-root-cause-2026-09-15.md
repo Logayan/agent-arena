@@ -233,3 +233,50 @@ Frontend production build: 1778 modules transformed, PASS
 ```
 
 下一次恢复必须在加载第二层宿主修复后执行，并确认 `run.recovered` 明确记录 `max_parallel_runtime_sessions=2`。若再次发生进程启动失败，应出现 `agent.action.retrying/failed` 及 Claude Runtime 诊断元数据，而不能再以原生 `OSError` 直接从 `agent.turn.started` 跳到 `task.failed`。
+
+## 2026-09-16 epoch49：恢复历史查询触发 SQLite 临时磁盘耗尽
+
+第二层修复提交 `08cd98d` 推送并加载后，epoch49 的 `run.recovered` 已明确记录：
+
+```text
+execution_epoch=49
+max_parallel_agents=5
+max_parallel_runtime_sessions=2
+runtime=claude_code
+runtime_mode=agent-sdk-bridge
+completed_node_keys=8
+interrupted_node_keys=2
+```
+
+该回合在启动最终报告前，于 sequence `188804 run.failed` 以 `OperationalError / diag-bf6f6c1c087e2b00` 终止。现场最后成功事件为历史 Runtime Artifact 下载复算，下一步正好是 `_compact_tool_recovery_history()`。
+
+对生产数据库执行原查询已直接复现真实错误：
+
+```text
+sqlite3.OperationalError: database or disk is full
+```
+
+原实现对 18 万+事件使用：
+
+```sql
+SELECT *
+FROM events INDEXED BY idx_events_artifact_lookup
+WHERE run_id=? AND organization_id=? AND type IN (...)
+ORDER BY sequence
+```
+
+被强制使用的索引按 `run_id,type,created_at` 排列，不能满足跨多个 type 的 `ORDER BY sequence`。SQLite 因此把包含大 Tool payload 的候选行写入系统临时排序文件；现场系统盘只剩约 `0.57 GB`，最终触发临时磁盘耗尽。Run 数据库本身位于 D 盘，错误不是 Registry 或事件损坏。
+
+修复将按类型事件读取改为基于持久 `sequence` 的 keyset 游标：
+
+```sql
+SELECT * FROM events
+WHERE run_id=? AND organization_id=? AND type IN (...)
+  AND sequence>?
+ORDER BY sequence
+LIMIT ?
+```
+
+每批完成后以最后一个 sequence 继续，不再进行全量临时排序，同时保持事件顺序、无重复、无遗漏和原 payload 可审计。新增测试覆盖 250 条交错事件、两个真实批次 `[100,25]` 及完整 sequence 顺序。
+
+验证结果：定向 Runtime 安全合同 `56 passed`；后端全量 `237 passed, 1 warning`。下一次恢复应越过历史 Tool 恢复扫描并进入最终报告人物回合。
