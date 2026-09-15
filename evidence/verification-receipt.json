@@ -1,0 +1,487 @@
+{
+  "schema_version": "jianghu.runtime-mapping-verification-receipt.v1",
+  "run_id": "run_6940048dd30f",
+  "snapshot_id": "attempt-415cb8b318fda11f",
+  "source_generated_at": "2026-09-15T06:32:17.715139+00:00",
+  "status": "PASS_EVIDENCE_INTEGRITY_NO_GO_ACCEPTANCE",
+  "checks": {
+    "snapshot:events.ndjson": true,
+    "snapshot:critical-events.json": true,
+    "snapshot:artifact-registry.json": true,
+    "snapshot:runtime-attestation.json": true,
+    "snapshot:runtime-source-attestation.json": true,
+    "snapshot:run-metadata.json": true,
+    "snapshot:run-lineage.json": true,
+    "snapshot:projection-omissions.json": true,
+    "event_sequence_exact_1_94": true,
+    "event_ids_unique": true,
+    "source_event_hashes_unique_and_well_formed": true,
+    "projection_omissions_zero": true,
+    "critical_full_object_exact": true,
+    "metadata_lag_disclosed": true,
+    "artifact_raw_bytes_13_of_13": true,
+    "artifact_registry_source_events_exact": true,
+    "artifact_lifecycle_13_of_13": true,
+    "source_attestation_matches_registry": true,
+    "current_node_candidate_artifact_zero_at_cutoff": true,
+    "sdk_dependency_pinned_0_3_268": true,
+    "source_contracts_complete": true,
+    "route_entrypoints_10_of_10": true,
+    "route_window_duration_exact": true,
+    "route_zero_openclaw_single_writer": true,
+    "fallback_denied_and_rollback_healthy": true,
+    "iam_matrix_30_expected": true,
+    "authorization_total_31_with_independent_policy_deny": true,
+    "runtime_acceptance_events_absent_and_blocked": true,
+    "session_binding_zero": true,
+    "historical_openclaw_bytes_absent": true,
+    "mapping_contract": true,
+    "gap_contract": true,
+    "evidence_index_contract": true,
+    "public_collaboration_content_and_event_boundary": true,
+    "submission_review_59_of_59": true,
+    "residual_references_classified": true
+  },
+  "metrics": {
+    "public_events": 94,
+    "sequence_min": 1,
+    "sequence_max": 94,
+    "critical_events_exact": 92,
+    "projection_omissions": 0,
+    "metadata_event_count": 93,
+    "projection_minus_metadata": 1,
+    "registry_artifacts": 13,
+    "raw_artifacts_verified": 13,
+    "artifact_lifecycles_verified": 13,
+    "route_entrypoints": 10,
+    "route_window_seconds": 16.218474,
+    "authorization_events": 31,
+    "iam_probes": 30,
+    "iam_allow": 24,
+    "iam_deny": 6,
+    "policy_probe_deny": 1,
+    "session_bindings": 0,
+    "current_node_candidate_artifacts": 0,
+    "public_collaboration_messages_content_level": 4,
+    "public_collaboration_messages_frozen_event_level": 0,
+    "reviewed_public_submission_files": 59,
+    "runtime_acceptance_event_counts": {
+      "agent.turn.completed": 0,
+      "agent.tool.started": 0,
+      "agent.tool.completed": 0,
+      "agent.side_effect.verified": 0,
+      "agent.message.sent": 0,
+      "agent.memory.committed": 0,
+      "run.paused": 0,
+      "run.resumed": 0,
+      "run.recovered": 0,
+      "gate.rejected": 0,
+      "run.converged": 0,
+      "run.completed": 0
+    },
+    "open_gaps": 13,
+    "p0_open": 11,
+    "p1_open": 2
+  },
+  "route_window": {
+    "started_at": "2026-09-15T06:31:50.236023+00:00",
+    "ended_at": "2026-09-15T06:32:06.454497+00:00",
+    "sample_count": 10,
+    "duration_seconds": 16.218474,
+    "classification": "PASS_PLATFORM_PROBE_WINDOW_ONLY",
+    "openclaw_traffic_count": 0,
+    "dual_write_count": 0,
+    "silent_fallback_count": 0
+  },
+  "artifact_byte_and_lifecycle_verification": [
+    {
+      "artifact_id": "artifact_fa7bed6afb42",
+      "source_event_sequence": 2,
+      "source_event_id": "evt_154176475abf",
+      "source_path": "server/app/agent_runtime_registry.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_fa7bed6afb42-2ab7f42bab2d80d6.py",
+      "expected_size_bytes": 2587,
+      "observed_size_bytes": 2587,
+      "expected_sha256": "2ab7f42bab2d80d6ee0e5adf39a5b3965ee02c8ffacffadda297128e062f50e3",
+      "registry_observed_sha256": "2ab7f42bab2d80d6ee0e5adf39a5b3965ee02c8ffacffadda297128e062f50e3",
+      "independently_computed_sha256": "2ab7f42bab2d80d6ee0e5adf39a5b3965ee02c8ffacffadda297128e062f50e3",
+      "lifecycle_sequences": [
+        2,
+        3,
+        4
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_642f67605eab",
+      "source_event_sequence": 5,
+      "source_event_id": "evt_f446f2305414",
+      "source_path": "server/app/main.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_642f67605eab-8c699a216aec032a.py",
+      "expected_size_bytes": 141439,
+      "observed_size_bytes": 141439,
+      "expected_sha256": "8c699a216aec032addeeef7c1acb7f59c5c2c8eaf96e55e6925d4b40051d7566",
+      "registry_observed_sha256": "8c699a216aec032addeeef7c1acb7f59c5c2c8eaf96e55e6925d4b40051d7566",
+      "independently_computed_sha256": "8c699a216aec032addeeef7c1acb7f59c5c2c8eaf96e55e6925d4b40051d7566",
+      "lifecycle_sequences": [
+        5,
+        6,
+        7
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_884782192bec",
+      "source_event_sequence": 8,
+      "source_event_id": "evt_b47f86e38b4c",
+      "source_path": "server/app/platform_executor.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_884782192bec-faeb25ed535cdd96.py",
+      "expected_size_bytes": 295920,
+      "observed_size_bytes": 295920,
+      "expected_sha256": "faeb25ed535cdd96f7050ba7ae5f4b50381303211a051d3851aaa3728b5d09b2",
+      "registry_observed_sha256": "faeb25ed535cdd96f7050ba7ae5f4b50381303211a051d3851aaa3728b5d09b2",
+      "independently_computed_sha256": "faeb25ed535cdd96f7050ba7ae5f4b50381303211a051d3851aaa3728b5d09b2",
+      "lifecycle_sequences": [
+        8,
+        9,
+        10
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_f7b229debd94",
+      "source_event_sequence": 11,
+      "source_event_id": "evt_11031a4fd3fc",
+      "source_path": "server/app/platform_store.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_f7b229debd94-a0667d6ac3718069.py",
+      "expected_size_bytes": 291489,
+      "observed_size_bytes": 291489,
+      "expected_sha256": "a0667d6ac371806930b1df9104fd295270201bb257ab4ecedae43cc3d62e7b89",
+      "registry_observed_sha256": "a0667d6ac371806930b1df9104fd295270201bb257ab4ecedae43cc3d62e7b89",
+      "independently_computed_sha256": "a0667d6ac371806930b1df9104fd295270201bb257ab4ecedae43cc3d62e7b89",
+      "lifecycle_sequences": [
+        11,
+        12,
+        13
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_de3b19abe481",
+      "source_event_sequence": 14,
+      "source_event_id": "evt_0dff0ab56792",
+      "source_path": "server/app/claude_code_runtime.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_de3b19abe481-79efd4215c2c3513.py",
+      "expected_size_bytes": 46405,
+      "observed_size_bytes": 46405,
+      "expected_sha256": "79efd4215c2c351357c58dbbf21465d6dc02046bef470cf5208a9b54e73846fc",
+      "registry_observed_sha256": "79efd4215c2c351357c58dbbf21465d6dc02046bef470cf5208a9b54e73846fc",
+      "independently_computed_sha256": "79efd4215c2c351357c58dbbf21465d6dc02046bef470cf5208a9b54e73846fc",
+      "lifecycle_sequences": [
+        14,
+        15,
+        16
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_4972d347b67b",
+      "source_event_sequence": 17,
+      "source_event_id": "evt_3ffc82330648",
+      "source_path": "server/claude_agent_runtime/bridge.mjs",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_4972d347b67b-28910db5693a4a1b.mjs",
+      "expected_size_bytes": 25426,
+      "observed_size_bytes": 25426,
+      "expected_sha256": "28910db5693a4a1b26e16e278fe2c7a210b8177cdf870d656142083c56ec2abb",
+      "registry_observed_sha256": "28910db5693a4a1b26e16e278fe2c7a210b8177cdf870d656142083c56ec2abb",
+      "independently_computed_sha256": "28910db5693a4a1b26e16e278fe2c7a210b8177cdf870d656142083c56ec2abb",
+      "lifecycle_sequences": [
+        17,
+        18,
+        19
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_c3d918b43572",
+      "source_event_sequence": 20,
+      "source_event_id": "evt_5b795914b900",
+      "source_path": "server/claude_agent_runtime/package.json",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_c3d918b43572-d6440574ed1ad60d.json",
+      "expected_size_bytes": 354,
+      "observed_size_bytes": 354,
+      "expected_sha256": "d6440574ed1ad60d750198580b6989636345f02de6eec4a1b0f21999cc807cd8",
+      "registry_observed_sha256": "d6440574ed1ad60d750198580b6989636345f02de6eec4a1b0f21999cc807cd8",
+      "independently_computed_sha256": "d6440574ed1ad60d750198580b6989636345f02de6eec4a1b0f21999cc807cd8",
+      "lifecycle_sequences": [
+        20,
+        21,
+        22
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_84387ee84712",
+      "source_event_sequence": 23,
+      "source_event_id": "evt_ce177dcb7204",
+      "source_path": "server/claude_agent_runtime/package-lock.json",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_84387ee84712-a6d66ae59fe8f6a6.json",
+      "expected_size_bytes": 53661,
+      "observed_size_bytes": 53661,
+      "expected_sha256": "a6d66ae59fe8f6a6df6574f7b3c418ba669a2f65a41b82f2ccd368c8054f10a1",
+      "registry_observed_sha256": "a6d66ae59fe8f6a6df6574f7b3c418ba669a2f65a41b82f2ccd368c8054f10a1",
+      "independently_computed_sha256": "a6d66ae59fe8f6a6df6574f7b3c418ba669a2f65a41b82f2ccd368c8054f10a1",
+      "lifecycle_sequences": [
+        23,
+        24,
+        25
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_4d0828bcd70a",
+      "source_event_sequence": 26,
+      "source_event_id": "evt_90d41dbd3004",
+      "source_path": "client/src/App.vue",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_4d0828bcd70a-e0963a924852d1c2.vue",
+      "expected_size_bytes": 267547,
+      "observed_size_bytes": 267547,
+      "expected_sha256": "e0963a924852d1c26f2a9900c9ff575bcfc9e1ad79de7f538fdc922a78bfdf07",
+      "registry_observed_sha256": "e0963a924852d1c26f2a9900c9ff575bcfc9e1ad79de7f538fdc922a78bfdf07",
+      "independently_computed_sha256": "e0963a924852d1c26f2a9900c9ff575bcfc9e1ad79de7f538fdc922a78bfdf07",
+      "lifecycle_sequences": [
+        26,
+        27,
+        28
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_8deec74b6eb1",
+      "source_event_sequence": 29,
+      "source_event_id": "evt_7adf9672ca90",
+      "source_path": "client/src/api.ts",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_8deec74b6eb1-9adbd8dcaaa090fa.ts",
+      "expected_size_bytes": 21207,
+      "observed_size_bytes": 21207,
+      "expected_sha256": "9adbd8dcaaa090fadbf0a22a7001fdd09799a70d50e181ac624f78b14a1e7984",
+      "registry_observed_sha256": "9adbd8dcaaa090fadbf0a22a7001fdd09799a70d50e181ac624f78b14a1e7984",
+      "independently_computed_sha256": "9adbd8dcaaa090fadbf0a22a7001fdd09799a70d50e181ac624f78b14a1e7984",
+      "lifecycle_sequences": [
+        29,
+        30,
+        31
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_df2d04b40371",
+      "source_event_sequence": 32,
+      "source_event_id": "evt_8112b6c1e0e5",
+      "source_path": "Dockerfile",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_df2d04b40371-19ae22a000046464.bin",
+      "expected_size_bytes": 2899,
+      "observed_size_bytes": 2899,
+      "expected_sha256": "19ae22a000046464e5becea5d6fde36cda5467c1fc65eb07d6073b830c6a1f8a",
+      "registry_observed_sha256": "19ae22a000046464e5becea5d6fde36cda5467c1fc65eb07d6073b830c6a1f8a",
+      "independently_computed_sha256": "19ae22a000046464e5becea5d6fde36cda5467c1fc65eb07d6073b830c6a1f8a",
+      "lifecycle_sequences": [
+        32,
+        33,
+        34
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_3a7aa238ae26",
+      "source_event_sequence": 35,
+      "source_event_id": "evt_a23af0bc6080",
+      "source_path": "compose.yaml",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_3a7aa238ae26-de89820b7b94c13f.yaml",
+      "expected_size_bytes": 4262,
+      "observed_size_bytes": 4262,
+      "expected_sha256": "de89820b7b94c13f65656ccfbb0ae8b3bbce6506f2fd0a1cd6b57cd77fcfddd4",
+      "registry_observed_sha256": "de89820b7b94c13f65656ccfbb0ae8b3bbce6506f2fd0a1cd6b57cd77fcfddd4",
+      "independently_computed_sha256": "de89820b7b94c13f65656ccfbb0ae8b3bbce6506f2fd0a1cd6b57cd77fcfddd4",
+      "lifecycle_sequences": [
+        35,
+        36,
+        37
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    },
+    {
+      "artifact_id": "artifact_7947e3200fe1",
+      "source_event_sequence": 38,
+      "source_event_id": "evt_544f25b1b549",
+      "source_path": ".env.docker.example",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_7947e3200fe1-fe74a6e1bd2d79f9.example",
+      "expected_size_bytes": 794,
+      "observed_size_bytes": 794,
+      "expected_sha256": "fe74a6e1bd2d79f9310a74d5a2eff003ca064619e94977b79f31f1821f60b125",
+      "registry_observed_sha256": "fe74a6e1bd2d79f9310a74d5a2eff003ca064619e94977b79f31f1821f60b125",
+      "independently_computed_sha256": "fe74a6e1bd2d79f9310a74d5a2eff003ca064619e94977b79f31f1821f60b125",
+      "lifecycle_sequences": [
+        38,
+        39,
+        40
+      ],
+      "lifecycle_types": [
+        "artifact.created",
+        "artifact.collected",
+        "artifact.download.verified"
+      ],
+      "verified": true
+    }
+  ],
+  "residual_openclaw_references": [
+    {
+      "path": "server/app/main.py",
+      "line_count": 2,
+      "lines": [
+        697,
+        1819
+      ],
+      "classification": "api_and_error_compatibility"
+    },
+    {
+      "path": "server/app/platform_executor.py",
+      "line_count": 33,
+      "lines": [
+        177,
+        823,
+        825,
+        863,
+        864,
+        865,
+        868,
+        869,
+        880,
+        881,
+        887,
+        888,
+        890,
+        891,
+        893,
+        894,
+        899,
+        916,
+        920,
+        1224,
+        2254,
+        2286,
+        2291,
+        2295,
+        2317,
+        2321,
+        2329,
+        2330,
+        2337,
+        2354,
+        2357,
+        2361,
+        2376
+      ],
+      "classification": "verification_and_negative_probe"
+    },
+    {
+      "path": "server/app/platform_store.py",
+      "line_count": 3,
+      "lines": [
+        857,
+        5030,
+        5080
+      ],
+      "classification": "data_and_event_compatibility"
+    },
+    {
+      "path": "client/src/App.vue",
+      "line_count": 5,
+      "lines": [
+        929,
+        930,
+        1360,
+        1547,
+        1644
+      ],
+      "classification": "ui_event_and_text_compatibility"
+    }
+  ],
+  "decisions": {
+    "mapping_deliverable": "CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING",
+    "complete_claude_agent_sdk_runtime_migration": "NO_GO",
+    "openclaw_retirement": "NOT_APPROVED",
+    "public_collaboration_content": "PASS_4_MESSAGES_2_ACTORS_2_ROUNDS",
+    "public_collaboration_frozen_event_attestation": "BLOCKED_0_AT_SEQUENCE_94",
+    "current_node_candidate_artifact_lifecycle": "BLOCKED_0_AT_SEQUENCE_94"
+  },
+  "limitations": [
+    "public_agent_safe projection is not the private source database export",
+    "source_event_sha256 cannot be independently recomputed without source event bytes",
+    "historical OpenClaw baseline bytes are not registered in this snapshot",
+    "source implementation does not substitute for current-run execution evidence",
+    "route observation window is short and not a long-term production traffic proof",
+    "public two-round message content was provided after the frozen cutoff and is not a substitute for frozen event-level collaboration telemetry",
+    "the 13 registered artifacts are runtime source/deployment inputs, not the current node candidate package"
+  ]
+}

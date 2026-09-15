@@ -1,0 +1,341 @@
+{
+  "schema_version": "jianghu.engineering-submission-review.v1",
+  "run_id": "run_6940048dd30f",
+  "node": "openclaw_baseline_mapping",
+  "review_method": [
+    "Read both authorized public manifests in full and enumerated every declared path.",
+    "Read source-bearing reports, mappings, gaps, schemas, verifier/build implementation, and tests from both submissions.",
+    "Recomputed the immutable platform snapshot and all 13 registered raw Artifact hashes from delivery/.jianghu-platform-evidence.",
+    "Did not read private conversations, private Memory, provider credentials, or out-of-scope cached command output."
+  ],
+  "submissions": [
+    {
+      "agent_id": "agent_cb495a9bea1e",
+      "agent_name": "程观澜",
+      "manifest_path": "collaboration/openclaw_baseline_mapping/loop-1-attempt-1/agent_cb495a9bea1e/manifest.json",
+      "manifest_declared_file_count": 14,
+      "reviewed_file_count": 14,
+      "all_paths_decided": true,
+      "files": [
+        {
+          "path": "README.md",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "docs/01_系统架构视角隔离盘点.md",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "docs/OpenClaw-Claude-Agent-SDK-Runtime能力映射与架构边界.md",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "evidence/evidence-index.json",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "gaps/migration-gaps.json",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "mapping/capability-mapping.json",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "pyproject.toml",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "schemas/runtime-event-envelope.schema.json",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "src/verify_mapping.py",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "tests/test_verify_mapping.py",
+          "decision": "ADOPTED_AND_EXTENDED",
+          "reason": "Selected as the compact authoritative package base; updated where consensus, collaboration status, or stronger checks required."
+        },
+        {
+          "path": "artifacts/sha256-manifest.json",
+          "decision": "REGENERATED_AFTER_MERGE",
+          "reason": "Contributor-local generated output was reviewed but regenerated from final merged bytes."
+        },
+        {
+          "path": "evidence/build-test-run.log",
+          "decision": "REGENERATED_AFTER_MERGE",
+          "reason": "Contributor-local generated output was reviewed but regenerated from final merged bytes."
+        },
+        {
+          "path": "evidence/command-ledger.md",
+          "decision": "REGENERATED_AFTER_MERGE",
+          "reason": "Contributor-local generated output was reviewed but regenerated from final merged bytes."
+        },
+        {
+          "path": "evidence/verification-receipt.json",
+          "decision": "REGENERATED_AFTER_MERGE",
+          "reason": "Contributor-local generated output was reviewed but regenerated from final merged bytes."
+        }
+      ]
+    },
+    {
+      "agent_id": "agent_bcde21fdede6",
+      "agent_name": "谢临川",
+      "manifest_path": "collaboration/openclaw_baseline_mapping/loop-1-attempt-1/agent_bcde21fdede6/manifest.json",
+      "manifest_declared_file_count": 45,
+      "reviewed_file_count": 45,
+      "all_paths_decided": true,
+      "files": [
+        {
+          "path": "OpenClaw-Claude-Agent-SDK_Runtime能力映射与架构边界.md",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "docs/OpenClaw-Claude-Agent-SDK_Runtime能力映射与架构边界.md",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "docs/运行保障视角隔离盘点.md",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "collaboration/sre-isolated-position.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "evidence/artifact-reread-receipts.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "evidence/event-type-index.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "evidence/platform-verification.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "evidence/source-evidence-index.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "gaps/Claude_Runtime_迁移缺口清单.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "gaps/Claude_Runtime_迁移缺口清单.md",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "mapping/runtime-capability-map.json",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "runtime_mapping/build.py",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "runtime_mapping/verifier.py",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "tests/test_runtime_mapping.py",
+          "decision": "ADOPTED_CONTENT_MERGED",
+          "reason": "Substantive SRE evidence classification, source anchors, reliability objections, gap closure criteria, or negative-test ideas were merged; duplicate path was not retained as a second truth source."
+        },
+        {
+          "path": "schemas/runtime-capability-map.schema.json",
+          "decision": "ADOPTED_AS_NEW_SCHEMA",
+          "reason": "Retained as a distinct machine-readable contract and adapted to the final map."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_3a7aa238ae26-de89820b7b94c13f.yaml",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_4972d347b67b-28910db5693a4a1b.mjs",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_4d0828bcd70a-e0963a924852d1c2.vue",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_642f67605eab-8c699a216aec032a.py",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_7947e3200fe1-fe74a6e1bd2d79f9.example",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_84387ee84712-a6d66ae59fe8f6a6.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_884782192bec-faeb25ed535cdd96.py",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_8deec74b6eb1-9adbd8dcaaa090fa.ts",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_c3d918b43572-d6440574ed1ad60d.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_de3b19abe481-79efd4215c2c3513.py",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_df2d04b40371-19ae22a000046464.bin",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_f7b229debd94-a0667d6ac3718069.py",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-artifacts/artifact_fa7bed6afb42-2ab7f42bab2d80d6.py",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-copy-receipts.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/README.md",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/artifact-registry.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/critical-events.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/events.ndjson",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/projection-omissions.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/run-lineage.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/run-metadata.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/runtime-attestation.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "evidence/platform-snapshot/runtime-source-attestation.json",
+          "decision": "NOT_COPIED_DUPLICATE_OF_PLATFORM_AUTHORITY",
+          "reason": "Digest-listed duplicate of immutable platform snapshot or registered raw Artifact; final verifier reads the platform authority directly to avoid two evidence authorities."
+        },
+        {
+          "path": "README.md",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "artifacts/sha256_manifest.json",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "pyproject.toml",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "run_acceptance.py",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "runtime_mapping/__init__.py",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "verification/command-receipts.json",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        },
+        {
+          "path": "verification/final-run_acceptance.log",
+          "decision": "REVIEWED_NOT_SELECTED_DUPLICATE_ENTRYPOINT_OR_STALE_RECEIPT",
+          "reason": "Would create a second build/report/manifest entrypoint or preserve contributor-local generated output after merge; final package has one verifier and one self-excluding manifest."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "submissions": 2,
+    "declared_files": 59,
+    "reviewed_files": 59,
+    "undecided_files": 0,
+    "final_selection": "Architect compact package as single build authority; SRE reliability constraints, source anchors, schema, and negative-check ideas merged; duplicate frozen evidence not copied.",
+    "material_decisions": [
+      "Use one canonical report/map/gap/verifier/manifest rather than parallel truth sources.",
+      "Keep platform .jianghu-platform-evidence as evidence authority instead of a second copied snapshot.",
+      "Classify public two-round content separately from frozen event-level collaboration attestation.",
+      "Promote long-window zero-OpenClaw proof to P0 and add current candidate Artifact and Run terminal closure as explicit P0 controls."
+    ]
+  }
+}

@@ -1,0 +1,224 @@
+{
+  "schema_version": "jianghu.openclaw-claude-runtime-capability-mapping.v1",
+  "run_id": "run_6940048dd30f",
+  "platform_attempt_id": "attempt:run_6940048dd30f:openclaw_baseline_mapping:epoch1:loop1:node1",
+  "snapshot_id": "attempt-415cb8b318fda11f",
+  "evidence_cutoff_sequence": 94,
+  "decision": {
+    "mapping_deliverable": "CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING",
+    "complete_claude_agent_sdk_runtime_migration": "NO_GO",
+    "openclaw_retirement": "NOT_APPROVED"
+  },
+  "status_vocabulary": [
+    "PASS_CURRENT_RUN",
+    "PASS_SOURCE_ONLY",
+    "PARTIAL_CURRENT_RUN",
+    "BLOCKED_NO_RUNTIME_EXECUTION",
+    "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+    "NOT_APPLICABLE_CURRENT_OPENCLAW_ROUTE"
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-01",
+      "capability": "Runtime 选择、入口路由与单写者",
+      "historical_openclaw_actual": "历史 Adapter 原始字节未入 Registry，历史实现不可审计；当前 10 个入口观察窗内 OpenClaw 实际流量为 0。",
+      "current_owner": "江湖 Online Runtime Registry",
+      "claude_path": "AgentRuntimeRegistry.for_run -> ClaudeCodeRuntime.for_run -> Node SDK bridge",
+      "status": "PARTIAL_CURRENT_RUN",
+      "persistence_boundary": "平台 events 表与 runtime attestation；不是 SDK Session 文件",
+      "evidence": [
+        "EVT-77-89",
+        "SRC-01",
+        "SRC-11-13"
+      ],
+      "residual_path": "拒绝探针、历史迁移兼容和旧状态 API/UI 别名仍含 OpenClaw 名称。"
+    },
+    {
+      "id": "CAP-02",
+      "capability": "模型回合与 Session 续接",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "Claude Agent SDK bridge（回合/Session）+ 江湖 Online（session_key 选择与事件化）",
+      "claude_path": "ClaudeCodeRuntime.message 读取 sessions.json；bridge query({prompt, options})，persistSession=true，resume=<session_id>",
+      "status": "BLOCKED_NO_RUNTIME_EXECUTION",
+      "persistence_boundary": "SDK Session 由 SDK 配置目录持久化；agent_id:session_key -> session_id 由 ClaudeCodeRuntime.sessions.json 持久化",
+      "evidence": [
+        "SRC-05:340-354",
+        "SRC-05:584-836",
+        "SRC-06:431-597",
+        "ATT-RUNTIME"
+      ],
+      "residual_path": "冻结点 session_binding_count=0，不能由源码能力上调为运行通过。"
+    },
+    {
+      "id": "CAP-03",
+      "capability": "Tool 调用、Schema、授权、执行与副作用回执",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "Claude Agent SDK MCP 协议 + jianghu_workspace 网关 + 平台事件账本",
+      "claude_path": "bridge createSdkMcpServer/read/write/edit/bash；executor 发布 schema/authorization/started/completed/side_effect 事件",
+      "status": "PARTIAL_CURRENT_RUN",
+      "persistence_boundary": "Tool 请求/结果摘要与终态写入平台 events；文件副作用写入 delivery 后进入 Artifact Registry",
+      "evidence": [
+        "EVT-46-76",
+        "EVT-90",
+        "SRC-03:943-982",
+        "SRC-03:2973-3088",
+        "SRC-06:214-350",
+        "SRC-06:511-578"
+      ],
+      "residual_path": "当前只有 30 条 IAM 探针和 1 条未授权工具探针；真实 agent.tool.started/completed 为 0。"
+    },
+    {
+      "id": "CAP-04",
+      "capability": "文件创建、变更提升、登记、采集与下载验证",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "Claude workspace 文件工具 + 江湖 Online Artifact Store",
+      "claude_path": "delivery 限界写入 -> workspace snapshot/change -> promote/register -> materialize -> verify_artifact_bytes -> 下载 API",
+      "status": "PASS_SOURCE_ONLY",
+      "persistence_boundary": "Run workspace 原始字节 + artifacts 表 + manifest.json；SDK 不承担正式 Artifact authority",
+      "evidence": [
+        "EVT-2-41",
+        "ART-ALL-13",
+        "SRC-04:5204-5505",
+        "SRC-05:837-970",
+        "SRC-02:2330-2478"
+      ],
+      "residual_path": "13项只证明已登记生产源码/部署输入；本节点合议候选截至 sequence 94 无 Artifact ID、采集或当前下载复算。"
+    },
+    {
+      "id": "CAP-05",
+      "capability": "隔离贡献与公开协作通信",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "江湖 Online team/node orchestration",
+      "claude_path": "独立 Claude turn 产出候选；平台封存 dossier 并发布 agent.message.sent 与两轮通信事件",
+      "status": "PARTIAL_CURRENT_RUN",
+      "persistence_boundary": "tasks/events/artifacts；不写入 SDK Session 作为协作真相源",
+      "evidence": [
+        "EVT-91-94",
+        "SRC-03:3803",
+        "SRC-04:4995-5102",
+        "COLLAB-PUBLIC-4"
+      ],
+      "residual_path": "节点输入提供了两位参与者两轮4条公开 challenge/reply 并已综合；但冻结 sequence 1..94 内 agent.message.sent、round completed、synthesis 均为0，故内容级PASS、Runtime事件级BLOCKED。"
+    },
+    {
+      "id": "CAP-06",
+      "capability": "Memory 候选、审核、提交、版本替代、跨上下文检索与使用",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "江湖 Online Memory Store；Claude Runtime 只接收获准 Memory 快照",
+      "claude_path": "agent_memories -> runtime.sync 生成 CLAUDE.md -> 新 turn 检索/使用事件",
+      "status": "BLOCKED_NO_RUNTIME_EXECUTION",
+      "persistence_boundary": "agent_memories 表按 family namespace、status/version/supersedes 持久化；SDK Session 不是 Memory authority",
+      "evidence": [
+        "SRC-04:1868-1950",
+        "SRC-05:245-334",
+        "SRC-03:4468-4620"
+      ],
+      "residual_path": "冻结事件中 agent.memory.* 为 0。"
+    },
+    {
+      "id": "CAP-07",
+      "capability": "主动暂停、静默边界、Checkpoint 与恢复",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "江湖 Online API、执行协调器与 Artifact Store",
+      "claude_path": "pause_requested -> 排空已派发 turn -> run_checkpoint Artifact -> paused -> resumed -> checkpoint.loaded；SDK 负责被取消进程与可选 Session resume",
+      "status": "BLOCKED_NO_RUNTIME_EXECUTION",
+      "persistence_boundary": "runs/tasks/events + run_checkpoint Artifact；非 SDK 内存态",
+      "evidence": [
+        "SRC-02:2660-2833",
+        "SRC-03:1790-1871",
+        "SRC-05:767-770"
+      ],
+      "residual_path": "冻结事件中 pause/resume/checkpoint 为 0。"
+    },
+    {
+      "id": "CAP-08",
+      "capability": "失败恢复、Retry、lease/fencing 与 exactly-once 终态对账",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "江湖 Online durable executor/store",
+      "claude_path": "recover_run/retry_run -> 新 execution epoch 或新 Run version -> lease/fencing -> checkpoint -> interrupted Tool terminal reconciliation -> duplicate scan",
+      "status": "BLOCKED_NO_RUNTIME_EXECUTION",
+      "persistence_boundary": "数据库事务、不可覆盖事件、Artifact 版本与 OS/数据库 lease；SDK 仅执行重派回合",
+      "evidence": [
+        "SRC-02:311-390",
+        "SRC-04:4144-4451",
+        "SRC-03:2397-2634"
+      ],
+      "residual_path": "冻结事件中 recovery/worker/terminal reconciliation 为0；源码路径不证明 exactly-once、RTO/RPO 或在途副作用吸收。"
+    },
+    {
+      "id": "CAP-09",
+      "capability": "Judge 退回、返工 Attempt、替代 Artifact 与再裁决",
+      "historical_openclaw_actual": "BLOCKED_HISTORICAL_BASELINE_ABSENT",
+      "current_owner": "江湖 Online Judge/rework orchestration",
+      "claude_path": "judge 入口使用同一 Claude Runtime；平台创建 gate.rejected、新 Attempt、消息与替代 Artifact",
+      "status": "BLOCKED_NO_RUNTIME_EXECUTION",
+      "persistence_boundary": "attempt/task/event/artifact 因果链；Judge SDK Session 不是最终状态 authority",
+      "evidence": [
+        "EVT-79",
+        "SRC-03:1536-1564",
+        "SRC-03:4854-4933"
+      ],
+      "residual_path": "冻结事件中 judge.*、gate.*、返工 Attempt 为 0。"
+    },
+    {
+      "id": "CAP-10",
+      "capability": "Run、Task、Event、Artifact、Memory 持久化与重放",
+      "historical_openclaw_actual": "历史 OpenClaw 是否曾直接持久化这些对象不可由当前证据确认。",
+      "current_owner": "江湖 Online PlatformStore",
+      "claude_path": "SDK 产生回合结果，平台以数据库事务和 Run workspace 物化为权威对象",
+      "status": "PASS_SOURCE_ONLY",
+      "persistence_boundary": "生产可用 PostgreSQL；本地兼容 SQLite/WAL；events 使用 Run 内 sequence，Artifact 使用文件字节 SHA-256",
+      "evidence": [
+        "SRC-04:19-65",
+        "SRC-04:294-924",
+        "SRC-04:5159-5514"
+      ],
+      "residual_path": "冻结投影 94 条事件连续，但 run-metadata.event_count=93，存在 1 条快照元数据滞后。"
+    },
+    {
+      "id": "CAP-11",
+      "capability": "部署输入、SDK 依赖锁与生产启动",
+      "historical_openclaw_actual": "当前部署输入未安装 OpenClaw Runtime 依赖。",
+      "current_owner": "Claude Agent SDK deployment",
+      "claude_path": "Docker npm ci 安装固定 SDK；JIANGHU_AGENT_RUNTIME=claude_code；bridge.mjs 作为入口",
+      "status": "PASS_CURRENT_RUN",
+      "persistence_boundary": "package-lock、Dockerfile、compose 和运行 attestation",
+      "evidence": [
+        "SRC-07",
+        "SRC-08",
+        "SRC-11",
+        "SRC-12",
+        "ATT-SOURCE"
+      ],
+      "residual_path": "运行模型字段为 gpt-5.6-sol；Runtime=claude_code 与模型供应者归因是不同事实，不据此声称底层模型品牌。"
+    },
+    {
+      "id": "CAP-12",
+      "capability": "OpenClaw 残余调用路径与退役证明",
+      "historical_openclaw_actual": "当前 Runtime 路由无 OpenClaw；历史等价基线未提供原始字节。",
+      "current_owner": "迁移兼容层与验证探针",
+      "claude_path": "生产 Registry 失败关闭；前端调用 generic /runtime/status",
+      "status": "PARTIAL_CURRENT_RUN",
+      "persistence_boundary": "兼容 API/UI 代码与数据库迁移语句，不是生产 OpenClaw Adapter",
+      "evidence": [
+        "EVT-77-90",
+        "SRC-02:1819-1841",
+        "SRC-04:857",
+        "SRC-04:5080",
+        "SRC-09:929-930",
+        "SRC-09:1360",
+        "SRC-10:129"
+      ],
+      "residual_path": "仍存在 /api/platform/openclaw/status 路由别名、旧 openclaw.* UI 事件别名、错误文案兼容、数据迁移语句和主动负向探针。"
+    }
+  ],
+  "evidence_classification": {
+    "registered_source_artifacts": "PASS_13_OF_13_RAW_BYTES_AND_LIFECYCLE",
+    "current_node_candidate_artifact": "BLOCKED_0_AT_SEQUENCE_94",
+    "public_collaboration_content": "PASS_4_MESSAGES_2_ACTORS_2_ROUNDS",
+    "public_collaboration_frozen_event_attestation": "BLOCKED_0_AT_SEQUENCE_94",
+    "route_observation": "PASS_10_OF_10_PROBE_WINDOW_ONLY",
+    "completed_turn_sdk_binding": "BLOCKED_0",
+    "real_tool_lifecycle": "BLOCKED_0"
+  }
+}

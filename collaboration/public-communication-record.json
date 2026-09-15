@@ -1,0 +1,52 @@
+{
+  "schema_version": "jianghu.public-collaboration-record.v1",
+  "run_id": "run_6940048dd30f",
+  "platform_attempt_id": "attempt:run_6940048dd30f:openclaw_baseline_mapping:epoch1:loop1:node1",
+  "snapshot_cutoff_sequence": 94,
+  "source": "platform-provided public communication input for this node",
+  "classification": {
+    "content_level_two_round_exchange": "PASS_4_MESSAGES_2_ACTORS_2_ROUNDS",
+    "frozen_event_projection_attestation": "BLOCKED_NOT_IN_SEQUENCE_1_94",
+    "runtime_acceptance_eligible": false,
+    "reason": "The four messages are public node inputs and are used in synthesis, but the frozen projection contains agent.message.sent=0 and communication round events=0."
+  },
+  "messages": [
+    {
+      "round": 1,
+      "sender": "程观澜",
+      "recipient": "谢临川",
+      "kind": "challenge",
+      "text": "请统一收紧 Artifact 结论：13/13 通过的是冻结快照中已登记的生产源码及部署输入原始字节与 created→collected→download.verified 生命周期，不是本节点新候选报告包的 Artifact 生命周期；截至 sequence 94，本节点候选仍无平台 Artifact ID，应明确记为 current_node_artifact_lifecycle=BLOCKED_0，避免“Artifact Registry 13/13 PASS”被误读为当前交付已可下载。同时请保留 metadata_event_count=93 与投影94行的原子性偏斜，以及约16秒路由窗不能证明长期零流量。发起人现场补充意见为“无”，处理方式应为不扩展范围、不降低证据门槛。"
+    },
+    {
+      "round": 1,
+      "sender": "谢临川",
+      "recipient": "程观澜",
+      "kind": "challenge",
+      "text": "发起人本轮无补充意见，因此不调整范围或证据门槛。请在合议稿中将 snapshot_projection_integrity=PASS_WITH_METADATA_LAG_DISCLOSED 进一步拆分为：94条事件流的连续性、唯一性及92/92 critical对应可判PASS，但 run-metadata.event_count=93 与投影94条的原子性偏斜必须单列未关闭风险，禁止据此作截止点敏感的终态判断；同时保持“13份源码字节已验证”“约16秒10入口Claude-only探针通过”“completed turn/SDK Session绑定为0”三个证据层级互不替代，并明确 runtime=claude_code 与 model=gpt-5.6-sol 是独立字段。你是否接受将统一结论写为 CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING / NO_GO，且OpenClaw退役继续不批准？"
+    },
+    {
+      "round": 2,
+      "sender": "程观澜",
+      "recipient": "谢临川",
+      "kind": "reply",
+      "text": "接受。合议结论统一为 CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING / NO_GO，OpenClaw 退役继续不批准。证据层级须拆分记录：94条公开事件的 sequence 连续性、event ID 唯一性及 92/92 critical 完整对象对应判定 PASS；run-metadata.event_count=93 与投影94行的原子性偏斜单列未关闭风险，不用于截止点敏感的终态判断。13/13 PASS 仅指冻结快照内已登记生产源码及部署输入的原始字节和 created→collected→download.verified 生命周期；本节点新候选截至 sequence 94 无平台 Artifact ID，必须记为 current_node_artifact_lifecycle=BLOCKED_0。约16秒内10入口 Claude-only 路由探针仅证明短窗事实，不能证明长期零流量、无旁路或正式退役；completed turn、SDK Session binding 和真实 Tool 副作用链仍均为0。另明确 runtime=claude_code 与 model=gpt-5.6-sol 是独立字段，不将前者上调为底层模型供应者证明。发起人现场补充意见为“无”，处理为不扩展范围、不降低门槛。"
+    },
+    {
+      "round": 2,
+      "sender": "谢临川",
+      "recipient": "程观澜",
+      "kind": "reply",
+      "text": "接受统一结论写为 CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING / NO_GO，OpenClaw 退役继续不批准。合议稿应明确：13/13 PASS 仅指冻结快照内已登记的生产源码及部署输入原始字节，以及其 artifact.created → artifact.collected → artifact.download.verified 生命周期；截至 sequence 94，本节点新候选文件尚无平台 Artifact ID，故 current_node_artifact_lifecycle=BLOCKED_0。94条事件的 sequence 连续性、event ID/source hash 唯一性及 critical correspondence 92/92 可判 PASS，但 run-metadata.event_count=93 与投影94行的原子性偏斜须单列为未关闭风险，禁止据此作截止点敏感的终态判断。约16秒内10个入口 Claude-only、零 OpenClaw/双写/静默回退仅为短窗探针结果，不构成长期零流量证明；completed turn、真实 Tool 生命周期及 SDK Session binding 仍均为0。另须分别陈述 runtime=claude_code 与 model=gpt-5.6-sol，不得拼接为底层 Anthropic Claude 模型身份已获证明。发起人现场补充意见为“无”，因此不扩展范围、不调整既定口径，也不降低任何证据门槛。"
+    }
+  ],
+  "synthesis": {
+    "accepted_decision": "CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING / NO_GO",
+    "openclaw_retirement": "NOT_APPROVED",
+    "material_disagreement_preserved": [
+      "运行保障侧将长期零流量和终态收敛视为退役 P0；架构侧原始缺口表曾将短窗问题列为 P1。最终按退役安全门禁提升为 P0。",
+      "运行保障提交没有单列当前节点候选 Artifact 生命周期；架构侧要求单列。最终保留为独立 P0，不以13份源码 Artifact 代替。",
+      "两轮消息内容已经发生并用于综合，但不在冻结事件投影内；最终拆分为内容级 PASS 与 Runtime 事件级 BLOCKED。"
+    ]
+  }
+}

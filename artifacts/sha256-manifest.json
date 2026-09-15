@@ -1,0 +1,103 @@
+{
+  "schema_version": "jianghu.delivery-sha256-manifest.v1",
+  "self_excluding": true,
+  "excluded": [
+    "artifacts/sha256-manifest.json",
+    ".jianghu-platform-evidence/**",
+    "**/__pycache__/**",
+    "**/*.pyc"
+  ],
+  "file_count": 18,
+  "files": [
+    {
+      "path": "README.md",
+      "size_bytes": 2956,
+      "sha256": "4732fe708c31a4f3559d8ec0b064dfe9a030fb0d726edae989f011ad2d0edf3e"
+    },
+    {
+      "path": "collaboration/public-communication-record.json",
+      "size_bytes": 5553,
+      "sha256": "ed4d11aef89f20d75e6fd91dd328a18cd9698b479cb24c2090bd1f3c5efb0a86"
+    },
+    {
+      "path": "collaboration/submission-review.json",
+      "size_bytes": 22043,
+      "sha256": "b5aa4d038732436efd9c30bde97676c91c76c17dd8f22b13236af95aa8911652"
+    },
+    {
+      "path": "docs/01_系统架构视角隔离盘点.md",
+      "size_bytes": 6608,
+      "sha256": "2c7b39e10ce562c021d0aa50d88a339ee16bf6d2e88e34e2505c9c62da44a6f5"
+    },
+    {
+      "path": "docs/02_运行保障视角隔离盘点.md",
+      "size_bytes": 2210,
+      "sha256": "f72c26eadc7fa80fd00a8abe04e2695e9979c0af7c49be3047ec3ee857d2a76e"
+    },
+    {
+      "path": "docs/OpenClaw-Claude-Agent-SDK-Runtime能力映射与架构边界.md",
+      "size_bytes": 18571,
+      "sha256": "11bc3983fbd12b3bc7415fef382ee377c8176aa6f48f6abe24eda1bc86e593cc"
+    },
+    {
+      "path": "evidence/build-test-run.log",
+      "size_bytes": 3471,
+      "sha256": "631a4d133b324d762607024f0dfceb70222e5ebd3c854082f58c33c993d9fa5f"
+    },
+    {
+      "path": "evidence/command-ledger.md",
+      "size_bytes": 3061,
+      "sha256": "cb47ec5ee71bb827efa32712fc1a6393e765bf07e02962a673eb5034508e738f"
+    },
+    {
+      "path": "evidence/evidence-index.json",
+      "size_bytes": 9325,
+      "sha256": "e322033086c101d4df579a50f4a61c80b440ee3418c554372451eb714b5c79f1"
+    },
+    {
+      "path": "evidence/verification-receipt.json",
+      "size_bytes": 18045,
+      "sha256": "dca751b78bccd5f427f53a9a137cd52b347d7553eaacb222a1a2ee6a3653c52f"
+    },
+    {
+      "path": "gaps/migration-gaps.json",
+      "size_bytes": 5002,
+      "sha256": "2e7648cff8b85231379a54aad7f5b7f3a181125db024983ffcc4b9add01d3f04"
+    },
+    {
+      "path": "gaps/迁移缺口清单.md",
+      "size_bytes": 4158,
+      "sha256": "c164cda1fd6c798286fc77d9ea37a8273519faef2977047da58b5ddc7f949af0"
+    },
+    {
+      "path": "mapping/capability-mapping.json",
+      "size_bytes": 11500,
+      "sha256": "6742a093024606d2396cbe74f12192b583a242af444aae478b928d26c55e8f20"
+    },
+    {
+      "path": "pyproject.toml",
+      "size_bytes": 227,
+      "sha256": "4cf492a16a88b3cce74db7eecf7afa180bb751b32b1e52c57be07846ad035064"
+    },
+    {
+      "path": "schemas/runtime-capability-map.schema.json",
+      "size_bytes": 1794,
+      "sha256": "327465c7bc7ddc31020369ce149e0a420a19436b1b12355f809310432d44602a"
+    },
+    {
+      "path": "schemas/runtime-event-envelope.schema.json",
+      "size_bytes": 2228,
+      "sha256": "282dc5e60cfef8fe3f463a418729c2422c5c668d2ddcbf03ce2c50eafa06f6ff"
+    },
+    {
+      "path": "src/verify_mapping.py",
+      "size_bytes": 28886,
+      "sha256": "392cd81952b1df6de73656bc8c2b407ffdc5f379cb9a48701e974c47a8383ac2"
+    },
+    {
+      "path": "tests/test_verify_mapping.py",
+      "size_bytes": 7644,
+      "sha256": "f2c86ad1bf4f3ac9eca51dd041867d3ddd64295c9bdd9fafb3d22db26a1414e8"
+    }
+  ]
+}
