@@ -1,0 +1,50 @@
+{
+  "run_id": "run_bda13e93b2ea",
+  "screenshots": [
+    {
+      "case_id": "EVC-001",
+      "path": "screenshots/01-evidence-center.png",
+      "description": "真实 Run 的应用内测试与证据中心"
+    },
+    {
+      "case_id": "EVC-002",
+      "path": "screenshots/02-image-lightbox.png",
+      "description": "真实证据截图在应用内大图浏览"
+    },
+    {
+      "case_id": "EVC-003",
+      "path": "screenshots/03-artifact-provenance.png",
+      "description": "Artifact 元数据、来源 Attempt 与 Registry 回执"
+    },
+    {
+      "case_id": "EVC-004",
+      "path": "screenshots/04-test-result-filter.png",
+      "description": "测试结果证据筛选与应用内详情"
+    },
+    {
+      "case_id": "EVC-005",
+      "path": "screenshots/05-delivery-file-preview.png",
+      "description": "正式交付卡片直接打开应用内实际文件内容"
+    },
+    {
+      "case_id": "EVC-009",
+      "path": "screenshots/09-current-run-download-verified.png",
+      "description": "真实前端下载后独立复算当前 Run 已登记 Artifact 字节"
+    },
+    {
+      "case_id": "EVC-006",
+      "path": "screenshots/06-extensionless-text-preview.png",
+      "description": "Dockerfile 或环境配置样例的实际正文预览"
+    },
+    {
+      "case_id": "EVC-007",
+      "path": "screenshots/07-receipt-only-friendly-state.png",
+      "description": "原字节缺失时的应用内友好说明与安全下载入口"
+    },
+    {
+      "case_id": "EVC-008",
+      "path": "screenshots/08-inherited-receipt-real-content.png",
+      "description": "历史继承回执解析到真实原文件正文与实际字节信息"
+    }
+  ]
+}

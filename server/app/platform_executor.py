@@ -432,77 +432,108 @@ def _write_public_event_snapshot(
     run_id: str,
     bundle_root: Path,
 ) -> dict[str, Any]:
-    """Stream public event evidence to disk with bounded process memory."""
+    """Write one coherent public snapshot from a single frozen cursor."""
     events_path = bundle_root / "events.ndjson"
     critical_path = bundle_root / "critical-events.json"
     omissions_path = bundle_root / "projection-omissions.json"
     events_tmp = events_path.with_suffix(events_path.suffix + ".tmp")
     critical_tmp = critical_path.with_suffix(critical_path.suffix + ".tmp")
     omissions_tmp = omissions_path.with_suffix(omissions_path.suffix + ".tmp")
-    projection_count = 0
+    public_event_count = 0
     critical_count = 0
-    omission_count = 0
-    source_event_count = 0
-    cutoff_sequence = 0
+    omitted_event_count = 0
+    observed_source_count = 0
     runtime_binding_projections: list[dict[str, Any]] = []
     for path in (events_tmp, critical_tmp, omissions_tmp):
         path.unlink(missing_ok=True)
     try:
-        with (
-            events_tmp.open("w", encoding="utf-8", newline="\n") as events_file,
-            critical_tmp.open("w", encoding="utf-8", newline="\n") as critical_file,
-            omissions_tmp.open("w", encoding="utf-8", newline="\n") as omissions_file,
-        ):
-            critical_file.write("[\n")
-            omissions_file.write(
-                "{\n"
-                '  "schema_version": "jianghu.public-projection-omissions.v1",\n'
-                '  "projection": "public_agent_safe",\n'
-                '  "policy_id": "jianghu.public-agent-safe-projection",\n'
-                '  "policy_version": "1.0.0",\n'
-                '  "omissions": [\n'
-            )
-            first_critical = True
-            first_omission = True
-            for batch in store.iter_run_events(run_id, batch_size=1_000):
-                for event in batch:
-                    source_event_count += 1
-                    cutoff_sequence = max(cutoff_sequence, int(event.get("sequence") or 0))
-                    projection = _public_event_projection(event)
-                    if projection is not None:
-                        events_file.write(
-                            json.dumps(projection, ensure_ascii=False, sort_keys=True) + "\n"
-                        )
-                        projection_count += 1
-                        if projection.get("type") == "agent.turn.completed":
-                            runtime_binding_projections.append(projection)
-                        if str(projection.get("type") or "").startswith(
-                            CRITICAL_EVIDENCE_EVENT_PREFIXES
-                        ):
-                            if not first_critical:
-                                critical_file.write(",\n")
-                            critical_file.write(
-                                json.dumps(projection, ensure_ascii=False, sort_keys=True)
+        with store.frozen_run_event_batches(run_id, batch_size=1_000) as (boundary, batches):
+            with (
+                events_tmp.open("w", encoding="utf-8", newline="\n") as events_file,
+                critical_tmp.open("w", encoding="utf-8", newline="\n") as critical_file,
+                omissions_tmp.open("w", encoding="utf-8", newline="\n") as omissions_file,
+            ):
+                critical_file.write("[\n")
+                omissions_file.write(
+                    "{\n"
+                    '  "schema_version": "jianghu.public-projection-omissions.v1",\n'
+                    '  "projection": "public_agent_safe",\n'
+                    '  "policy_id": "jianghu.public-agent-safe-projection",\n'
+                    '  "policy_version": "1.0.0",\n'
+                    '  "omissions": [\n'
+                )
+                first_critical = True
+                first_omission = True
+                for batch in batches:
+                    for event in batch:
+                        observed_source_count += 1
+                        projection = _public_event_projection(event)
+                        if projection is not None:
+                            events_file.write(
+                                json.dumps(projection, ensure_ascii=False, sort_keys=True) + "\n"
                             )
-                            first_critical = False
-                            critical_count += 1
-                        continue
-                    omission = _public_event_projection_omission(event)
-                    if omission is None:
-                        continue
-                    if not first_omission:
-                        omissions_file.write(",\n")
-                    omissions_file.write(
-                        "    " + json.dumps(omission, ensure_ascii=False, sort_keys=True)
+                            public_event_count += 1
+                            if projection.get("type") == "agent.turn.completed":
+                                runtime_binding_projections.append(projection)
+                            if str(projection.get("type") or "").startswith(
+                                CRITICAL_EVIDENCE_EVENT_PREFIXES
+                            ):
+                                if not first_critical:
+                                    critical_file.write(",\n")
+                                critical_file.write(
+                                    json.dumps(projection, ensure_ascii=False, sort_keys=True)
+                                )
+                                first_critical = False
+                                critical_count += 1
+                            continue
+                        omission = _public_event_projection_omission(event)
+                        if omission is None:
+                            raise RuntimeError(
+                                f"public_projection_unaccounted_event:{event.get('id')}"
+                            )
+                        if not first_omission:
+                            omissions_file.write(",\n")
+                        omissions_file.write(
+                            "    " + json.dumps(omission, ensure_ascii=False, sort_keys=True)
+                        )
+                        first_omission = False
+                        omitted_event_count += 1
+                source_event_count = int(boundary["source_event_count"])
+                coherent = (
+                    observed_source_count == source_event_count
+                    and source_event_count == public_event_count + omitted_event_count
+                )
+                if not coherent:
+                    raise RuntimeError(
+                        "event_snapshot_boundary_mismatch:"
+                        f"boundary={source_event_count},observed={observed_source_count},"
+                        f"public={public_event_count},omitted={omitted_event_count}"
                     )
-                    first_omission = False
-                    omission_count += 1
-            critical_file.write("\n]\n")
-            omissions_file.write(
-                "\n  ],\n"
-                f'  "omission_count": {omission_count}\n'
-                "}\n"
-            )
+                critical_file.write("\n]\n")
+                omissions_file.write(
+                    "\n  ],\n"
+                    f'  "source_event_count": {source_event_count},\n'
+                    f'  "public_event_count": {public_event_count},\n'
+                    f'  "omission_count": {omitted_event_count},\n'
+                    f'  "first_sequence": {int(boundary["first_sequence"])},\n'
+                    f'  "cutoff_sequence": {int(boundary["cutoff_sequence"])},\n'
+                    '  "boundary_rule": "sequence_lte_frozen_cutoff",\n'
+                    '  "coherent": true\n'
+                    "}\n"
+                )
+            result = {
+                "projection_count": public_event_count,
+                "public_event_count": public_event_count,
+                "critical_count": critical_count,
+                "omission_count": omitted_event_count,
+                "omitted_event_count": omitted_event_count,
+                "source_event_count": source_event_count,
+                "first_sequence": int(boundary["first_sequence"]),
+                "cutoff_sequence": int(boundary["cutoff_sequence"]),
+                "coherent": True,
+                "boundary_rule": str(boundary["boundary_rule"]),
+                "runtime_binding_projections": runtime_binding_projections,
+            }
         os.replace(events_tmp, events_path)
         os.replace(critical_tmp, critical_path)
         os.replace(omissions_tmp, omissions_path)
@@ -510,31 +541,37 @@ def _write_public_event_snapshot(
         for path in (events_tmp, critical_tmp, omissions_tmp):
             path.unlink(missing_ok=True)
         raise
-    return {
-        "projection_count": projection_count,
-        "critical_count": critical_count,
-        "omission_count": omission_count,
-        "source_event_count": source_event_count,
-        "cutoff_sequence": cutoff_sequence,
-        "runtime_binding_projections": runtime_binding_projections,
-    }
+    return result
 
 
-def _event_snapshot_metadata(event_snapshot: dict[str, Any]) -> dict[str, int]:
-    """Return one unambiguous event-count contract for a frozen snapshot."""
-    public_event_count = int(event_snapshot.get("projection_count") or 0)
-    omitted_event_count = int(event_snapshot.get("omission_count") or 0)
+def _event_snapshot_metadata(event_snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Derive every count and boundary field from one frozen snapshot receipt."""
+    public_event_count = int(
+        event_snapshot.get("public_event_count")
+        if event_snapshot.get("public_event_count") is not None
+        else event_snapshot.get("projection_count") or 0
+    )
+    omitted_event_count = int(
+        event_snapshot.get("omitted_event_count")
+        if event_snapshot.get("omitted_event_count") is not None
+        else event_snapshot.get("omission_count") or 0
+    )
     source_event_count = int(
         event_snapshot.get("source_event_count")
-        or public_event_count + omitted_event_count
+        if event_snapshot.get("source_event_count") is not None
+        else public_event_count + omitted_event_count
     )
     return {
-        # Backward-compatible field: total source events at the frozen cutoff.
         "event_count": source_event_count,
         "source_event_count": source_event_count,
         "public_event_count": public_event_count,
         "omitted_event_count": omitted_event_count,
+        "first_event_sequence": int(event_snapshot.get("first_sequence") or 0),
         "cutoff_sequence": int(event_snapshot.get("cutoff_sequence") or 0),
+        "event_snapshot_coherent": bool(event_snapshot.get("coherent", True)),
+        "event_snapshot_boundary_rule": str(
+            event_snapshot.get("boundary_rule") or "sequence_lte_frozen_cutoff"
+        ),
     }
 
 
@@ -1550,6 +1587,24 @@ def _recover_public_text_from_file_changes(
 def _preview(value: str, limit: int = 320) -> str:
     compact = " ".join(value.split())
     return compact if len(compact) <= limit else f"{compact[:limit].rstrip()}…"
+
+
+def _latest_semantic_artifact(
+    artifacts: list[dict[str, Any]],
+    task_id: str,
+    kind: str,
+) -> dict[str, Any] | None:
+    """Select a predecessor only from the same task and semantic kind."""
+    candidates = [
+        item for item in artifacts
+        if str(item.get("task_id") or "") == str(task_id)
+        and str(item.get("kind") or "") == str(kind)
+    ]
+    return max(
+        candidates,
+        key=lambda item: (int(item.get("version", 0) or 0), str(item.get("id") or "")),
+        default=None,
+    )
 
 
 def _one_page_excerpt(value: str, limit: int = 260) -> str:
@@ -2952,18 +3007,10 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     ),
                     None,
                 )
-                prior_task_artifact = next(
-                    (
-                        item for item in sorted(
-                            (
-                                artifact_item for artifact_item in latest_snapshot.get("artifacts", [])
-                                if str(artifact_item.get("task_id") or "") == str(task["id"])
-                            ),
-                            key=lambda artifact_item: int(artifact_item.get("version", 0) or 0),
-                            reverse=True,
-                        )
-                    ),
-                    None,
+                prior_task_artifact = _latest_semantic_artifact(
+                    list(latest_snapshot.get("artifacts", [])),
+                    str(task["id"]),
+                    "workflow_output",
                 )
                 feedback_text = "\n".join(f"- {item}" for item in revision_feedback.get(node_key, []))
                 is_engineering = node_key in engineering_node_keys
@@ -5184,10 +5231,29 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 verdict = str(decision.get("verdict") or "")
                 if verdict == "pass":
                     async with event_lock:
+                        accepted_event = store.append_run_event(
+                            run_id,
+                            "judge.verdict.accepted",
+                            "judge",
+                            f"“{task_by_key[gate_key]['node_name']}”提交独立 ACCEPT 裁决",
+                            str(decision.get("summary") or "独立裁判确认本轮产物满足验收要求。"),
+                            {
+                                "task_id": task_by_key[gate_key]["id"],
+                                "node_key": gate_key,
+                                "decision": decision,
+                                "verdict": "pass",
+                                "terminal": True,
+                            },
+                        )
                         store.append_run_event(
                             run_id, "gate.passed", "gate", f"“{task_by_key[gate_key]['node_name']}”裁决通过",
                             str(decision.get("summary") or "独立裁判确认本轮产物满足验收要求。"),
-                            {"task_id": task_by_key[gate_key]["id"], "node_key": gate_key, "decision": decision},
+                            {
+                                "task_id": task_by_key[gate_key]["id"],
+                                "node_key": gate_key,
+                                "decision": decision,
+                                "causation_event_id": accepted_event["id"],
+                            },
                         )
                     continue
                 gate_definition = node_def_by_key.get(gate_key, {})

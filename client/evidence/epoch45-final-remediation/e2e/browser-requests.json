@@ -1,0 +1,441 @@
+{
+  "run_id": "run_bda13e93b2ea",
+  "requests": [
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "url": "http://127.0.0.1:5173/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/@vite/client"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/main.ts?t=1789474897846"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/node_modules/.vite/deps/vue.js?v=460e60fc"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/style.css?t=1789452195590"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/evidence-center.css?t=1789388540144"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/App.vue?t=1789474897846"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/node_modules/vite/dist/client/env.mjs"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/node_modules/.vite/deps/vue.runtime.esm-bundler-DJa8Dn_V.js?v=460e60fc"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/api.ts?t=1789380461169"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/components/KnowledgeRelationGraph.vue"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/node_modules/.vite/deps/@lucide_vue.js?v=460e60fc"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/@id/__x00__plugin-vue:export-helper"
+    },
+    {
+      "method": "GET",
+      "resource_type": "script",
+      "url": "http://127.0.0.1:5173/src/components/KnowledgeRelationGraph.vue?vue&type=style&index=0&scoped=c9982cbd&lang.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/overview"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/organizations"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/model-configs"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/projects"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/git-credentials"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/project-git-repositories"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/health"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "url": "http://127.0.0.1:5173/favicon.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/agents?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/teams?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/workflows?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/commissions?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/knowledge-sources"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "url": "http://127.0.0.1:5173/favicon.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "url": "http://127.0.0.1:5173/favicon.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "url": "http://127.0.0.1:5173/favicon.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea?event_limit=300&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/organizations/org_jianghu/knowledge-graph"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runtime/status"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea?event_limit=300&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea?event_limit=300&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_07f0b3475fbb?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_07f0b3475fbb/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_c6a40da64c82/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_284d299d4866/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_b5c3f7e62f16/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_0249ebfad9aa/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_42e7703ea94f/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_295de1978855/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_0c34651ae679/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea/state?event_limit=100&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_07f0b3475fbb?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_07f0b3475fbb?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_07f0b3475fbb?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea/state?event_limit=100&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_c6a40da64c82/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_284d299d4866/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_b5c3f7e62f16/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_0249ebfad9aa/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_42e7703ea94f/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_295de1978855/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_0c34651ae679/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_d8390c1185dc/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_b9dcc315ed01/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_2a1553f2fbaf/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_f7e6e6658716/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_e07d8b6d17b7/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_afe0bb21a555/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_d7ae627b3cb4/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_fa2808801b97/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_9caef7667c07/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_ffff539d77fe/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_bc8c23337729/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_53e4c5e7f6ac/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_25c9e79638cd/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_31b1733b58d6/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_8a08ac1e2891/thumbnail?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_5b7dd366cde3?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_5b7dd366cde3/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_5b7dd366cde3?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_5b7dd366cde3/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_ebc8d8c43bc2?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_ebc8d8c43bc2/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea/state?event_limit=100&organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_ebc8d8c43bc2?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_7c2b2313b7c8?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_7c2b2313b7c8/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_6c329182d771?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_6c329182d771/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_a16cef0665d1?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/artifacts/artifact_a16cef0665d1/content?organization_id=org_jianghu"
+    },
+    {
+      "method": "GET",
+      "resource_type": "fetch",
+      "url": "http://127.0.0.1:5173/api/platform/runs/run_bda13e93b2ea/state?event_limit=100&organization_id=org_jianghu"
+    }
+  ],
+  "prohibited_management_requests": []
+}

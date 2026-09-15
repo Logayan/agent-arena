@@ -3378,8 +3378,16 @@ async def test_judge_rejection_reopens_responsible_dag_subgraph(monkeypatch, tmp
     assert "artifact.authority.frozen" in event_types
     assert "gate.rejected" in event_types
     assert "workflow.loop.created" in event_types
+    assert "judge.verdict.accepted" in event_types
     assert "gate.passed" in event_types
+    assert "run.converged" in event_types
     assert "run.completed" in event_types
+    accepted = next(event for event in completed["events"] if event["type"] == "judge.verdict.accepted")
+    gate_passed = next(event for event in completed["events"] if event["type"] == "gate.passed")
+    converged = next(event for event in completed["events"] if event["type"] == "run.converged")
+    run_completed = next(event for event in completed["events"] if event["type"] == "run.completed")
+    assert accepted["sequence"] < gate_passed["sequence"] < converged["sequence"] < run_completed["sequence"]
+    assert gate_passed["payload"]["causation_event_id"] == accepted["id"]
 
 
 @pytest.mark.anyio
@@ -3470,8 +3478,24 @@ async def test_judge_markdown_final_uses_valid_isolated_verdict_file(monkeypatch
     assert completed["status"] == "completed"
     event_types = [event["type"] for event in completed["events"]]
     assert "judge.output.contract.recovered" in event_types
+    assert "judge.verdict.accepted" in event_types
     assert "gate.passed" in event_types
+    assert "run.converged" in event_types
     assert "run.completed" in event_types
+    terminal_events = {
+        event["type"]: event
+        for event in completed["events"]
+        if event["type"] in {
+            "judge.verdict.accepted", "gate.passed", "run.converged", "run.completed"
+        }
+    }
+    assert (
+        terminal_events["judge.verdict.accepted"]["sequence"]
+        < terminal_events["gate.passed"]["sequence"]
+        < terminal_events["run.converged"]["sequence"]
+        < terminal_events["run.completed"]["sequence"]
+    )
+    assert terminal_events["gate.passed"]["payload"]["causation_event_id"] == terminal_events["judge.verdict.accepted"]["id"]
 
 
 @pytest.mark.anyio

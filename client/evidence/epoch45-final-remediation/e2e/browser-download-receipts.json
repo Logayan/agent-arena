@@ -1,0 +1,14 @@
+{
+  "run_id": "run_bda13e93b2ea",
+  "downloads": [
+    {
+      "path": "downloads/artifact_ebc8d8c43bc2-平台暂停 Checkpoint-v49.md",
+      "artifact_id": "artifact_ebc8d8c43bc2",
+      "downloaded_size_bytes": 190199,
+      "downloaded_sha256": "7c8004bc438564ab44c4ca80c0d58a8ffa86b04691318b705bf0d4cbfa9c74f8",
+      "api_registry_size_bytes": 190199,
+      "api_registry_sha256": "7c8004bc438564ab44c4ca80c0d58a8ffa86b04691318b705bf0d4cbfa9c74f8",
+      "exact": true
+    }
+  ]
+}

@@ -58,12 +58,7 @@ def _run_workspace_root(
     if configured:
         return Path(configured).resolve() / _safe_name(run_id, "run")
     current_platform = platform_name or os.name
-    # The base directory is not the path used by tests and tools. Reserve room
-    # for the longest normalized Agent id plus delivery/ and nested runner
-    # paths; otherwise a 112-character base can still produce >260-character
-    # pytest/Playwright paths on Windows.
-    projected_delivery_root = default_root / ("agent-" + "x" * 64) / "delivery"
-    if current_platform != "nt" or len(str(projected_delivery_root)) < 120:
+    if current_platform != "nt" or len(str(default_root)) < 120:
         return default_root
     base = Path(temporary_root or tempfile.gettempdir()).resolve() / "jianghu-claude-agents"
     execution_key = hashlib.sha256(str(resolved_execution_root).encode("utf-8")).hexdigest()[:16]
