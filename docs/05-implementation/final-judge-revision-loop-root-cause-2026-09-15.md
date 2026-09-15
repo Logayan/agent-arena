@@ -77,3 +77,21 @@ sequence `166126` 的整改期独立校验结果为 `core=true`、`coherent=fals
 主工作区已实现任务级 Artifact authority：当前成功 Attempt 的工作流输出、登记文件、Git Commit 和远端交付回执在 Memory closure 等全部后置核验通过后才原子切换为 `authoritative`；旧权威集合仅改为 `superseded`，不删除历史。平台会逐项发出 `artifact.authoritative`，并以顺序无关 Manifest SHA-256 发出 `artifact.authority.frozen`。应用内 Artifact 详情同时展示 authority 与 supersedes 回执。
 
 本地验证为 Runtime 安全合同 53/53、后端全量 227/227、Artifact 详情和 Judge 返工集成 2/2、Bridge 10/10、前端构建 1778 modules。该实现必须在正式整改 Attempt 到达安全边界后加载，并由新事件证明 CAM-05 闭合；本地绿测不能代替正式 Run 的平台 authority 事件。
+
+## 2026-09-15 22:27 新发现：Playwright 浏览器运行时被误当成交付文件
+
+正式 Run 当前并未进入最终 Judge。数据库任务状态为前 7 个节点 completed，`remediation_rerun` running，最终报告与最终 Judge pending。整改负责人已在 sequence `169762/169763` 完成业务输出，但节点后置流程随后把人物工作区中的 `.playwright-browsers` 当成代码和证据变更处理。
+
+现场目录包含 310 个 Playwright 浏览器运行时文件、约 452,900,609 字节。sequence `169764` 起连续出现这些浏览器二进制和语言包的 `agent.file.created`；数据库已增长至约 1.49 GB，WAL 约 131 MB，8003 `/api/health` 超时，而 Worker PID 8028 仍存活并持续消耗 CPU。这说明节点没有卡在 Claude Code SDK 或 Judge，而是同步逐文件晋升、哈希、Artifact 登记及事件持久化拖住了 API 事件循环。最终 Judge 必须等待整改节点全部后置动作完成，因此尚未获得调度机会。
+
+根因是 `ClaudeCodeRuntime._workspace_snapshot()` 与 `_copy_tree()` 的忽略目录没有包含 `.playwright-browsers`；工程负责人全树晋升后，这批执行基础设施又进入 `recorded_file_changes`。同时 `agent.file.*` 事件原实现逐条同步写库，进一步放大延迟与页面不可用。
+
+修复策略：统一从快照、种子复制、全树晋升和 Artifact 变更中排除 `.playwright-browsers`，但继续保留真实截图、HAR、trace、JUnit、HTML/JSON 报告等 E2E 证据；文件变更事件改为单批异步落库，避免大量合法交付文件阻塞 API。当前 Run 已请求安全暂停，先让旧进程完成已开始的后置事务并持久化 Checkpoint；到达 `paused` 后加载新代码，再从已排队的定向整改干预恢复同一 Run 与 Version。
+
+22:34 使用 `py-spy` 读取 PID 8028 的 Python 栈，确认主事件循环同步阻塞在 `commit_run_changes → git add --all → subprocess.communicate`。实际 Git for Windows 子进程 PID 7936 从 22:27:52 起持续扫描已误晋升的浏览器与历史证据；`subprocess.run(timeout=60)` 只终止了 `cmd/git.exe` 启动器，真正的 `mingw64/bin/git.exe` 成为孤儿并继续持有管道，所以 Python 的超时清理无法返回。为防止 453 MB 浏览器运行时被提交及远端推送，已精确终止该孤儿 Git 子进程；原 Git index 未被替换，现场文件和数据库均保留。平台随后写入 sequence `174117 task.failed` 与 `174118 run.failed`，有效进度按 7/10 正确落为 70%。
+
+宿主修复同时补充：Git for Windows 优先直接调用 `mingw64/bin/git.exe`，使超时可以终止真实进程；默认 Git 命令上限从 60 秒改为可配置的 600 秒；超时包装为 `GitDeliveryError(git_command_timeout:<operation>)`，不再误报为模型请求超时；本地 Commit 全流程移入工作线程，Git 较慢时 8003 API 仍可响应。
+
+失败现场复核到 `product-source` 有 3,780 条工作树变化：仅 6 条为 tracked 修改，其余主要分布于 `evidence` 1,489、`claude-runtime-migration` 975、`x` 546、`deliverables` 307、`t` 242、`artifacts` 20 等生成目录。其根因是负责人完成后调用 `promote_workspace_tree()`，把整个人物 delivery 与产品 checkout 做镜像同步，再由 `git add --all` 无边界暂存。修复后只晋升本 Claude SDK 回合的产品文件变化；截图、HAR、trace、JUnit、报告、ZIP 等仍从人物 delivery 注册为 Run Artifact，但排除于产品源码晋升；Git Commit 只暂存本回合实际晋升的产品路径。这样 Evidence Center 可见性与产品 Git 纯净度不再互相冲突。
+
+本轮宿主修复验证：Runtime/Git/执行安全定向合同 `85 passed`，后端全量 `233 passed`，Claude Agent SDK Bridge `10/10 passed`，前端 production build `1778 modules transformed`，Python 编译与 `git diff --check` 通过。

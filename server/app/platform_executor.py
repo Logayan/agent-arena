@@ -28,6 +28,30 @@ class ArtifactValidationError(RuntimeError):
     pass
 
 
+_PRODUCT_PROMOTION_EXCLUDED_ROOTS = {
+    ".jianghu-platform-evidence",
+    ".playwright-browsers",
+    "artifacts",
+    "claude-runtime-migration",
+    "collaboration",
+    "deliverables",
+    "evidence",
+    "playwright-report",
+    "test-results",
+    "t",
+    "x",
+}
+
+
+def _product_workspace_changes(changes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        change
+        for change in changes
+        if str(change.get("path") or "").replace("\\", "/").split("/", 1)[0]
+        not in _PRODUCT_PROMOTION_EXCLUDED_ROOTS
+    ]
+
+
 class _AttemptEvidenceBundleCache:
     """Freeze one evidence bundle per platform Attempt.
 
@@ -3506,21 +3530,18 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     },
                                 )
                     workspace_changes = list(response.get("file_changes") or [])
-                    changes = workspace_changes
+                    promoted_changes: list[dict[str, Any]] = []
                     if is_engineering and promote_files:
-                        if hasattr(run_runtime, "promote_workspace_tree"):
-                            changes = run_runtime.promote_workspace_tree(
+                        product_changes = _product_workspace_changes(workspace_changes)
+                        if product_changes:
+                            promoted_changes = run_runtime.promote_workspace_changes(
                                 agent=actor,
-                                destination=execution_code_root,
-                            )
-                        elif workspace_changes:
-                            changes = run_runtime.promote_workspace_changes(
-                                agent=actor,
-                                changes=workspace_changes,
+                                changes=product_changes,
                                 destination=execution_code_root,
                             )
                     response["workspace_file_changes"] = workspace_changes
-                    response["recorded_file_changes"] = changes
+                    response["recorded_file_changes"] = workspace_changes
+                    response["promoted_file_changes"] = promoted_changes
                     response["actor_id"] = actor["id"]
                     response["delivery_root"] = (
                         str(run_runtime.workspace_path(actor) / "delivery")
@@ -3530,11 +3551,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     response["files_promoted"] = bool(is_engineering and promote_files)
                     recovered_public_text, public_text_recovery = _recover_public_text_from_file_changes(
                         response,
-                        promoted_root=(
-                            execution_code_root
-                            if response["files_promoted"]
-                            else response["delivery_root"]
-                        ),
+                        promoted_root=response["delivery_root"],
                         node_name=str(task["node_name"]),
                         phase=phase,
                     )
@@ -3548,14 +3565,16 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     for action in actions:
                         if not action.get("live_emitted"):
                             await record_public_action(action)
-                    async with event_lock:
-                        for change in changes:
-                            action_name = str(change.get("action") or "modified")
-                            store.append_run_event(
-                                run_id, f"agent.file.{action_name}", "artifact",
-                                f"{actor['name']}{'新增' if action_name == 'created' else ('删除' if action_name == 'deleted' else '修改')}文件",
-                                str(change.get("path") or ""),
-                                {
+                    file_change_events = []
+                    for change in workspace_changes:
+                        action_name = str(change.get("action") or "modified")
+                        file_change_events.append(
+                            {
+                                "type": f"agent.file.{action_name}",
+                                "category": "artifact",
+                                "title": f"{actor['name']}{'新增' if action_name == 'created' else ('删除' if action_name == 'deleted' else '修改')}文件",
+                                "summary": str(change.get("path") or ""),
+                                "payload": {
                                     "task_id": task["id"], "node_key": node_key, "agent_id": actor["id"],
                                     "phase": phase, "platform_attempt_id": platform_attempt_id,
                                     "role_instance_id": f"role:{run_id}:{node_key}:{actor['id']}",
@@ -3565,6 +3584,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     "sdk_invocation_id": response.get("sdk_invocation_id"),
                                     **change,
                                 },
+                            }
+                        )
+                    async with event_lock:
+                        if file_change_events:
+                            await asyncio.to_thread(
+                                store.append_run_events,
+                                run_id,
+                                file_change_events,
                             )
                         if public_text_recovery:
                             store.append_run_event(
@@ -3602,7 +3629,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "claude_sdk_session_id": response.get("claude_sdk_session_id"),
                                 "sdk_invocation_id": response.get("sdk_invocation_id"),
                                 "action_count": len(actions),
-                                "file_change_count": len(changes),
+                                "file_change_count": len(workspace_changes),
                             },
                         )
                         submitted_text = _text(response)
@@ -3621,7 +3648,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "platform_session_id": session_key,
                                 "claude_sdk_session_id": response.get("claude_sdk_session_id"),
                                 "sdk_invocation_id": response.get("sdk_invocation_id"),
-                                "usage": response.get("usage", {}), "file_changes": changes,
+                                "usage": response.get("usage", {}), "file_changes": workspace_changes,
                             },
                         )
                         for memory_item in actor_memory_items:
@@ -4301,6 +4328,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                 git_commits: list[dict[str, Any]] = []
                 git_remote_artifacts: list[dict[str, Any]] = []
                 if is_engineering and git_workspace:
+                    git_commit_paths = sorted(
+                        {
+                            str(change.get("path") or "")
+                            for runtime_response in node_runtime_responses
+                            for change in runtime_response.get("promoted_file_changes", [])
+                            if str(change.get("path") or "")
+                        }
+                    )
                     git_attempt_payload = {
                         "task_id": task["id"], "node_key": node_key,
                         "agent_id": agent["id"], "platform_attempt_id": platform_attempt_id,
@@ -4316,12 +4351,14 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                             git_attempt_payload,
                         )
                     try:
-                        git_commit = commit_run_changes(
+                        git_commit = await asyncio.to_thread(
+                            commit_run_changes,
                             execution_code_root,
                             run_id=run_id,
                             node_key=node_key,
                             node_name=str(task["node_name"]),
                             agent=agent,
+                            paths=git_commit_paths,
                         )
                     except (GitDeliveryError, OSError) as exc:
                         async with event_lock:

@@ -9,6 +9,8 @@ import pytest
 from server.app.git_delivery import (
     GitDeliveryError,
     _create_merge_request,
+    _git_binary,
+    _run_git,
     commit_run_changes,
     deliver_commit_to_remote,
     ensure_run_repository,
@@ -26,6 +28,30 @@ def _git(repository: Path, *arguments: str) -> str:
         errors="replace",
         check=True,
     ).stdout.strip()
+
+
+def test_git_binary_prefers_real_git_for_windows_launcher_layout(monkeypatch, tmp_path: Path) -> None:
+    launcher = tmp_path / "Git" / "cmd" / "git.exe"
+    direct = tmp_path / "Git" / "mingw64" / "bin" / "git.exe"
+    launcher.parent.mkdir(parents=True)
+    direct.parent.mkdir(parents=True)
+    launcher.write_bytes(b"launcher")
+    direct.write_bytes(b"direct")
+    monkeypatch.setattr("server.app.git_delivery.shutil.which", lambda _name: str(launcher))
+
+    assert Path(_git_binary()) == direct.resolve()
+
+
+def test_git_timeout_is_reported_as_git_delivery_failure(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("server.app.git_delivery._git_binary", lambda: "git")
+
+    def timeout(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd=["git", "status"], timeout=600)
+
+    monkeypatch.setattr("server.app.git_delivery.subprocess.run", timeout)
+
+    with pytest.raises(GitDeliveryError, match="git_command_timeout:status"):
+        _run_git(tmp_path, "status")
 
 
 def test_run_repository_creates_an_empty_baseline_without_swallowing_delivery_files(tmp_path: Path) -> None:
@@ -151,6 +177,28 @@ def test_clean_workspace_does_not_fabricate_a_commit(tmp_path: Path) -> None:
         node_name="只读复验",
         agent={"id": "agent_auditor", "name": "审计者"},
     ) is None
+
+
+def test_scoped_commit_does_not_stage_generated_evidence(tmp_path: Path) -> None:
+    code_root = tmp_path / "code"
+    ensure_run_repository(code_root, "run_git_scope")
+    (code_root / "server").mkdir()
+    (code_root / "server" / "runtime.py").write_text("RUNTIME = 'claude_code'\n", encoding="utf-8")
+    (code_root / "evidence").mkdir()
+    (code_root / "evidence" / "trace.zip").write_bytes(b"generated evidence")
+
+    commit = commit_run_changes(
+        code_root,
+        run_id="run_git_scope",
+        node_key="runtime_change",
+        node_name="Runtime change",
+        agent={"id": "agent_engineer", "name": "工程实现者"},
+        paths=["server/runtime.py"],
+    )
+
+    assert commit is not None
+    assert commit["files"] == [{"status": "A", "path": "server/runtime.py"}]
+    assert _git(code_root, "status", "--short") == "?? evidence/"
 
 
 def test_patch_export_rejects_untrusted_or_missing_commit_ids(tmp_path: Path) -> None:

@@ -22,7 +22,25 @@ def _git_binary() -> str:
     binary = shutil.which("git")
     if not binary:
         raise GitDeliveryError("git_not_available")
-    return binary
+    resolved = Path(binary).resolve()
+    # Git for Windows exposes a small cmd/git.exe launcher which starts the
+    # real mingw64/bin/git.exe process. If subprocess.run times out, killing
+    # only the launcher leaves the real Git process alive with stdout/stderr
+    # pipes open, so communicate() can wait forever. Invoke the real binary
+    # directly when this standard layout is available.
+    if resolved.parent.name.lower() == "cmd":
+        direct = resolved.parent.parent / "mingw64" / "bin" / "git.exe"
+        if direct.is_file():
+            return str(direct)
+    return str(resolved)
+
+
+def _git_command_timeout_seconds() -> int:
+    try:
+        configured = int(os.getenv("JIANGHU_GIT_COMMAND_TIMEOUT_SECONDS", "600"))
+    except ValueError:
+        configured = 600
+    return max(30, configured)
 
 
 def _run_git(
@@ -31,16 +49,20 @@ def _run_git(
     check: bool = True,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    completed = subprocess.run(
-        [_git_binary(), "-C", str(repository), *arguments],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=60,
-        check=False,
-        env=env,
-    )
+    try:
+        completed = subprocess.run(
+            [_git_binary(), "-C", str(repository), *arguments],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_git_command_timeout_seconds(),
+            check=False,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        operation = str(arguments[0] if arguments else "unknown")
+        raise GitDeliveryError(f"git_command_timeout:{operation}") from exc
     if check and completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "git_command_failed").strip()
         raise GitDeliveryError(detail[:2000])
@@ -455,14 +477,29 @@ def commit_run_changes(
     node_key: str,
     node_name: str,
     agent: dict[str, Any],
+    paths: list[str] | None = None,
 ) -> dict[str, Any] | None:
     repository = Path(code_root).resolve()
     ensure_run_repository(repository, run_id)
-    status = _run_git(repository, "status", "--porcelain=v1", "--untracked-files=all").stdout
-    if not status.strip():
-        return None
-
-    _run_git(repository, "add", "--all")
+    scoped_paths: list[str] | None = None
+    if paths is not None:
+        scoped_paths = []
+        for raw_path in paths:
+            normalized = str(raw_path or "").replace("\\", "/").strip("/")
+            parts = Path(normalized).parts
+            if not normalized or any(part in {"", ".", ".."} for part in parts):
+                continue
+            scoped_paths.append(normalized)
+        scoped_paths = sorted(set(scoped_paths))
+        if not scoped_paths:
+            return None
+        for offset in range(0, len(scoped_paths), 100):
+            _run_git(repository, "add", "--all", "--", *scoped_paths[offset : offset + 100])
+    else:
+        status = _run_git(repository, "status", "--porcelain=v1", "--untracked-files=all").stdout
+        if not status.strip():
+            return None
+        _run_git(repository, "add", "--all")
     if _run_git(repository, "diff", "--cached", "--quiet", check=False).returncode == 0:
         return None
 

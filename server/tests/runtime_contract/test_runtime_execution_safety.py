@@ -32,6 +32,7 @@ from server.app.platform_executor import (
     _interrupted_tool_calls,
     _public_event_projection,
     _public_event_projection_omission,
+    _product_workspace_changes,
     _resolve_gate_targets,
     _recover_public_text_from_file_changes,
     _runtime_attestation,
@@ -93,6 +94,19 @@ def test_code_manifest_excludes_platform_evidence_tree(tmp_path: Path) -> None:
     manifest = _code_manifest(candidate)
 
     assert [item["path"] for item in manifest] == ["server/app.py"]
+
+
+def test_product_promotion_keeps_source_changes_and_excludes_generated_evidence() -> None:
+    changes = [
+        {"path": "server/app/runtime.py", "action": "modified"},
+        {"path": "client/e2e/runtime.spec.mjs", "action": "created"},
+        {"path": "evidence/run/trace.zip", "action": "created"},
+        {"path": "artifacts/package.zip", "action": "created"},
+        {"path": ".playwright-browsers/chromium/chrome.exe", "action": "created"},
+        {"path": "t/pytest-of-agent/result.xml", "action": "created"},
+    ]
+
+    assert _product_workspace_changes(changes) == changes[:2]
 
 
 def test_empty_public_text_recovers_only_from_same_turn_real_files(tmp_path: Path) -> None:

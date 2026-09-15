@@ -254,6 +254,36 @@ def test_workspace_change_snapshot_excludes_platform_evidence_cache(tmp_path) ->
     assert set(snapshot) == {"actual-delivery.txt"}
 
 
+def test_workspace_change_snapshot_excludes_playwright_browser_runtime(tmp_path) -> None:
+    delivery = tmp_path / "delivery"
+    browser_runtime = delivery / ".playwright-browsers" / "chromium" / "chrome-win64"
+    browser_runtime.mkdir(parents=True)
+    (browser_runtime / "chrome.exe").write_bytes(b"browser-runtime" * 1024)
+    (delivery / "evidence" / "screenshot.png").parent.mkdir(parents=True)
+    (delivery / "evidence" / "screenshot.png").write_bytes(b"real-e2e-evidence")
+
+    snapshot = ClaudeCodeRuntime._workspace_snapshot(delivery)
+
+    assert set(snapshot) == {"evidence/screenshot.png"}
+
+
+def test_workspace_promotion_excludes_playwright_browser_runtime(tmp_path) -> None:
+    runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
+    agent = _agent()
+    delivery = runtime.workspace_path(agent) / "delivery"
+    browser_runtime = delivery / ".playwright-browsers" / "chromium"
+    browser_runtime.mkdir(parents=True)
+    (browser_runtime / "chrome.exe").write_bytes(b"browser-runtime")
+    (delivery / "evidence.json").write_text('{"status":"passed"}\n', encoding="utf-8")
+
+    destination = tmp_path / "product-source"
+    promoted = runtime.promote_workspace_tree(agent=agent, destination=destination)
+
+    assert (destination / "evidence.json").is_file()
+    assert not (destination / ".playwright-browsers").exists()
+    assert [item["path"] for item in promoted] == ["evidence.json"]
+
+
 def test_current_attempt_evidence_bundle_is_mirrored_with_artifact_bytes(tmp_path) -> None:
     runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
     agent = _agent()

@@ -19,6 +19,26 @@ from typing import Any, Awaitable, Callable
 from .agent_runtime import AgentRuntimeError, RuntimeErrorCategory
 
 
+_WORKSPACE_IGNORED_DIRECTORIES = {
+    ".git",
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "__pycache__",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    ".jianghu-platform-evidence",
+    # Playwright may install a complete browser distribution below the Agent
+    # delivery root for an E2E run. It is execution infrastructure, not a
+    # product change or evidence deliverable. Promoting and registering it can
+    # add hundreds of binaries and block the API while their audit events are
+    # persisted.
+    ".playwright-browsers",
+}
+
+
 def _safe_name(value: object, fallback: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(value or "")).strip("-_").lower()
     return normalized[:64] or fallback
@@ -377,10 +397,6 @@ class ClaudeCodeRuntime:
 
     @staticmethod
     def _workspace_snapshot(root: Path) -> dict[str, dict[str, Any]]:
-        ignored = {
-            ".git", "node_modules", "dist", "build", "coverage", "__pycache__",
-            ".pytest_cache", ".venv", "venv", ".jianghu-platform-evidence",
-        }
         snapshot: dict[str, dict[str, Any]] = {}
         if not root.is_dir():
             return snapshot
@@ -399,7 +415,9 @@ class ClaudeCodeRuntime:
             onerror=handle_walk_error,
             followlinks=False,
         ):
-            directory_names[:] = [name for name in directory_names if name not in ignored]
+            directory_names[:] = [
+                name for name in directory_names if name not in _WORKSPACE_IGNORED_DIRECTORIES
+            ]
             directory_path = Path(directory)
             for file_name in file_names:
                 path = directory_path / file_name
@@ -437,13 +455,6 @@ class ClaudeCodeRuntime:
     def _copy_tree(source: Path, destination: Path) -> None:
         if not source.is_dir():
             return
-        ignored = {
-            ".git", "node_modules", "dist", "build", "coverage", "__pycache__", ".pytest_cache", ".venv", "venv",
-            # The platform evidence bundle is a read-only seed measured by its
-            # own immutable Registry. Hashing several gigabytes of it once per
-            # Agent before and after every turn cannot reveal deliverable changes.
-            ".jianghu-platform-evidence",
-        }
         destination.mkdir(parents=True, exist_ok=True)
         def handle_walk_error(error: OSError) -> None:
             if not isinstance(error, (FileNotFoundError, NotADirectoryError)):
@@ -455,7 +466,9 @@ class ClaudeCodeRuntime:
             onerror=handle_walk_error,
             followlinks=False,
         ):
-            directory_names[:] = [name for name in directory_names if name not in ignored]
+            directory_names[:] = [
+                name for name in directory_names if name not in _WORKSPACE_IGNORED_DIRECTORIES
+            ]
             directory_path = Path(directory)
             try:
                 relative_directory = directory_path.relative_to(source)
