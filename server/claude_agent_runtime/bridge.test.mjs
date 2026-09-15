@@ -6,8 +6,10 @@ import {
   canonicalDigest,
   commandHasPathEscape,
   commandShell,
+  createSerialExecutor,
   heartbeatIntervalMs,
   normalizedToolResult,
+  runSpawnedCommand,
   workspaceToolEnvironment,
 } from './bridge.mjs';
 
@@ -163,4 +165,59 @@ test('rejects parent and Git Bash drive path escapes', () => {
   assert.equal(commandHasPathEscape('cmd.exe /c type %USERPROFILE%\\secret.txt'), true);
   assert.equal(commandHasPathEscape('python -m unittest discover -s tests -v'), false);
   assert.equal(commandHasPathEscape('python --version && pwd && date -u +%Y-%m-%dT%H:%M:%SZ'), false);
+});
+
+
+test('serial executor runs concurrent operations strictly in submission order', async () => {
+  const execute = createSerialExecutor();
+  const order = [];
+  let releaseFirst;
+  let releaseSecond;
+
+  const first = execute(async () => {
+    order.push('first:start');
+    await new Promise((resolve) => { releaseFirst = resolve; });
+    order.push('first:end');
+    return 'first';
+  });
+  const second = execute(async () => {
+    order.push('second:start');
+    await new Promise((resolve) => { releaseSecond = resolve; });
+    order.push('second:end');
+    return 'second';
+  });
+
+  await Promise.resolve();
+  assert.deepEqual(order, ['first:start']);
+  releaseFirst();
+  assert.equal(await first, 'first');
+  await Promise.resolve();
+  assert.deepEqual(order, ['first:start', 'first:end', 'second:start']);
+  releaseSecond();
+  assert.equal(await second, 'second');
+  assert.deepEqual(order, ['first:start', 'first:end', 'second:start', 'second:end']);
+});
+
+
+test('serial executor continues after an operation rejects', async () => {
+  const execute = createSerialExecutor();
+  const failed = execute(async () => { throw new Error('expected_failure'); });
+  const recovered = execute(async () => 'queue_recovered');
+
+  await assert.rejects(failed, /expected_failure/);
+  assert.equal(await recovered, 'queue_recovered');
+});
+
+
+test('synchronous spawn failures return an MCP tool error instead of rejecting', async () => {
+  const result = await runSpawnedCommand({
+    shell: { executable: 'missing-shell', args: [], kind: 'test-shell' },
+    delivery: '.',
+    timeoutSeconds: 1,
+    spawnImpl: () => { throw new Error('spawn_permission_denied'); },
+  });
+
+  assert.equal(result.isError, true);
+  assert.equal(result.structuredContent.error, 'spawn_permission_denied');
+  assert.match(result.content[0].text, /spawn_permission_denied/);
 });

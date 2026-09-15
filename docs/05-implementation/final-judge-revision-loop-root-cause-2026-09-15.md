@@ -97,3 +97,105 @@ sequence `166126` 的整改期独立校验结果为 `core=true`、`coherent=fals
 本轮宿主修复验证：Runtime/Git/执行安全定向合同 `85 passed`，后端全量 `233 passed`，Claude Agent SDK Bridge `10/10 passed`，前端 production build `1778 modules transformed`，Python 编译与 `git diff --check` 通过。
 
 epoch45 启动后 `git.workspace.ready` 已正确绑定 `origin/master@c033265`，并在 sequence `174360` 首次产生原生 `sdk.session.continued`。同时从人物命令 `pwd` 发现工作区仍位于 Run 深目录：旧选择器只检查 112 字符的 `.../tmp/claude-agents` 基础根，没有计入 Agent ID、`delivery` 以及 pytest/Playwright 后续临时层级，因此仍可能重现 WinError 206。选择器已改为按“最大规范化 Agent ID + delivery”预计路径判断是否切换系统短根；非 Windows 与真正短路径行为保持不变。
+
+## 2026-09-15 23:48 当前 90%→80% 与“最终裁决不能结束”复核
+
+实时 API 对同一正式 Run `run_bda13e93b2ea` 返回 `pause_requested / 70% / 退回缺陷整改与全链路重跑`，事件已增长到 sequence `175908`。10 个节点中当前 7 个 `completed`，`remediation_rerun=running`，`final_report_and_gap_list=pending`，`final_independent_judgement=pending`。最近事件仍有林砚测试启动、谢临川 Bash 完成与副作用核验，说明当前不是 Judge 卡死；Judge 尚未获得调度，平台正在等待当前整改 Attempt 安全排空后执行暂停。
+
+页面此前反复出现的 `90%→80%` 是节点状态投影：最终报告完成后为 9/10；Judge 返回 `REVISE` 后，执行器调用 `_resolve_gate_targets()` 选择返工责任节点，再由 `downstream_from()` 把依赖这些产物的报告与 Judge 一并重置为 pending，当前有效完成节点减少，所以百分比下降。它不是 Judge 的 90 分变成 80 分，也不是历史产物或执行结果丢失。
+
+最终裁决长期不能收敛曾由以下因素叠加造成：
+
+1. 当前 Run 的 `max_revision_rounds=0` 为无界返工；只要 Judge 不 `pass`，平台就不会因轮数自动结束。
+2. 旧版本把代码、Runtime、E2E 和 Artifact 权威性缺口只退回报告节点，重写报告无法改变底层事实，形成稳定循环；现已改为路由到 `remediation_rerun`。
+3. 旧冻结校验同时要求互斥的事件计数等式，并在 Judge 前要求 Judge 通过后才可能出现的 `run.completed`，形成假阻断和阶段循环依赖；epoch45 已生成同游标算术闭合快照并改为 pre-Judge / post-Judge 两阶段语义。
+4. Windows 长路径、Playwright 浏览器运行时误晋升、全树 Git 暂存和同步 Artifact 事件曾拖慢整改后置流程，使 Judge 长时间无法被调度；对应宿主修复已提交，但必须在安全暂停后重启加载并由下一 Attempt 证明。
+
+因此，当前不能通过“继续等待同一个 Judge”解决：正确路径是让 epoch45 当前整改回合安全结束，加载已推送修复，原地恢复同一 Run，重新完成整改、报告和全新独立 Judge。只有同一 Run 按顺序产生 `gate.passed → run.converged → run.completed` 才算最终裁决真正结束。
+
+## 2026-09-16 03:44 epoch46 实时复核
+
+正式 Run `run_bda13e93b2ea` Version 9 当前为 `running / 70% / 退回缺陷整改与全链路重跑`。10 个固定节点中只有前 7 个处于当前权威 `completed` 状态；`remediation_rerun=running`，`final_report_and_gap_list=pending`，`final_independent_judgement=pending`。因此此刻不是最终 Judge 执行后卡住，而是 Judge 尚未获得调度，必须等待整改节点和最终报告依次完成。
+
+监控事件从 sequence `183590` 持续增长到至少 `183652`，两名 Claude Code SDK 角色均继续产生工具完成、测试完成和 `agent.action.heartbeat`，没有静默停滞证据。当前新暴露的直接阻断位于 Windows 上的 Bridge 验证命令：Claude SDK Bash 回合原本传入 `cmd.exe /d /c npm ci --ignore-scripts`，但参数在到达 Python receipt runner 前已被 MSYS 路径转换为 `cmd.exe D:/ C:/ npm ci --ignore-scripts`。命令因此只打开并退出 `cmd.exe`，未执行 npm；权威 receipt 显示 `child_exit_code=0`，但期望的 `server/claude_agent_runtime/node_modules` 不存在，所以有效结果被正确降为 `exit_code=2 / expected_outputs_valid=false`。单纯把 `MSYS2_ARG_CONV_EXCL=*` 放进子进程环境无法修复，因为参数改写发生在启动 Python runner 之前。
+
+随后林砚完成一轮真实后端全量回归，结果为 `241 passed / 1 failed`。唯一失败是 `test_rtc_001_health_and_port_are_available_for_both_adapters[claude_code]`：Claude Runtime health 中 `version=''` 且 `available=false`。该失败与上述 Bridge 依赖未安装属于同一因果链，并非另一个 Judge 缺陷；在 npm 安装和 Bridge 测试形成有效 receipt 前，整改节点不能被标记 completed。
+
+页面历史上的 `90% → 80%` 仍是节点权威状态变化，不是 Judge 分数变化：最终报告完成时为 9/10；Judge 返回 `REVISE` 后，责任节点及依赖其新产物的下游节点被重置为 pending，完成节点数下降。当前定向整改会同时打开整改、报告和 Judge 三个节点，因此有效进度进一步是 7/10，即 70%。
+
+最终裁决不能自动结束的控制面原因是当前 Run 明确配置了 `max_revision_rounds=0`，即无界返工。该策略只保证“不因固定轮数强杀”，并不保证收敛；只要 Judge 仍返回 `REVISE`，平台就会继续重置责任节点和下游。真正结束仍必须先消除验证链中的事实缺口和假阻断，再由同一 Run 依次产生 `gate.passed → run.converged → run.completed`。当前应继续完成 epoch46 的命令启动适配、全量回归和权威证据封存，而不是等待尚未启动的 Judge 或取消无界 Loop 来制造假完成。
+
+后续执行已证明上述 npm/MSYS 启动问题可修复：角色改为直接通过 Windows Node 与 `npm-cli.js` 启动安装/测试，Bridge receipt、后端权威全量回归、真实 `5173 + 8003` Evidence Center E2E、OpenClaw 生产残留扫描、凭据扫描和 `.playwright-browsers` 排除检查均已出现有效 PASS。最终提交阶段又修正 Git 子进程继承 `GIT_*` 覆盖、事件快照元数据契约及相关回归，修复后后端全量、Bridge、前端构建和 E2E 再次通过。
+
+截至 sequence `186555+`，综合检查为内容、Registry、残留、凭据和测试通过，但冻结快照状态为 `PASS_CONTENT_COHERENCE_BLOCKED_NEW_BOUNDARY_ATTESTATION`。这是当前尚未进入 Judge 的准确原因：修复发生在旧快照冻结边界之后，平台必须先完成正式提交、Memory/Git/Artifact authority 后置核验并生成新的权威边界证明。使用旧快照直接裁决会再次产生错误 `REVISE`，所以当前保持 70% 是正确保护，不是进度算法再次卡死。
+
+## 2026-09-16 现场终态复核：当前并非 Judge 卡住，而是最终报告节点被 Bridge 异常中断
+
+实时 API 对正式 Run `run_bda13e93b2ea` Version 9 的返回为：
+
+```text
+status=failed
+progress=80
+stage=execution_failed
+remediation_rerun=completed
+final_report_and_gap_list=failed
+final_independent_judgement=pending
+```
+
+因此当前 `80%` 的准确含义是 10 个固定节点中 8 个处于当前有效 `completed` 状态；第 9 个“迁移验收报告与缺口清单封版”失败，第 10 个“最终独立裁决”尚未调度。页面看到的现象不是 Judge 一直运行但无法结束，也不是 Judge 分数从 90 降到 80。
+
+最终报告节点已连续两次以相同结构失败：
+
+```text
+epoch46: sequence 188145 task.failed → 188146 run.failed
+error_type=PermissionError
+diagnostic_id=diag-3a37629329840c3f
+
+epoch47: sequence 188543 task.failed → 188544 run.failed
+error_type=OSError
+diagnostic_id=diag-52014e2ab3f0bc87
+```
+
+两次 Claude SDK 会话均在同一人物回合中并发发起三条 `mcp__jianghu_workspace__bash`。其中两条返回完整 Tool result，第三条只留下 `agent.tool.started / agent.command.started`，没有对应的终态 Tool result，随后 SDK 会话在没有最终 assistant result 的情况下结束，宿主把底层 `PermissionError/OSError` 提升为整个节点失败。
+
+代码核验确认 `server/claude_agent_runtime/bridge.mjs` 的 Bash Tool 当前存在两个宿主级缺口：
+
+1. 同一 `workspaceServer` / SDK Session 的 Bash 调用可以并发执行；Windows 下多个 shell/process 同时启动时会放大句柄、权限和进程创建竞争。
+2. `spawn()` 直接写在 Promise executor 内，未用同步 `try/catch` 包裹；如果进程创建同步抛出异常，MCP Tool callback 会 reject，而不是返回一个可审计的 `isError=true` Tool result，进而终止整个 Claude SDK turn。
+
+这也解释了为什么仅靠提示词要求“串行读取证据”仍会复现：模型仍可能一次返回多个 Tool use，可靠约束必须由 Bridge 宿主实现，而不是依赖人物遵守提示词。
+
+当前收敛路径不是延长等待时间，也不是直接重跑 Judge，而是先修复 Bridge：对同一 Session 的 Bash Tool 做串行队列；同步 `spawn` 失败转换为 MCP 错误结果；补充并发顺序、失败后队列可继续、同步 spawn 异常不击穿 SDK turn 的回归测试。修复加载后，应从 `task_764f124e78e1` 原地恢复同一 Run，只重开最终报告和最终 Judge，并继续以同一 Run 出现下列顺序作为唯一完成条件：
+
+```text
+gate.passed → run.converged → run.completed
+```
+
+## 2026-09-16 Bridge 宿主修复与本地验证
+
+已在 `server/claude_agent_runtime/bridge.mjs` 完成宿主级修复：
+
+- 新增 Session 内串行执行器，所有同一 `workspaceServer` 的 Bash Tool 按提交顺序逐个运行；
+- 队列使用成功/失败双分支推进，单条命令失败不会使后续命令永久阻塞；
+- 将进程启动封装为可独立验证的 `runSpawnedCommand()`；
+- 对同步 `spawn()` 异常进行捕获并返回 `isError=true` 的 MCP Tool result，不再让异常 reject SDK Tool callback 或终止整个人物回合；
+- 保持原有超时、进程树终止、凭据隔离、输出上限和命令路径约束不变。
+
+新增 Bridge 回归覆盖：
+
+1. 多个并发提交严格按顺序执行；
+2. 前一个 operation reject 后队列仍可继续；
+3. 同步 `spawn` 失败返回 MCP 错误结果，而不是 Promise reject。
+
+本地验证结果：
+
+```text
+Claude SDK Bridge: 13 passed
+Claude Runtime contract: 22 passed
+Backend full regression: 234 passed, 1 warning
+Frontend production build: 1778 modules transformed, PASS
+```
+
+第一次使用系统 Python 启动 pytest 时，测试尚未收集便因全局 `logfire` 与 `opentelemetry` 插件版本冲突失败；改用项目锁定的 `.venv`（pytest 9.1.1）后 Runtime 合同和后端全量均通过。该环境失败不计为产品回归失败，但保留在执行记录中。
+
+下一步是在安全边界加载已提交 Bridge 修复，然后从 `task_764f124e78e1` 原地恢复同一 Run。恢复必须保留前 8 个已完成节点、历史失败 Attempt 和全部 Artifact，只重新执行最终报告与最终独立 Judge。

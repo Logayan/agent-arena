@@ -211,7 +211,76 @@ function mcpResult(payload, isError = false) {
   };
 }
 
+export function createSerialExecutor() {
+  let tail = Promise.resolve();
+  return (operation) => {
+    const current = tail.then(operation, operation);
+    tail = current.then(() => undefined, () => undefined);
+    return current;
+  };
+}
+
+export function runSpawnedCommand({
+  shell,
+  delivery,
+  timeoutSeconds,
+  spawnImpl = spawn,
+}) {
+  return new Promise((resolvePromise) => {
+    let child;
+    try {
+      child = spawnImpl(shell.executable, shell.args, {
+        cwd: delivery,
+        env: workspaceToolEnvironment(delivery),
+        detached: process.platform !== 'win32',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      resolvePromise(mcpResult({ error: publicError(error).message }, true));
+      return;
+    }
+    activeChildren.add(child);
+    const stdout = [];
+    const stderr = [];
+    let outputBytes = 0;
+    const collect = (destination) => (chunk) => {
+      if (outputBytes >= 200000) return;
+      const buffer = Buffer.from(chunk);
+      destination.push(buffer.subarray(0, Math.max(0, 200000 - outputBytes)));
+      outputBytes += buffer.length;
+    };
+    child.stdout.on('data', collect(stdout));
+    child.stderr.on('data', collect(stderr));
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child);
+    }, Math.max(1, timeoutSeconds) * 1000);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      activeChildren.delete(child);
+      resolvePromise(mcpResult({ error: publicError(error).message }, true));
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      activeChildren.delete(child);
+      const payload = {
+        status: timedOut ? 'timeout' : (code === 0 ? 'completed' : 'failed'),
+        exit_code: code,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8'),
+        cwd: '.',
+        shell: shell.kind,
+        environment: 'credential-isolated',
+      };
+      resolvePromise(mcpResult(payload, timedOut || code !== 0));
+    });
+  });
+}
+
 function workspaceServer(workspace, delivery, commandTimeoutSeconds) {
+  const runBashSerially = createSerialExecutor();
   const readTool = tool(
     'read',
     'Read a UTF-8 text file inside the current Agent workspace.',
@@ -292,7 +361,7 @@ function workspaceServer(workspace, delivery, commandTimeoutSeconds) {
     'bash',
     'Run a build, test, inspection, or development command inside delivery/ with provider credentials removed.',
     { command: z.string(), timeout_seconds: z.number().int().positive().max(commandTimeoutSeconds).optional() },
-    async ({ command, timeout_seconds = commandTimeoutSeconds }) => {
+    async ({ command, timeout_seconds = commandTimeoutSeconds }) => runBashSerially(async () => {
       if (commandHasPathEscape(command)) return mcpResult({ error: 'command_path_not_allowed' }, true);
       let shell;
       try {
@@ -300,52 +369,8 @@ function workspaceServer(workspace, delivery, commandTimeoutSeconds) {
       } catch (error) {
         return mcpResult({ error: publicError(error).message }, true);
       }
-      return await new Promise((resolvePromise) => {
-        const child = spawn(shell.executable, shell.args, {
-          cwd: delivery,
-          env: workspaceToolEnvironment(delivery),
-          detached: process.platform !== 'win32',
-          windowsHide: true,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-        activeChildren.add(child);
-        const stdout = [];
-        const stderr = [];
-        let outputBytes = 0;
-        const collect = (destination) => (chunk) => {
-          if (outputBytes >= 200000) return;
-          const buffer = Buffer.from(chunk);
-          destination.push(buffer.subarray(0, Math.max(0, 200000 - outputBytes)));
-          outputBytes += buffer.length;
-        };
-        child.stdout.on('data', collect(stdout));
-        child.stderr.on('data', collect(stderr));
-        let timedOut = false;
-        const timer = setTimeout(() => {
-          timedOut = true;
-          killProcessTree(child);
-        }, Math.max(1, timeout_seconds) * 1000);
-        child.on('error', (error) => {
-          clearTimeout(timer);
-          activeChildren.delete(child);
-          resolvePromise(mcpResult({ error: publicError(error).message }, true));
-        });
-        child.on('close', (code) => {
-          clearTimeout(timer);
-          activeChildren.delete(child);
-          const payload = {
-            status: timedOut ? 'timeout' : (code === 0 ? 'completed' : 'failed'),
-            exit_code: code,
-            stdout: Buffer.concat(stdout).toString('utf8'),
-            stderr: Buffer.concat(stderr).toString('utf8'),
-            cwd: '.',
-            shell: shell.kind,
-            environment: 'credential-isolated',
-          };
-          resolvePromise(mcpResult(payload, timedOut || code !== 0));
-        });
-      });
-    },
+      return await runSpawnedCommand({ shell, delivery, timeoutSeconds: timeout_seconds });
+    }),
   );
   return createSdkMcpServer({ name: 'jianghu_workspace', version: '1.0.0', tools: [readTool, writeTool, editTool, bashTool] });
 }
