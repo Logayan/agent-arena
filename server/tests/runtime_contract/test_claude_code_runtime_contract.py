@@ -178,6 +178,23 @@ def test_run_workspace_root_preserves_short_windows_execution_root(tmp_path) -> 
     ) == execution_root.resolve() / "tmp" / "claude-agents"
 
 
+def test_run_workspace_root_reserves_space_for_agent_and_delivery_segments(tmp_path) -> None:
+    execution_root = Path("C:/") / ("medium-segment-" * 3)
+    default_root = execution_root.resolve() / "tmp" / "claude-agents"
+    projected_delivery = default_root / ("agent-" + "x" * 64) / "delivery"
+    assert len(str(default_root)) < 120
+    assert len(str(projected_delivery)) >= 120
+
+    selected = _run_workspace_root(
+        execution_root,
+        "run-medium-path",
+        platform_name="nt",
+        temporary_root=tmp_path / "short",
+    )
+
+    assert selected.parent == (tmp_path / "short" / "jianghu-claude-agents").resolve()
+
+
 def test_claude_sync_projects_context_memory_skills_and_policy_without_token(tmp_path) -> None:
     runtime = ClaudeCodeRuntime(tmp_path / "state", tmp_path / "workspaces")
     agent = _agent()

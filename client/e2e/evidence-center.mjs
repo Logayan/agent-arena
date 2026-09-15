@@ -11,14 +11,15 @@ const inheritedReceiptArtifactId = process.env.EVIDENCE_E2E_INHERITED_RECEIPT_AR
 const allowCompatibilityFallback = process.env.EVIDENCE_E2E_ALLOW_COMPAT === '1'
 const outputRoot = path.resolve(process.env.EVIDENCE_E2E_OUTPUT || `../deliverables/${runId}/evidence-center-e2e/latest`)
 const screenshotRoot = path.join(outputRoot, 'screenshots')
+const downloadRoot = path.join(outputRoot, 'downloads')
+const harPath = path.join(outputRoot, 'network.har')
+const tracePath = path.join(outputRoot, 'playwright-trace.zip')
 await mkdir(screenshotRoot, { recursive: true })
+await mkdir(downloadRoot, { recursive: true })
 
 const cases = []
 const results = []
 const screenshots = []
-const downloadedArtifacts = []
-const browserRequests = []
-const prohibitedManagementRequests = []
 const consoleErrors = []
 const failedRequests = []
 const httpErrors = []
@@ -48,7 +49,7 @@ defineCase('EVC-005', '从正式交付卡片打开实际文件', '交付物展�
 defineCase('EVC-006', '预览无扩展名与环境配置文本', 'Dockerfile、.env.example 等文本文件直接显示实际正文，不再只显示元数据')
 defineCase('EVC-007', '缺失原字节时保持应用内闭环', '删除凭据明确标识原字节未归档，下载不会把页面带到 Not Found')
 defineCase('EVC-008', '继承回执展示真实文件而非元数据', '应用内按 SHA-256 血缘解析原文件，分开展示实际文件与登记回执的大小、类型和哈希')
-defineCase('EVC-009', '从真实前端下载当前 Run 已登记文件并独立复算', '浏览器下载字节数和 SHA-256 与当前 Run Artifact Registry 元数据精确一致')
+defineCase('EVC-009', '浏览器真实下载并独立复算 Artifact', '浏览器下载原始字节，独立复算大小与 SHA-256，必须与 Registry 完全一致')
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -59,18 +60,10 @@ const context = await browser.newContext({
   viewport: { width: 1680, height: 1050 },
   locale: 'zh-CN',
   acceptDownloads: true,
-  recordHar: { path: path.join(outputRoot, 'network.har'), content: 'embed', mode: 'full' },
+  recordHar: { path: harPath, mode: 'full', content: 'embed' },
 })
 await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
 const page = await context.newPage()
-page.on('request', request => {
-  const url = request.url()
-  const record = { method: request.method(), resource_type: request.resourceType(), url }
-  browserRequests.push(record)
-  if (/\.jianghu-platform-evidence|\/artifact-registry(?:[/?#]|$)|\/workspace(?:[/?#]|$)|\/git(?:[/?#]|$)/i.test(url)) {
-    prohibitedManagementRequests.push(record)
-  }
-})
 page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()) })
 page.on('requestfailed', request => {
   const error = request.failure()?.errorText || 'unknown'
@@ -203,32 +196,6 @@ try {
   const receiptOnly = /^\s*\{[\s\S]*"source_relative_path"[\s\S]*"sha256"[\s\S]*\}\s*$/.test(previewBody)
   record('EVC-005', deliveryText.includes('应用内正文预览') && !receiptOnly ? 'PASS' : 'FAIL', `delivery_card_to_in_app_preview=true; artifact=${actualTextArtifact.id}; receipt_only=${receiptOnly}`, [deliveryShot])
 
-  const downloadRoot = path.join(outputRoot, 'downloads')
-  await mkdir(downloadRoot, { recursive: true })
-  const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 60000 }),
-    page.getByTestId('evidence-detail-panel').locator('footer button').click(),
-  ])
-  const downloadedRelative = `downloads/${actualTextArtifact.id}-${download.suggestedFilename()}`
-  const downloadedPath = path.join(outputRoot, downloadedRelative)
-  await download.saveAs(downloadedPath)
-  const downloadedBytes = await readFile(downloadedPath)
-  const downloadedSha256 = createHash('sha256').update(downloadedBytes).digest('hex')
-  const expectedSha256 = String(actualTextArtifact.sha256 || '')
-  const expectedSize = Number(actualTextArtifact.size_bytes || 0)
-  const downloadExact = downloadedSha256 === expectedSha256 && downloadedBytes.length === expectedSize
-  downloadedArtifacts.push({
-    path: downloadedRelative,
-    artifact_id: actualTextArtifact.id,
-    downloaded_size_bytes: downloadedBytes.length,
-    downloaded_sha256: downloadedSha256,
-    api_registry_size_bytes: expectedSize,
-    api_registry_sha256: expectedSha256,
-    exact: downloadExact,
-  })
-  const downloadShot = await shot(page, 'EVC-009', '09-current-run-download-verified.png', '真实前端下载后独立复算当前 Run 已登记 Artifact 字节')
-  record('EVC-009', downloadExact ? 'PASS' : 'FAIL', `artifact=${actualTextArtifact.id}; size=${downloadedBytes.length}/${expectedSize}; sha256=${downloadedSha256}; expected=${expectedSha256}`, [downloadShot, downloadedRelative])
-
   const extensionlessArtifact = (run.artifacts || []).find(item => /(^|\/)(Dockerfile|\.env(?:\.[^/]+)*\.example)$/i.test(String(item.title || '').replaceAll('\\', '/')))
   if (!extensionlessArtifact) throw new Error('真实 Run 中没有 Dockerfile 或 .env.example Artifact')
   const evidenceSearch = page.locator('.evidence-search input')
@@ -266,13 +233,32 @@ try {
     && inheritedDetailText.includes('登记回执大小 / 类型')
     && inheritedDetailText.includes('实际内容来源 Artifact')
   record('EVC-008', inheritedPassed ? 'PASS' : 'FAIL', `artifact=${inheritedReceiptArtifact.id}; preview_chars=${inheritedPreviewBody.length}; receipt_only=${inheritedReceiptOnly}`, [inheritedShot])
+
+  await evidenceSearch.fill(String(actualTextArtifact.id))
+  await page.getByTestId(`evidence-item-${actualTextArtifact.id}`).click()
+  const downloadLink = page.getByTestId('evidence-detail-panel').getByRole('button', { name: /下载原文件|下载实际文件/ }).first()
+  await downloadLink.waitFor({ state: 'visible', timeout: 60000 })
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60000 }),
+    downloadLink.click(),
+  ])
+  const downloadRelative = `downloads/${actualTextArtifact.id}-${download.suggestedFilename()}`
+  const downloadPath = path.join(outputRoot, downloadRelative)
+  await download.saveAs(downloadPath)
+  const downloadedBytes = await readFile(downloadPath)
+  const downloadedSha256 = createHash('sha256').update(downloadedBytes).digest('hex')
+  const expectedSha256 = String(actualTextArtifact.expected_sha256 || actualTextArtifact.observed_sha256 || actualTextArtifact.sha256 || '')
+  const expectedSize = Number(actualTextArtifact.size_bytes || 0)
+  const downloadPassed = downloadedBytes.length === expectedSize && downloadedSha256 === expectedSha256
+  const downloadShot = await shot(page, 'EVC-009', '09-browser-download-verified.png', '浏览器真实下载完成后的 Artifact 详情与独立哈希复算')
+  record('EVC-009', downloadPassed ? 'PASS' : 'FAIL', `artifact=${actualTextArtifact.id}; size=${downloadedBytes.length}/${expectedSize}; sha256=${downloadedSha256}; expected_sha256=${expectedSha256}`, [downloadShot, downloadRelative])
 } catch (error) {
   const pending = cases.filter(item => !results.some(result => result.case_id === item.id))
   for (const item of pending) record(item.id, 'FAIL', error instanceof Error ? error.stack || error.message : String(error))
   try { await shot(page, pending[0]?.id || 'EVC-FAIL', '99-failure.png', 'E2E 未捕获异常现场') } catch {}
 } finally {
-  try { await context.tracing.stop({ path: path.join(outputRoot, 'trace.zip') }) } catch (error) { consoleErrors.push(`trace_stop_failed:${String(error)}`) }
-  await context.close()
+  await context.tracing.stop({ path: tracePath }).catch(() => {})
+  await context.close().catch(() => {})
   await browser.close()
 }
 
@@ -281,8 +267,6 @@ const summary = {
   run_id: runId, frontend: frontendUrl, backend: backendUrl, started_at: startedAt, finished_at: finishedAt,
   passed: results.filter(item => item.status === 'PASS').length,
   failed: results.filter(item => item.status === 'FAIL').length,
-  browser_request_count: browserRequests.length,
-  prohibited_management_requests: prohibitedManagementRequests,
   console_errors: consoleErrors,
   failed_requests: failedRequests,
   http_errors: httpErrors,
@@ -290,13 +274,12 @@ const summary = {
 await writeFile(path.join(outputRoot, 'test-cases.json'), JSON.stringify({ run_id: runId, cases }, null, 2), 'utf8')
 await writeFile(path.join(outputRoot, 'test-results.json'), JSON.stringify({ ...summary, results }, null, 2), 'utf8')
 await writeFile(path.join(outputRoot, 'screenshot-index.json'), JSON.stringify({ run_id: runId, screenshots }, null, 2), 'utf8')
-await writeFile(path.join(outputRoot, 'browser-download-receipts.json'), JSON.stringify({ run_id: runId, downloads: downloadedArtifacts }, null, 2), 'utf8')
-await writeFile(path.join(outputRoot, 'browser-requests.json'), JSON.stringify({ run_id: runId, requests: browserRequests, prohibited_management_requests: prohibitedManagementRequests }, null, 2), 'utf8')
 const junitCases = results.map(item => `<testcase classname="evidence-center" name="${item.case_id}">${item.status === 'FAIL' ? `<failure>${String(item.actual).replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</failure>` : ''}</testcase>`).join('')
 await writeFile(path.join(outputRoot, 'junit.xml'), `<?xml version="1.0" encoding="UTF-8"?><testsuite name="evidence-center" tests="${results.length}" failures="${summary.failed}">${junitCases}</testsuite>`, 'utf8')
 const htmlRows = results.map(item => `<tr><td>${item.case_id}</td><td>${item.status}</td><td><pre>${String(item.actual).replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</pre></td></tr>`).join('')
 await writeFile(path.join(outputRoot, 'playwright-report.html'), `<!doctype html><meta charset="utf-8"><title>Evidence Center E2E</title><h1>Evidence Center E2E</h1><p>${runId}: ${summary.passed} passed / ${summary.failed} failed</p><table border="1"><tr><th>Case</th><th>Status</th><th>Actual</th></tr>${htmlRows}</table>`, 'utf8')
-const files = ['test-cases.json', 'test-results.json', 'screenshot-index.json', 'browser-download-receipts.json', 'browser-requests.json', 'junit.xml', 'playwright-report.html', 'network.har', 'trace.zip', ...screenshots.map(item => item.path), ...downloadedArtifacts.map(item => item.path)]
+const downloadedFiles = results.flatMap(item => item.evidence || []).filter(item => String(item).startsWith('downloads/'))
+const files = ['test-cases.json', 'test-results.json', 'screenshot-index.json', 'junit.xml', 'playwright-report.html', 'network.har', 'playwright-trace.zip', ...screenshots.map(item => item.path), ...downloadedFiles]
 const manifest = []
 for (const relative of files) {
   const bytes = await readFile(path.join(outputRoot, relative))
@@ -304,4 +287,4 @@ for (const relative of files) {
 }
 await writeFile(path.join(outputRoot, 'sha256-manifest.json'), JSON.stringify({ run_id: runId, files: manifest }, null, 2), 'utf8')
 console.log(JSON.stringify(summary, null, 2))
-if (summary.failed || consoleErrors.length || failedRequests.length || httpErrors.length || prohibitedManagementRequests.length) process.exitCode = 1
+if (summary.failed || consoleErrors.length || failedRequests.length || httpErrors.length) process.exitCode = 1

@@ -91,14 +91,7 @@ def load_real_model_config(source: str, database_path: str) -> dict[str, Any]:
     db_path = (PROJECT_ROOT / database_path).resolve()
     if not db_path.is_file():
         raise RuntimeError("active_model_database_missing")
-    # pathlib preserves the Win32 extended-path prefix returned by the test
-    # sandbox, but SQLite URI parsing treats ``?`` in ``\\?\\`` as a URI
-    # delimiter. Strip only that platform prefix before constructing the
-    # read-only file URI; the resolved target and mode=ro contract are kept.
-    sqlite_uri_path = str(db_path)
-    if os.name == "nt" and sqlite_uri_path.startswith("\\\\?\\"):
-        sqlite_uri_path = sqlite_uri_path[4:]
-    connection = sqlite3.connect(f"{Path(sqlite_uri_path).as_uri()}?mode=ro", uri=True)
+    connection = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(

@@ -54,6 +54,27 @@ def test_git_timeout_is_reported_as_git_delivery_failure(monkeypatch, tmp_path: 
         _run_git(tmp_path, "status")
 
 
+def test_run_git_ignores_inherited_repository_redirection(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("server.app.git_delivery._git_binary", lambda: "git")
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "foreign.git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "foreign-tree"))
+    monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "foreign.index"))
+    captured: dict[str, object] = {}
+
+    def completed(*args, **kwargs):
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("server.app.git_delivery.subprocess.run", completed)
+    _run_git(tmp_path, "status")
+
+    environment = captured["env"]
+    assert isinstance(environment, dict)
+    assert "GIT_DIR" not in environment
+    assert "GIT_WORK_TREE" not in environment
+    assert "GIT_INDEX_FILE" not in environment
+
+
 def test_run_repository_creates_an_empty_baseline_without_swallowing_delivery_files(tmp_path: Path) -> None:
     code_root = tmp_path / "code"
     code_root.mkdir()

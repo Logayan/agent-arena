@@ -43,28 +43,48 @@ def _git_command_timeout_seconds() -> int:
     return max(30, configured)
 
 
+_GIT_REPOSITORY_CONTEXT_VARIABLES = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
+def _git_subprocess_environment(
+    environment: dict[str, str] | None = None,
+    *,
+    preserve_index_file: bool = False,
+) -> dict[str, str]:
+    """Remove inherited repository redirection from Run-local Git commands."""
+    sanitized = dict(os.environ if environment is None else environment)
+    explicit_index_file = sanitized.get("GIT_INDEX_FILE") if preserve_index_file else None
+    for variable in _GIT_REPOSITORY_CONTEXT_VARIABLES:
+        sanitized.pop(variable, None)
+    if explicit_index_file:
+        sanitized["GIT_INDEX_FILE"] = explicit_index_file
+    return sanitized
+
+
 def _run_git(
     repository: Path,
     *arguments: str,
     check: bool = True,
     env: dict[str, str] | None = None,
+    preserve_index_file: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    # Git for Windows does not inherit Python's extended-path handling. Enable
-    # repository-local long-path support on every invocation so a Run checkout
-    # below a deep commissioned delivery root remains operable without SUBST.
-    git_command = [_git_binary()]
-    if os.name == "nt":
-        git_command.extend(["-c", "core.longpaths=true"])
     try:
         completed = subprocess.run(
-            [*git_command, "-C", str(repository), *arguments],
+            [_git_binary(), "-C", str(repository), *arguments],
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             timeout=_git_command_timeout_seconds(),
             check=False,
-            env=env,
+            env=_git_subprocess_environment(env, preserve_index_file=preserve_index_file),
         )
     except subprocess.TimeoutExpired as exc:
         operation = str(arguments[0] if arguments else "unknown")
@@ -240,7 +260,7 @@ def test_remote_repository(config: dict[str, Any]) -> dict[str, Any]:
         errors="replace",
         timeout=30,
         check=False,
-        env=_remote_auth_environment(config),
+        env=_git_subprocess_environment(_remote_auth_environment(config)),
     )
     if completed.returncode != 0:
         raise GitDeliveryError((completed.stderr or completed.stdout or "git_remote_connection_failed").strip()[:2000])
@@ -337,7 +357,7 @@ def _overlay_source_tree(repository: Path, *, base_commit_sha: str, source_commi
     index_environment = os.environ.copy()
     index_environment["GIT_INDEX_FILE"] = str(index_path)
     try:
-        _run_git(repository, "read-tree", base_commit_sha, env=index_environment)
+        _run_git(repository, "read-tree", base_commit_sha, env=index_environment, preserve_index_file=True)
         listing = _run_git(repository, "ls-tree", "-r", "-z", source_commit_sha).stdout
         for entry in listing.split("\0"):
             if not entry or "\t" not in entry:
@@ -349,9 +369,9 @@ def _overlay_source_tree(repository: Path, *, base_commit_sha: str, source_commi
             mode, _, object_sha = parts
             _run_git(
                 repository, "update-index", "--add", "--cacheinfo", mode, object_sha, path,
-                env=index_environment,
+                env=index_environment, preserve_index_file=True,
             )
-        return _run_git(repository, "write-tree", env=index_environment).stdout.strip()
+        return _run_git(repository, "write-tree", env=index_environment, preserve_index_file=True).stdout.strip()
     finally:
         index_path.unlink(missing_ok=True)
 
@@ -573,11 +593,8 @@ def export_commit_patch(code_root: str | Path, commit_sha: str) -> bytes:
     verified = _run_git(repository, "rev-parse", "--verify", f"{commit_sha}^{{commit}}", check=False)
     if verified.returncode != 0:
         raise GitDeliveryError("commit_not_found")
-    git_command = [_git_binary()]
-    if os.name == "nt":
-        git_command.extend(["-c", "core.longpaths=true"])
     completed = subprocess.run(
-        [*git_command, "-C", str(repository), "format-patch", "-1", "--stdout", commit_sha],
+        [_git_binary(), "-C", str(repository), "format-patch", "-1", "--stdout", commit_sha],
         capture_output=True,
         timeout=60,
         check=False,
