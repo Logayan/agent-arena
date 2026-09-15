@@ -728,7 +728,10 @@ def test_event_snapshot_metadata_uses_one_frozen_count_contract() -> None:
         "source_event_count": 162_842,
         "public_event_count": 162_751,
         "omitted_event_count": 91,
+        "first_event_sequence": 0,
         "cutoff_sequence": 162_842,
+        "event_snapshot_coherent": True,
+        "event_snapshot_boundary_rule": "sequence_lte_frozen_cutoff",
     }
 
 

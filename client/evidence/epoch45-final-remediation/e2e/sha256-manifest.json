@@ -1,0 +1,100 @@
+{
+  "run_id": "run_bda13e93b2ea",
+  "files": [
+    {
+      "path": "test-cases.json",
+      "size_bytes": 2188,
+      "sha256": "0c89d3d875e546f3b0d4c083ae1157e1236294fa54f9c0d5c2f518b70d31adbd"
+    },
+    {
+      "path": "test-results.json",
+      "size_bytes": 3101,
+      "sha256": "5a75cc1268b959fe47fd6a5721a3fe653abca7204694e8643dc6c9c6ad314f5d"
+    },
+    {
+      "path": "screenshot-index.json",
+      "size_bytes": 1668,
+      "sha256": "ecb639a6c4884cd042608e11668dd7ab95e70e594b1ac470455c277e0de5c64d"
+    },
+    {
+      "path": "browser-download-receipts.json",
+      "size_bytes": 486,
+      "sha256": "5b7f3aad867fc8876b47c55fab072d2541be69ed210b3c226a1ea8252dcc703a"
+    },
+    {
+      "path": "browser-requests.json",
+      "size_bytes": 14720,
+      "sha256": "08b259c024c1d8e239be18a81f9bc022de8f7ebaffc44a23f66ac2826ec83e62"
+    },
+    {
+      "path": "junit.xml",
+      "size_bytes": 683,
+      "sha256": "43d9251d83af859b3a6743144e5d20de13d7139ee4ad928376e17e030fb9582f"
+    },
+    {
+      "path": "playwright-report.html",
+      "size_bytes": 1453,
+      "sha256": "000666b6242ca26100f5534a013b626c8bf1d6b4c87fd488dba473ad24775771"
+    },
+    {
+      "path": "network.har",
+      "size_bytes": 53947450,
+      "sha256": "057000177d00c12a3b6edd138e63b9aee07f87fe3cf92e4eb1067caa843f687d"
+    },
+    {
+      "path": "trace.zip",
+      "size_bytes": 13801671,
+      "sha256": "35ae1123a9243b0af65ec6c57eee1faca76e0c17be8690cb31c4a0ec30283481"
+    },
+    {
+      "path": "screenshots/01-evidence-center.png",
+      "size_bytes": 249768,
+      "sha256": "932e99b2304685687cb75ec385532b82928165dc9799450f1895fe7a32eb2260"
+    },
+    {
+      "path": "screenshots/02-image-lightbox.png",
+      "size_bytes": 154596,
+      "sha256": "6be879afc479a355e6826be4fad2b71c6874b017261fc87a434841088c48a58a"
+    },
+    {
+      "path": "screenshots/03-artifact-provenance.png",
+      "size_bytes": 214564,
+      "sha256": "693914763b3c1c8ae4e0b2151766c0ae29f5e62cf70d2c21e2942db6a601a1b3"
+    },
+    {
+      "path": "screenshots/04-test-result-filter.png",
+      "size_bytes": 239615,
+      "sha256": "bcd3e8fab05e2c410ab990b708f2cfe42bf934defc13ec9dc96b0ee2a74c3b53"
+    },
+    {
+      "path": "screenshots/05-delivery-file-preview.png",
+      "size_bytes": 200052,
+      "sha256": "50c0c5c12c23d72d6b717963380c875f5b7d93d4a9b8d82343931669e98fcc84"
+    },
+    {
+      "path": "screenshots/09-current-run-download-verified.png",
+      "size_bytes": 199900,
+      "sha256": "31b4dce47061c7f7d2cd6cdda67b0d36b780d48d21aca4ec86a8466bd71cf315"
+    },
+    {
+      "path": "screenshots/06-extensionless-text-preview.png",
+      "size_bytes": 159589,
+      "sha256": "fdd6f95f72f730ba8f5531299515259e240e6f4d1cee20152d4f9a4adc95d727"
+    },
+    {
+      "path": "screenshots/07-receipt-only-friendly-state.png",
+      "size_bytes": 183823,
+      "sha256": "d7b792c7afc79f8e8e7a8d9152e4ed2f0dadca56ccece931597fd3dd30d49183"
+    },
+    {
+      "path": "screenshots/08-inherited-receipt-real-content.png",
+      "size_bytes": 194911,
+      "sha256": "70cca0bcd17649bf3db3261334fd6f9235e75d44fea81f4f8f4dc843c4309ef0"
+    },
+    {
+      "path": "downloads/artifact_ebc8d8c43bc2-平台暂停 Checkpoint-v49.md",
+      "size_bytes": 190199,
+      "sha256": "7c8004bc438564ab44c4ca80c0d58a8ffa86b04691318b705bf0d4cbfa9c74f8"
+    }
+  ]
+}

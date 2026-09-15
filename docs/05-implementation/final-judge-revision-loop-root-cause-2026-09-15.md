@@ -95,5 +95,3 @@ sequence `166126` 的整改期独立校验结果为 `core=true`、`coherent=fals
 失败现场复核到 `product-source` 有 3,780 条工作树变化：仅 6 条为 tracked 修改，其余主要分布于 `evidence` 1,489、`claude-runtime-migration` 975、`x` 546、`deliverables` 307、`t` 242、`artifacts` 20 等生成目录。其根因是负责人完成后调用 `promote_workspace_tree()`，把整个人物 delivery 与产品 checkout 做镜像同步，再由 `git add --all` 无边界暂存。修复后只晋升本 Claude SDK 回合的产品文件变化；截图、HAR、trace、JUnit、报告、ZIP 等仍从人物 delivery 注册为 Run Artifact，但排除于产品源码晋升；Git Commit 只暂存本回合实际晋升的产品路径。这样 Evidence Center 可见性与产品 Git 纯净度不再互相冲突。
 
 本轮宿主修复验证：Runtime/Git/执行安全定向合同 `85 passed`，后端全量 `233 passed`，Claude Agent SDK Bridge `10/10 passed`，前端 production build `1778 modules transformed`，Python 编译与 `git diff --check` 通过。
-
-epoch45 启动后 `git.workspace.ready` 已正确绑定 `origin/master@c033265`，并在 sequence `174360` 首次产生原生 `sdk.session.continued`。同时从人物命令 `pwd` 发现工作区仍位于 Run 深目录：旧选择器只检查 112 字符的 `.../tmp/claude-agents` 基础根，没有计入 Agent ID、`delivery` 以及 pytest/Playwright 后续临时层级，因此仍可能重现 WinError 206。选择器已改为按“最大规范化 Agent ID + delivery”预计路径判断是否切换系统短根；非 Windows 与真正短路径行为保持不变。

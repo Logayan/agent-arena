@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -4756,6 +4757,66 @@ class PlatformStore:
         }
         return result
 
+    @contextmanager
+    def frozen_run_event_batches(
+        self,
+        run_id: str,
+        organization_id: str | None = None,
+        *,
+        batch_size: int = 1_000,
+    ) -> Iterator[tuple[dict[str, Any], Iterator[list[dict[str, Any]]]]]:
+        """Freeze one sequence boundary and stream only rows at or below it.
+
+        The boundary receipt and rows share one database connection. The
+        explicit sequence predicate also excludes concurrent appends under
+        READ COMMITTED, without blocking writers for the duration of hashing.
+        """
+        normalized_batch_size = max(100, min(int(batch_size or 1_000), 10_000))
+        with self._connect() as db:
+            if organization_id:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=? AND organization_id=?",
+                    (run_id, organization_id),
+                ).fetchone()
+            else:
+                run_row = db.execute(
+                    "SELECT organization_id FROM runs WHERE id=?",
+                    (run_id,),
+                ).fetchone()
+            if not run_row:
+                raise ValueError("run_not_found")
+            run_organization_id = str(run_row["organization_id"] or "org_jianghu")
+            boundary_row = db.execute(
+                """SELECT COUNT(*) AS source_event_count,
+                          COALESCE(MIN(sequence),0) AS first_sequence,
+                          COALESCE(MAX(sequence),0) AS cutoff_sequence
+                   FROM events WHERE run_id=? AND organization_id=?""",
+                (run_id, run_organization_id),
+            ).fetchone()
+            boundary = {
+                "run_id": run_id,
+                "organization_id": run_organization_id,
+                "source_event_count": int(_row_value(boundary_row, "source_event_count") or 0),
+                "first_sequence": int(_row_value(boundary_row, "first_sequence") or 0),
+                "cutoff_sequence": int(_row_value(boundary_row, "cutoff_sequence") or 0),
+                "boundary_rule": "sequence_lte_frozen_cutoff",
+            }
+
+            def batches() -> Iterator[list[dict[str, Any]]]:
+                cursor = db.execute(
+                    """SELECT * FROM events
+                       WHERE run_id=? AND organization_id=? AND sequence<=?
+                       ORDER BY sequence""",
+                    (run_id, run_organization_id, boundary["cutoff_sequence"]),
+                )
+                while True:
+                    rows = cursor.fetchmany(normalized_batch_size)
+                    if not rows:
+                        break
+                    yield [self._event_json(row) for row in rows]
+
+            yield boundary, batches()
+
     def iter_run_events(
         self,
         run_id: str,
@@ -5223,9 +5284,10 @@ class PlatformStore:
                 presence["state_label"] = "功成归位" if run_status == "completed" else "已离场"
         return list(known.values())
 
-    def append_run_event(self, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> None:
+    def append_run_event(self, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Append one event and return the exact persisted event identity."""
         with self._connect() as db:
-            self._event(db, run_id, type_, category, title, summary, payload or {})
+            return self._event(db, run_id, type_, category, title, summary, payload or {})
 
     def append_run_events(self, run_id: str, events: list[dict[str, Any]]) -> None:
         """Append an ordered event batch in one database transaction.
@@ -5302,9 +5364,15 @@ class PlatformStore:
         with self._connect() as db:
             if supersede_candidates:
                 if task_id is None:
-                    db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id IS NULL AND status='candidate'", (run_id,))
+                    db.execute(
+                        "UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id IS NULL AND kind=? AND status='candidate'",
+                        (run_id, kind),
+                    )
                 else:
-                    db.execute("UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='candidate'", (run_id, task_id))
+                    db.execute(
+                        "UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND kind=? AND status='candidate'",
+                        (run_id, task_id, kind),
+                    )
             db.execute(
                 """INSERT INTO artifacts
                 (id,run_id,organization_id,task_id,kind,title,content,version,status,created_at,relative_path,sha256,media_type,size_bytes)
@@ -5571,14 +5639,19 @@ class PlatformStore:
             "observed_size_bytes": observed_size_bytes,
         }
 
-    def _event(self, db: sqlite3.Connection, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> None:
+    def _event(self, db: sqlite3.Connection, run_id: str, type_: str, category: str, title: str, summary: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         sequence_row = db.execute("SELECT COALESCE(MAX(sequence),0)+1 AS value FROM events WHERE run_id=?", (run_id,)).fetchone()
         sequence = int(_row_value(sequence_row, "value"))
         run_row = db.execute("SELECT organization_id FROM runs WHERE id=?", (run_id,)).fetchone()
         organization_id = str(_row_value(run_row, "organization_id") or "org_jianghu")
         now = utc_now()
-        db.execute("INSERT INTO events(id,run_id,organization_id,sequence,type,category,title,summary,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", (new_id("evt"), run_id, organization_id, sequence, type_, category, title, summary, json.dumps(payload or {}), now))
+        event_id = new_id("evt")
+        db.execute("INSERT INTO events(id,run_id,organization_id,sequence,type,category,title,summary,payload_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)", (event_id, run_id, organization_id, sequence, type_, category, title, summary, json.dumps(payload or {}), now))
         db.execute("UPDATE runs SET updated_at=? WHERE id=?", (now, run_id))
+        event_row = db.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+        if not event_row:
+            raise RuntimeError("event_insert_not_observable")
+        return self._event_json(event_row)
 
     def _agent(self, row: sqlite3.Row) -> dict[str, Any]:
         result = dict(row)

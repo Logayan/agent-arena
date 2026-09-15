@@ -49,9 +49,15 @@ def _run_git(
     check: bool = True,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    # Git for Windows does not inherit Python's extended-path handling. Enable
+    # repository-local long-path support on every invocation so a Run checkout
+    # below a deep commissioned delivery root remains operable without SUBST.
+    git_command = [_git_binary()]
+    if os.name == "nt":
+        git_command.extend(["-c", "core.longpaths=true"])
     try:
         completed = subprocess.run(
-            [_git_binary(), "-C", str(repository), *arguments],
+            [*git_command, "-C", str(repository), *arguments],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -567,8 +573,11 @@ def export_commit_patch(code_root: str | Path, commit_sha: str) -> bytes:
     verified = _run_git(repository, "rev-parse", "--verify", f"{commit_sha}^{{commit}}", check=False)
     if verified.returncode != 0:
         raise GitDeliveryError("commit_not_found")
+    git_command = [_git_binary()]
+    if os.name == "nt":
+        git_command.extend(["-c", "core.longpaths=true"])
     completed = subprocess.run(
-        [_git_binary(), "-C", str(repository), "format-patch", "-1", "--stdout", commit_sha],
+        [*git_command, "-C", str(repository), "format-patch", "-1", "--stdout", commit_sha],
         capture_output=True,
         timeout=60,
         check=False,
