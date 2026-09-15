@@ -520,7 +520,7 @@ async def test_legacy_demo_api_is_not_available() -> None:
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
         response = await client.post("/api/demo")
-    assert response.status_code == 405
+    assert response.status_code == 404
 
 
 @pytest.mark.anyio
@@ -1823,6 +1823,17 @@ async def test_artifact_detail_exposes_task_attempt_and_verification_receipts(mo
     }
     for event_type in ("artifact.created", "artifact.collected", "artifact.download.verified"):
         platform.append_run_event(run["id"], event_type, "artifact", event_type, "verified", payload)
+    platform.append_run_event(
+        run["id"], "artifact.authoritative", "artifact", "进入权威集合", "authoritative",
+        {**payload, "status": "authoritative", "authority_manifest_sha256": "a" * 64},
+    )
+    platform.append_run_event(
+        run["id"], "artifact.authority.frozen", "validation", "权威集合冻结", "frozen",
+        {
+            "task_id": task["id"], "node_key": "e2e", "platform_attempt_id": attempt_id,
+            "authoritative_artifact_ids": [artifact["id"]], "authority_manifest_sha256": "a" * 64,
+        },
+    )
     monkeypatch.setattr("server.app.main.platform_store", platform)
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
@@ -1837,6 +1848,7 @@ async def test_artifact_detail_exposes_task_attempt_and_verification_receipts(mo
     assert detail["content_lineage"] == [{"artifact_id": artifact["id"], "run_id": run["id"], "sha256": artifact["sha256"]}]
     assert [event["type"] for event in detail["events"]] == [
         "artifact.created", "artifact.collected", "artifact.download.verified",
+        "artifact.authoritative", "artifact.authority.frozen",
     ]
 
 
@@ -3360,8 +3372,10 @@ async def test_judge_rejection_reopens_responsible_dag_subgraph(monkeypatch, tmp
     deliver_task_id = next(task["id"] for task in completed["tasks"] if task["node_key"] == "deliver")
     deliver_artifacts = [item for item in completed["artifacts"] if item["task_id"] == deliver_task_id]
     assert [item["version"] for item in deliver_artifacts] == [1, 2]
-    assert [item["status"] for item in deliver_artifacts] == ["superseded", "candidate"]
+    assert [item["status"] for item in deliver_artifacts] == ["superseded", "authoritative"]
     event_types = [event["type"] for event in completed["events"]]
+    assert "artifact.authoritative" in event_types
+    assert "artifact.authority.frozen" in event_types
     assert "gate.rejected" in event_types
     assert "workflow.loop.created" in event_types
     assert "gate.passed" in event_types

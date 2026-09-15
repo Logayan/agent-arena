@@ -3008,8 +3008,22 @@ async def stream_events(
 
 """
 
+# Keep unknown API paths inside the API namespace. Without this explicit
+# fail-closed boundary, Starlette's catch-all static mount turns an unknown
+# POST /api/* request into 405 whenever client/dist exists, while the same
+# request returns 404 in a source-only checkout.
+@app.api_route(
+    "/api/{unmatched_path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    include_in_schema=False,
+)
+async def unmatched_api_path(unmatched_path: str) -> None:
+    raise HTTPException(status_code=404, detail="API route not found")
+
+
 # Production-like local entrypoint: serve the built Vue client from the same
-# origin as the API. API routes are registered first, so /api/* keeps working.
+# origin as the API. API routes and the fail-closed /api/* boundary are
+# registered first, so client-side fallback never changes API semantics.
 CLIENT_DIST = Path(__file__).resolve().parents[2] / "client" / "dist"
 if CLIENT_DIST.joinpath("index.html").exists():
     app.mount("/", StaticFiles(directory=CLIENT_DIST, html=True), name="client")

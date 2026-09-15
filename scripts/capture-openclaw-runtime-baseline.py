@@ -91,7 +91,7 @@ def load_real_model_config(source: str, database_path: str) -> dict[str, Any]:
     db_path = (PROJECT_ROOT / database_path).resolve()
     if not db_path.is_file():
         raise RuntimeError("active_model_database_missing")
-    connection = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True)
+    connection = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
         row = connection.execute(

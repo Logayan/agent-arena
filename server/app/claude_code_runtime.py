@@ -8,6 +8,7 @@ import re
 import shutil
 import signal
 import subprocess
+import tempfile
 import threading
 import time
 import uuid
@@ -21,6 +22,27 @@ from .agent_runtime import AgentRuntimeError, RuntimeErrorCategory
 def _safe_name(value: object, fallback: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(value or "")).strip("-_").lower()
     return normalized[:64] or fallback
+
+
+def _run_workspace_root(
+    execution_root: str | Path,
+    run_id: str,
+    *,
+    platform_name: str | None = None,
+    temporary_root: str | Path | None = None,
+) -> Path:
+    """Choose a per-Run Agent workspace without exceeding Windows path limits."""
+    resolved_execution_root = Path(execution_root).resolve()
+    default_root = resolved_execution_root / "tmp" / "claude-agents"
+    configured = os.getenv("JIANGHU_CLAUDE_RUN_WORKSPACE_ROOT", "").strip()
+    if configured:
+        return Path(configured).resolve() / _safe_name(run_id, "run")
+    current_platform = platform_name or os.name
+    if current_platform != "nt" or len(str(default_root)) < 120:
+        return default_root
+    base = Path(temporary_root or tempfile.gettempdir()).resolve() / "jianghu-claude-agents"
+    execution_key = hashlib.sha256(str(resolved_execution_root).encode("utf-8")).hexdigest()[:16]
+    return base / f"{_safe_name(run_id, 'run')}-{execution_key}"
 
 
 def _configured_max_turns(_engineering: bool) -> int | None:
@@ -107,7 +129,7 @@ class ClaudeCodeRuntime:
         if not run_state.is_relative_to(self.state_root):
             raise ClaudeCodeRuntimeError("claude_run_state_escape", category="security", retryable=False)
         run_workspace_root = (
-            Path(execution_root).resolve() / "tmp" / "claude-agents"
+            _run_workspace_root(execution_root, safe_run_id)
             if execution_root
             else self.workspace_root
         )

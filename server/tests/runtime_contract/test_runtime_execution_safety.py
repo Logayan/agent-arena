@@ -14,12 +14,16 @@ from server.app.claude_code_runtime import ClaudeCodeRuntime, _bridge_stream_lim
 from server.app.platform_executor import (
     RUNTIME_SOURCE_PATHS,
     _AttemptEvidenceBundleCache,
+    _active_memory_items_for_actor,
     _agent_timeout_seconds,
     _apply_run_execution_policy_amendments,
+    _artifact_authority_manifest,
     _attempt_rework_attempt_id,
     _attempt_rework_run_id,
     _code_manifest,
     _compact_tool_recovery_history,
+    _completed_node_progress,
+    _event_snapshot_metadata,
     _next_timeout_retry_level,
     _normalized_max_revision_rounds,
     _remember_next_timeout_retry_level,
@@ -33,12 +37,14 @@ from server.app.platform_executor import (
     _runtime_attestation,
     _runtime_mode,
     _runtime_source_attestation,
+    _sdk_session_continuation_payload,
     _revision_limit_exhausted,
     _ensure_runtime_source_artifacts,
     _runtime_tool_authorization_matrix,
     _runtime_tool_enabled_agent_ids,
     _run_time_limit_enabled,
     _tool_schema_validation,
+    _tool_schema_authorization_decision,
     _tool_terminal_reconciliations,
     _write_public_event_snapshot,
     _release_run_execution_lease,
@@ -203,6 +209,135 @@ def test_claude_bridge_stream_limit_supports_large_ndjson_events(monkeypatch) ->
     assert _bridge_stream_limit_bytes() == 16 * 1024 * 1024
     monkeypatch.setenv("JIANGHU_CLAUDE_STREAM_LIMIT_BYTES", "1024")
     assert _bridge_stream_limit_bytes() == 1024 * 1024
+
+
+def test_sdk_session_continuation_payload_requires_the_same_real_sdk_session() -> None:
+    continued = _sdk_session_continuation_payload(
+        execution_epoch=44,
+        agent_id="agent-1",
+        platform_session_id="session-1",
+        first_sdk_session_id="sdk-1",
+        second_sdk_session_id="sdk-1",
+    )
+    mismatched = _sdk_session_continuation_payload(
+        execution_epoch=44,
+        agent_id="agent-1",
+        platform_session_id="session-1",
+        first_sdk_session_id="sdk-1",
+        second_sdk_session_id="sdk-2",
+    )
+
+    assert continued["status"] == "continued"
+    assert continued["strict_sdk_session"] is True
+    assert continued["claude_sdk_session_id"] == "sdk-1"
+    assert continued["terminal"] is True
+    assert mismatched["status"] == "mismatched"
+    assert mismatched["strict_sdk_session"] is False
+
+
+def test_runtime_turn_refreshes_active_memory_after_superseding_old_version(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "memory-refresh.db"))
+    agent = platform.create_agent(
+        name="记忆刷新工程师",
+        role="工程师",
+        description="验证每回合读取当前活动 Memory",
+        persona="不使用墓碑版本",
+        capabilities=["Memory"],
+    )
+    old = platform.add_agent_memory(
+        agent["id"],
+        kind="task_experience",
+        title="旧版本",
+        content="old",
+        source_run_id="run-1",
+        source_task_id="task-1",
+    )
+    stale_epoch_cache = platform.list_agent_memories(agent["id"], 8)
+    new = platform.add_agent_memory(
+        agent["id"],
+        kind="task_experience",
+        title="新版本",
+        content="new",
+        source_run_id="run-1",
+        source_task_id="task-1",
+    )
+
+    refreshed = _active_memory_items_for_actor(platform, agent)
+
+    assert [item["id"] for item in stale_epoch_cache] == [old["id"]]
+    assert [item["id"] for item in refreshed] == [new["id"]]
+    assert old["id"] not in {item["id"] for item in refreshed}
+
+
+def test_artifact_authority_manifest_is_order_independent() -> None:
+    artifacts = [
+        {
+            "id": "artifact-b", "kind": "runtime_file", "title": "result.json", "version": 2,
+            "relative_path": "artifacts/node/files/result.json", "sha256": "b" * 64, "size_bytes": 20,
+        },
+        {
+            "id": "artifact-a", "kind": "workflow_output", "title": "结果", "version": 1,
+            "relative_path": "artifacts/node/result.md", "sha256": "a" * 64, "size_bytes": 10,
+        },
+    ]
+
+    first = _artifact_authority_manifest(
+        run_id="run-1", task_id="task-1", node_key="node", platform_attempt_id="attempt-1",
+        artifacts=artifacts,
+    )
+    second = _artifact_authority_manifest(
+        run_id="run-1", task_id="task-1", node_key="node", platform_attempt_id="attempt-1",
+        artifacts=[*reversed(artifacts), artifacts[0]],
+    )
+
+    assert first == second
+    assert [item["artifact_id"] for item in first["artifacts"]] == ["artifact-a", "artifact-b"]
+    assert len(first["manifest_sha256"]) == 64
+
+
+def test_task_artifact_authority_replaces_prior_set_without_deleting_history(tmp_path: Path) -> None:
+    platform = PlatformStore(str(tmp_path / "artifact-authority.db"))
+    agent = platform.create_agent(
+        name="权威集合审计", role="质量工程师", description="验证 Artifact authority", persona="保留历史",
+        capabilities=["证据归档"],
+    )
+    workflow = platform.create_workflow(
+        "权威集合章法", "冻结当前成功 Attempt", "test",
+        {"nodes": [{"key": "evidence", "name": "证据", "agent_id": agent["id"]}], "edges": []},
+    )
+    run = platform.create_run(workflow["id"], "验证权威集合替换")
+    task = platform.get_run_execution_snapshot(run["id"], include_events=False)["tasks"][0]
+    first = platform.create_artifact(run["id"], task["id"], "workflow_output", "第一版", "one")
+    first_file = platform.create_artifact(
+        run["id"], task["id"], "runtime_file", "first.json", "{}", supersede_candidates=False,
+    )
+
+    initial = platform.mark_task_artifacts_authoritative(
+        run["id"], task["id"], [first_file["id"], first["id"]],
+    )
+    second = platform.create_artifact(
+        run["id"], task["id"], "workflow_output", "第二版", "two", supersede_candidates=False,
+    )
+    replacement = platform.mark_task_artifacts_authoritative(run["id"], task["id"], [second["id"]])
+    rows = {item["id"]: item for item in platform.list_run_artifacts(run["id"])}
+
+    assert {item["id"] for item in initial["authoritative"]} == {first["id"], first_file["id"]}
+    assert {item["id"] for item in replacement["superseded"]} == {first["id"], first_file["id"]}
+    assert rows[first["id"]]["status"] == "superseded"
+    assert rows[first_file["id"]]["status"] == "superseded"
+    assert rows[second["id"]]["status"] == "authoritative"
+    assert platform.verify_artifact_bytes(run["id"], first["id"])["matched"] is True
+
+
+def test_invalid_tool_schema_is_denied_before_execution_projection() -> None:
+    valid = _tool_schema_validation("Bash", {"command": "pwd"})
+    invalid = _tool_schema_validation("Bash", {})
+
+    assert valid["passed"] is True
+    assert _tool_schema_authorization_decision(valid) == "allow"
+    assert invalid["passed"] is False
+    assert invalid["missing_fields"] == ["command"]
+    assert _tool_schema_authorization_decision(invalid) == "deny"
 
 
 def test_agent_timeout_is_configurable_and_bounded(monkeypatch) -> None:
@@ -550,6 +685,11 @@ def test_public_event_snapshot_streams_valid_files_and_keeps_snapshot_bounded(tm
     assert result["projection_count"] == len(public_events)
     assert result["critical_count"] == len(critical_events)
     assert result["omission_count"] == 1
+    assert result["source_event_count"] == len(public_events) + omissions["omission_count"]
+    assert result["cutoff_sequence"] == max(
+        [event["sequence"] for event in public_events]
+        + [item["sequence"] for item in omissions["omissions"]]
+    )
     assert omissions["omission_count"] == 1
     assert omissions["omissions"][0]["reason_code"] == "private_audit_not_shared_with_agents"
     assert all(event["type"] != "agent.rationale.submitted" for event in public_events)
@@ -557,6 +697,25 @@ def test_public_event_snapshot_streams_valid_files_and_keeps_snapshot_bounded(tm
     assert bounded is not None and bounded["events"] == []
     assert bounded["event_count_total"] == len(public_events) + omissions["omission_count"]
     assert not list(bundle.glob("*.tmp"))
+
+
+def test_event_snapshot_metadata_uses_one_frozen_count_contract() -> None:
+    metadata = _event_snapshot_metadata(
+        {
+            "projection_count": 162_751,
+            "omission_count": 91,
+            "source_event_count": 162_842,
+            "cutoff_sequence": 162_842,
+        }
+    )
+
+    assert metadata == {
+        "event_count": 162_842,
+        "source_event_count": 162_842,
+        "public_event_count": 162_751,
+        "omitted_event_count": 91,
+        "cutoff_sequence": 162_842,
+    }
 
 
 def test_compact_event_queries_preserve_order_and_latest_boundary(tmp_path: Path) -> None:
@@ -740,6 +899,13 @@ def test_positive_revision_policy_is_not_silently_capped_at_six() -> None:
     assert _revision_limit_exhausted(13, 12) is True
     assert _normalized_max_revision_rounds(None) == 3
     assert _normalized_max_revision_rounds("invalid") == 3
+
+
+def test_completed_node_progress_drops_when_rework_invalidates_three_nodes() -> None:
+    tasks = [{"node_key": f"node-{index}"} for index in range(10)]
+
+    assert _completed_node_progress({f"node-{index}" for index in range(9)}, tasks) == 90
+    assert _completed_node_progress({f"node-{index}" for index in range(7)}, tasks) == 70
 
 
 def test_final_judge_can_route_rework_to_transitive_fact_changing_ancestor() -> None:

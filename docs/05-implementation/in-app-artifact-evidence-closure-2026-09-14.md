@@ -261,3 +261,37 @@ Runtime 现将当前 Attempt 快照及其内容寻址 Artifact 直接镜像到 `
 同时将证据包构建从“全量事件反序列化 + 279MB NDJSON 字符串 + 200MB critical 列表同时驻留内存”改为每批 1,000 条事件流式投影：三个输出先写 `.tmp`，完成后原子替换；只在内存保留 `agent.turn.completed` 的 Runtime Session 绑定小集合。Artifact 血缘只加载 `artifact.created`、`artifact.inherited` 与 `run.retry_created`，Run 元数据使用独立事件计数。流式快照影响集 6/6、完整 Runtime 合同 94/94 通过。
 
 为确保路径修复在下一轮 Judge 前加载，sequence `122868` 已请求安全暂停。当前人物回合继续自然完成，平台只会在节点边界生成 Checkpoint 并暂停，不杀进程、不覆盖本轮 P0 证据。
+
+## 2026-09-15 15:40 覆盖索引加载后的正式 8 项闭环
+
+正式 8003 已在 Run `failed / 80%` 安全边界加载当前提交 `b7c338a`。生产 SQLite 新增覆盖索引后，完整 Run 详情从约 66 秒降至 6.264 秒，事件计数查询降至 0.063 秒；此前全部 8 项用例在准备阶段超时的问题已消失。
+
+在真实 `5173 + 8003`、Run `run_bda13e93b2ea` Version 9 上重新执行 Evidence Center E2E：
+
+```text
+EVC-001 应用内打开真实 Run 证据中心：PASS
+EVC-002 真实图片灯箱、切换与原图能力：PASS
+EVC-003 Artifact ID/SHA/Attempt/三类回执：PASS
+EVC-004 测试结果筛选和应用内正文：PASS
+EVC-005 正式交付卡片打开真实文件：PASS
+EVC-006 Dockerfile/.env.example 无扩展名正文：PASS
+EVC-007 删除回执原字节缺失友好状态：PASS
+EVC-008 继承回执解析真实原文件：PASS
+
+总计：8/8 PASS
+console errors：0
+failed requests：0
+HTTP errors：0
+```
+
+证据目录：`deliverables/run_bda13e93b2ea/evidence-center-e2e/post-index-b7c338a-20260915-1536/`。其中包含 8 张 PNG、`test-cases.json`、逐项 `test-results.json`、`junit.xml`、`playwright-report.html`、`screenshot-index.json` 和覆盖全部 13 个文件的 `sha256-manifest.json`。
+
+本次没有启用 compatibility fallback。EVC-003 实际显示来源 Attempt 且三类回执数量为 3；EVC-005/006/008 均验证正文不是 `{source_relative_path, sha256}` 登记元数据。该结果证明正式应用的证据查看闭环已恢复，但最终迁移结论仍由同一 Run 的整改节点、报告节点和独立 Judge 决定。
+
+## 2026-09-15 20:31 Artifact 权威集合与应用内回执闭环
+
+为消除“文件都存在，但哪一组才是当前正式结论”这一 CAM-05 缺口，平台新增任务级 Artifact authority。只有当当前节点的 Runtime、文件登记、Manifest 写入、Memory 提交与跨 SDK Session 回读等后置动作全部通过后，执行器才会把本 Attempt 的工作流输出、文件 Artifact、Git Commit 与远端交付回执原子设为唯一 `authoritative` 集合。前一权威集合改为 `superseded`，原始字节、版本与 Registry 行不删除。
+
+每个权威成员产生 `artifact.authoritative`，集合产生 `artifact.authority.frozen`；冻结载荷包括成功 `platform_attempt_id`、按 Artifact ID 排序的成员集合和顺序无关 SHA-256。Artifact 详情 API 已把 `artifact.authoritative`、`artifact.authority.frozen` 与 `artifact.superseded` 纳入来源查询，并支持通过集合 ID 数组关联到当前文件。前端详情区标题改为“Registry 与权威回执”，直接展示原始字节采集、下载复算、进入权威集合、集合冻结及旧版本退出事件。
+
+验证结果：Artifact authority 定向合同 2/2、Runtime 安全合同 53/53、Artifact 详情与 Judge 返工集成 2/2、后端全量 227/227、Claude SDK Bridge 10/10、前端 production build 1778 modules，Python 编译与 `git diff --check` 通过。正式 8003 尚未加载本轮 Python 控制面；需等待当前 Claude SDK 整改 Attempt 自然结束后在安全边界重启，并对同一 Run 生成新的权威事件与应用内 E2E 证据。

@@ -12,7 +12,12 @@ import pytest
 
 from server.app.agent_runtime import AgentRuntimePort
 from server.app.agent_runtime_registry import agent_runtime
-from server.app.claude_code_runtime import ClaudeCodeRuntime, ClaudeCodeRuntimeError, claude_code_runtime
+from server.app.claude_code_runtime import (
+    ClaudeCodeRuntime,
+    ClaudeCodeRuntimeError,
+    _run_workspace_root,
+    claude_code_runtime,
+)
 
 
 MODEL_CONFIG = {
@@ -140,6 +145,37 @@ def test_claude_adapter_is_registered_and_is_product_default(tmp_path) -> None:
     assert agent_runtime.get("claude_code") is claude_code_runtime
     assert agent_runtime.default is claude_code_runtime
     assert agent_runtime.runtime_name == "claude_code"
+
+
+def test_run_workspace_root_uses_short_temp_root_only_for_deep_windows_path(tmp_path) -> None:
+    execution_root = tmp_path / ("deep-segment-" * 12)
+    windows_root = _run_workspace_root(
+        execution_root,
+        "run-long-path",
+        platform_name="nt",
+        temporary_root=tmp_path / "short",
+    )
+    posix_root = _run_workspace_root(
+        execution_root,
+        "run-long-path",
+        platform_name="posix",
+        temporary_root=tmp_path / "short",
+    )
+
+    assert windows_root.parent == (tmp_path / "short" / "jianghu-claude-agents").resolve()
+    assert windows_root.name.startswith("run-long-path-")
+    assert posix_root == execution_root.resolve() / "tmp" / "claude-agents"
+
+
+def test_run_workspace_root_preserves_short_windows_execution_root(tmp_path) -> None:
+    execution_root = Path("C:/jh")
+
+    assert _run_workspace_root(
+        execution_root,
+        "run-short",
+        platform_name="nt",
+        temporary_root=tmp_path / "short",
+    ) == execution_root.resolve() / "tmp" / "claude-agents"
 
 
 def test_claude_sync_projects_context_memory_skills_and_policy_without_token(tmp_path) -> None:

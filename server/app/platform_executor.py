@@ -140,6 +140,91 @@ def _runtime_error_metadata(exc: Exception) -> dict[str, Any]:
     return public_error
 
 
+def _sdk_session_continuation_payload(
+    *,
+    execution_epoch: int,
+    agent_id: str,
+    platform_session_id: str,
+    first_sdk_session_id: str,
+    second_sdk_session_id: str,
+) -> dict[str, Any]:
+    continued = bool(
+        first_sdk_session_id
+        and first_sdk_session_id == second_sdk_session_id
+    )
+    return {
+        "execution_epoch": execution_epoch,
+        "agent_id": agent_id,
+        "platform_session_id": platform_session_id,
+        "first_sdk_session_id": first_sdk_session_id,
+        "second_sdk_session_id": second_sdk_session_id,
+        "claude_sdk_session_id": second_sdk_session_id,
+        "strict_sdk_session": continued,
+        "status": "continued" if continued else "mismatched",
+        "terminal": True,
+    }
+
+
+def _active_memory_items_for_actor(
+    store: PlatformStore,
+    actor: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Read active Memory immediately before a Runtime turn.
+
+    The executor may run several nodes in one epoch. A node can supersede and
+    tombstone an older Memory version, so an epoch-start cache is not safe for
+    later Claude SDK turns.
+    """
+    memory_policy = actor.get("memory_policy") if isinstance(actor.get("memory_policy"), dict) else {}
+    limit = int(memory_policy.get("max_prompt_items", 8) or 8)
+    return store.list_agent_memories(str(actor["id"]), limit)
+
+
+def _artifact_authority_manifest(
+    *,
+    run_id: str,
+    task_id: str,
+    node_key: str,
+    platform_attempt_id: str,
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Build an order-independent digest for one successful Attempt's outputs."""
+    members_by_id: dict[str, dict[str, Any]] = {}
+    for item in artifacts:
+        member = {
+            "artifact_id": str(item.get("id") or ""),
+            "kind": str(item.get("kind") or ""),
+            "title": str(item.get("title") or ""),
+            "version": int(item.get("version") or 0),
+            "relative_path": str(item.get("relative_path") or ""),
+            "sha256": str(item.get("sha256") or ""),
+            "size_bytes": int(item.get("size_bytes") or 0),
+        }
+        existing = members_by_id.get(member["artifact_id"])
+        if existing is not None and existing != member:
+            raise ArtifactValidationError("artifact_authority_manifest_conflicting_duplicate")
+        members_by_id[member["artifact_id"]] = member
+    members = sorted(members_by_id.values(), key=lambda item: item["artifact_id"])
+    if not members or any(not item["artifact_id"] or not item["sha256"] for item in members):
+        raise ArtifactValidationError("artifact_authority_manifest_invalid")
+    body = {
+        "schema_version": "jianghu.artifact-authority.v1",
+        "run_id": run_id,
+        "task_id": task_id,
+        "node_key": node_key,
+        "platform_attempt_id": platform_attempt_id,
+        "artifact_count": len(members),
+        "artifacts": members,
+    }
+    canonical = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {**body, "manifest_sha256": hashlib.sha256(canonical).hexdigest()}
+
+
+def _tool_schema_authorization_decision(schema_validation: dict[str, Any]) -> str:
+    """Fail closed before projecting a Runtime tool call as executable."""
+    return "allow" if schema_validation.get("passed") is True else "deny"
+
+
 def _run_time_limit_enabled(policies: dict[str, Any]) -> bool:
     """Fixed Run wall-clock limits are opt-in for explicitly bounded workflows."""
     return policies.get("enforce_run_time_limit") is True
@@ -196,6 +281,8 @@ EVIDENCE_PAYLOAD_KEYS = {
     "superseded_memory_version", "superseded_value_sha256", "first_sdk_session_id",
     "second_sdk_session_id", "first_response_sha256", "second_response_sha256",
     "superseded_artifact_id", "superseded_by_artifact_id", "superseded_artifact_version",
+    "authoritative_artifact_ids", "superseded_artifact_ids", "authority_manifest_sha256",
+    "authority_artifact_count", "authority_schema_version",
     "seal_id", "seal_ids", "seal_sha256", "reveal_id", "thread_id", "thread_status",
     "participant_agent_ids", "contribution_count", "sealed_contribution_count", "message_count",
     "visible_message_count", "round_message_count", "member_count", "decision_sha256",
@@ -331,6 +418,8 @@ def _write_public_event_snapshot(
     projection_count = 0
     critical_count = 0
     omission_count = 0
+    source_event_count = 0
+    cutoff_sequence = 0
     runtime_binding_projections: list[dict[str, Any]] = []
     for path in (events_tmp, critical_tmp, omissions_tmp):
         path.unlink(missing_ok=True)
@@ -353,6 +442,8 @@ def _write_public_event_snapshot(
             first_omission = True
             for batch in store.iter_run_events(run_id, batch_size=1_000):
                 for event in batch:
+                    source_event_count += 1
+                    cutoff_sequence = max(cutoff_sequence, int(event.get("sequence") or 0))
                     projection = _public_event_projection(event)
                     if projection is not None:
                         events_file.write(
@@ -399,7 +490,27 @@ def _write_public_event_snapshot(
         "projection_count": projection_count,
         "critical_count": critical_count,
         "omission_count": omission_count,
+        "source_event_count": source_event_count,
+        "cutoff_sequence": cutoff_sequence,
         "runtime_binding_projections": runtime_binding_projections,
+    }
+
+
+def _event_snapshot_metadata(event_snapshot: dict[str, Any]) -> dict[str, int]:
+    """Return one unambiguous event-count contract for a frozen snapshot."""
+    public_event_count = int(event_snapshot.get("projection_count") or 0)
+    omitted_event_count = int(event_snapshot.get("omission_count") or 0)
+    source_event_count = int(
+        event_snapshot.get("source_event_count")
+        or public_event_count + omitted_event_count
+    )
+    return {
+        # Backward-compatible field: total source events at the frozen cutoff.
+        "event_count": source_event_count,
+        "source_event_count": source_event_count,
+        "public_event_count": public_event_count,
+        "omitted_event_count": omitted_event_count,
+        "cutoff_sequence": int(event_snapshot.get("cutoff_sequence") or 0),
     }
 
 
@@ -684,6 +795,11 @@ def _normalized_max_revision_rounds(value: Any, *, default: int = 3) -> int:
 def _revision_limit_exhausted(revision_round: int, max_revision_rounds: int) -> bool:
     """Return whether a bounded revision policy has been exhausted."""
     return max_revision_rounds > 0 and revision_round > max_revision_rounds
+
+
+def _completed_node_progress(completed: set[str], tasks: list[dict[str, Any]]) -> int:
+    """Project workflow progress from the nodes that are currently authoritative."""
+    return int((len(completed) / max(len(tasks), 1)) * 100)
 
 
 def _apply_run_execution_policy_amendments(
@@ -2099,10 +2215,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                     ),
                     "task_count": len(latest_run.get("tasks", [])),
                     "artifact_count": len(latest_run.get("artifacts", [])),
-                    "event_count": int(
-                        latest_run.get("event_count_total")
-                        or event_snapshot["projection_count"] + event_snapshot["omission_count"]
-                    ),
+                    # Derive event totals and the cutoff from the same cursor
+                    # that wrote events.ndjson and projection-omissions.json.
+                    # A run snapshot captured before that cursor can lag behind
+                    # concurrently appended events and falsely fail coherence.
+                    **_event_snapshot_metadata(event_snapshot),
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "runtime": runtime_name,
                     "execution_epoch": execution_epoch,
@@ -2706,6 +2823,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         first_session_id = str(first_runtime.get("session_id") or "")
                         second_session_id = str(second_runtime.get("session_id") or "")
                         continuation_passed = bool(first_session_id and first_session_id == second_session_id)
+                        continuation_payload = _sdk_session_continuation_payload(
+                            execution_epoch=execution_epoch,
+                            agent_id=str(continuation_agent["id"]),
+                            platform_session_id=continuation_session_key,
+                            first_sdk_session_id=first_session_id,
+                            second_sdk_session_id=second_session_id,
+                        )
                         store.append_run_event(
                             run_id, "agent.runtime.continuation.verified", "recovery",
                             "Claude SDK Session continuation 已完成实测",
@@ -2721,6 +2845,15 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "status": "passed" if continuation_passed else "failed",
                             },
                         )
+                        if continuation_passed:
+                            store.append_run_event(
+                                run_id,
+                                "sdk.session.continued",
+                                "recovery",
+                                "Claude SDK Session 已在 Checkpoint 恢复后续接",
+                                "同一 platform session key 的前后回合绑定同一个 Claude SDK Session；平台已发布可机器核验的续接终态。",
+                                continuation_payload,
+                            )
                     except Exception as exc:
                         # This is an evidence probe, not a prerequisite for the
                         # user's workflow. Adapter/test runtimes may reject the
@@ -2946,8 +3079,13 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         f"-loop{loop_round}-attempt{node_attempt}-{suffix}"
                     )
                     session_key = f"{session_key_base}-agent-attempt1"
-                    actor_memory_items = list(memories.get(str(actor.get("id") or ""), []))
+                    actor_memory_items = await asyncio.to_thread(
+                        _active_memory_items_for_actor,
+                        store,
+                        actor,
+                    )
                     tool_calls_seen: dict[str, dict[str, Any]] = {}
+                    tool_schema_validations: dict[str, dict[str, Any]] = {}
 
                     async def record_public_action(action: dict[str, Any]) -> None:
                         kind = str(action.get("kind") or "")
@@ -2977,7 +3115,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     {**common, "content": action["content"]},
                                 )
                             elif kind == "tool_call":
-                                tool_calls_seen[str(action.get("tool_call_id") or "")] = action
+                                tool_call_id = str(action.get("tool_call_id") or "")
+                                tool_calls_seen[tool_call_id] = action
                                 tool_name = str(action.get("tool_name") or "unknown")
                                 tool_identity = {
                                     key: action.get(key)
@@ -2988,6 +3127,8 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                     if action.get(key) not in {None, ""}
                                 }
                                 schema_validation = _tool_schema_validation(tool_name, action.get("arguments"))
+                                tool_schema_validations[tool_call_id] = schema_validation
+                                authorization_decision = _tool_schema_authorization_decision(schema_validation)
                                 operation_id = hashlib.sha256(
                                     f"{session_key}:{action.get('tool_call_id')}".encode("utf-8")
                                 ).hexdigest()[:24]
@@ -3008,17 +3149,46 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 )
                                 store.append_run_event(
                                     run_id, "agent.tool.authorization.decided", "security",
-                                    f"{actor['name']}的 {tool_name} 调用已通过权限策略",
-                                    "平台在执行前完成 Runtime 工具白名单与隔离工作区授权判定。",
+                                    (
+                                        f"{actor['name']}的 {tool_name} 调用已通过权限策略"
+                                        if authorization_decision == "allow"
+                                        else f"{actor['name']}的 {tool_name} 调用已被 Schema 策略拒绝"
+                                    ),
+                                    (
+                                        "平台在执行前完成 Runtime 工具白名单与隔离工作区授权判定。"
+                                        if authorization_decision == "allow"
+                                        else "参数未满足 Runtime MCP Schema；平台按 fail-closed 规则拒绝执行。"
+                                    ),
                                     {
                                         **common, **tool_identity,
                                         "tool_call_id": action.get("tool_call_id"), "tool_name": tool_name,
-                                        "authorization_decision": "allow", "operation_id": operation_id,
+                                        "authorization_decision": authorization_decision, "operation_id": operation_id,
                                         "idempotency_key": operation_id,
                                         "authorization_policy_id": "jianghu.runtime.workspace-tools",
                                         "authorization_policy_version": "1.0.0",
                                     },
                                 )
+                                if authorization_decision == "deny":
+                                    store.append_run_event(
+                                        run_id,
+                                        "agent.tool.rejected",
+                                        "security",
+                                        f"{actor['name']}的 {tool_name} 无效调用已拒绝",
+                                        "请求在进入工作区工具执行阶段前被 Schema 门禁拒绝。",
+                                        {
+                                            **common,
+                                            **tool_identity,
+                                            "tool_call_id": action.get("tool_call_id"),
+                                            "tool_name": tool_name,
+                                            "operation_id": operation_id,
+                                            "idempotency_key": operation_id,
+                                            "authorization_decision": "deny",
+                                            "status": "rejected",
+                                            "side_effect_status": "denied_before_execution",
+                                            **schema_validation,
+                                        },
+                                    )
+                                    return
                                 store.append_run_event(
                                     run_id, "agent.tool.started", "tool",
                                     f"{actor['name']}调用 {tool_name}",
@@ -3040,6 +3210,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                         )
                             elif kind == "tool_result":
                                 tool_name = str(action.get("tool_name") or "unknown")
+                                tool_call_id = str(action.get("tool_call_id") or "")
                                 tool_identity = {
                                     key: action.get(key)
                                     for key in (
@@ -3054,6 +3225,30 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 output_sha256 = hashlib.sha256(
                                     str(action.get("output") or "").encode("utf-8")
                                 ).hexdigest()
+                                schema_validation = tool_schema_validations.get(tool_call_id)
+                                if schema_validation and _tool_schema_authorization_decision(schema_validation) == "deny":
+                                    store.append_run_event(
+                                        run_id,
+                                        "agent.tool.rejected",
+                                        "security",
+                                        f"{actor['name']}的 {tool_name} Schema 拒绝已形成终态",
+                                        "MCP 返回的拒绝结果已保留哈希；工作区执行与副作用事件均未建立。",
+                                        {
+                                            **common,
+                                            **tool_identity,
+                                            "tool_call_id": action.get("tool_call_id"),
+                                            "tool_name": tool_name,
+                                            "operation_id": operation_id,
+                                            "idempotency_key": operation_id,
+                                            "authorization_decision": "deny",
+                                            "status": "rejected",
+                                            "side_effect_status": "denied_no_effect",
+                                            "output_sha256": output_sha256,
+                                            "terminal": True,
+                                            **schema_validation,
+                                        },
+                                    )
+                                    return
                                 object_evidence = {
                                     key: action.get(key)
                                     for key in (
@@ -4419,19 +4614,6 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         run_id,
                         pending_manifest_artifacts,
                     )
-                store.update_task(
-                    task["id"],
-                    status="completed",
-                    output_data={
-                        "artifact_id": artifact["id"], "artifact_version": artifact["version"], "usage": usage,
-                        "model": node_model_config["model"], "model_tier": model_tier, "runtime": runtime_name, "decision": decision,
-                        "validation": validation,
-                        "registered_file_artifact_ids": [item["id"] for item in registered_file_artifacts],
-                        "git_commit_artifact_ids": [item["id"] for item in git_commit_artifacts],
-                        "git_remote_artifact_ids": [item["id"] for item in git_remote_artifacts],
-                        "git_commits": git_commits,
-                    },
-                )
                 persisted_memory_records: list[dict[str, Any]] = []
                 for memory_agent, memory_content in memory_entries:
                     if not memory_agent.get("memory_policy", {}).get("write_after_task", True):
@@ -4668,6 +4850,96 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         )
                     if not closure_passed:
                         raise RuntimeError(f"memory_closure_failed:{memory_record['id']}")
+                authority_artifacts = [
+                    artifact,
+                    *registered_file_artifacts,
+                    *git_commit_artifacts,
+                    *git_remote_artifacts,
+                ]
+                authority_manifest = _artifact_authority_manifest(
+                    run_id=run_id,
+                    task_id=str(task["id"]),
+                    node_key=node_key,
+                    platform_attempt_id=platform_attempt_id,
+                    artifacts=authority_artifacts,
+                )
+                authority_transition = store.mark_task_artifacts_authoritative(
+                    run_id,
+                    str(task["id"]),
+                    [str(item["id"]) for item in authority_artifacts],
+                )
+                authority_payload = {
+                    "task_id": task["id"],
+                    "node_key": node_key,
+                    "platform_attempt_id": platform_attempt_id,
+                    "authority_schema_version": authority_manifest["schema_version"],
+                    "authority_manifest_sha256": authority_manifest["manifest_sha256"],
+                    "authority_artifact_count": authority_manifest["artifact_count"],
+                    "authoritative_artifact_ids": [
+                        item["artifact_id"] for item in authority_manifest["artifacts"]
+                    ],
+                    "superseded_artifact_ids": sorted(
+                        str(item["id"]) for item in authority_transition["superseded"]
+                    ),
+                }
+                async with event_lock:
+                    for superseded_artifact in authority_transition["superseded"]:
+                        store.append_run_event(
+                            run_id,
+                            "artifact.superseded",
+                            "artifact",
+                            f"旧权威 Artifact 已退出当前发布集合：{superseded_artifact['title']}",
+                            "旧字节和 Registry 记录继续保留；当前成功 Attempt 的冻结集合成为唯一权威来源。",
+                            {
+                                **authority_payload,
+                                "artifact_id": superseded_artifact["id"],
+                                "superseded_artifact_id": superseded_artifact["id"],
+                                "status": "superseded",
+                                "terminal": True,
+                            },
+                        )
+                    for authoritative_artifact in authority_transition["authoritative"]:
+                        store.append_run_event(
+                            run_id,
+                            "artifact.authoritative",
+                            "artifact",
+                            f"Artifact 已进入当前权威集合：{authoritative_artifact['title']}",
+                            "平台已在全部节点后置核验通过后，将该原始字节绑定到当前成功 Attempt。",
+                            {
+                                **authority_payload,
+                                "artifact_id": authoritative_artifact["id"],
+                                "artifact_kind": authoritative_artifact["kind"],
+                                "artifact_title": authoritative_artifact["title"],
+                                "artifact_version": authoritative_artifact["version"],
+                                "relative_path": authoritative_artifact["relative_path"],
+                                "sha256": authoritative_artifact["sha256"],
+                                "size_bytes": authoritative_artifact["size_bytes"],
+                                "status": "authoritative",
+                            },
+                        )
+                    store.append_run_event(
+                        run_id,
+                        "artifact.authority.frozen",
+                        "validation",
+                        f"“{task['node_name']}”当前权威 Artifact 集合已冻结",
+                        "集合成员、原始字节哈希和成功 Attempt 身份已形成确定性、顺序无关的发布口径。",
+                        {**authority_payload, "status": "passed", "terminal": True},
+                    )
+                store.update_task(
+                    task["id"],
+                    status="completed",
+                    output_data={
+                        "artifact_id": artifact["id"], "artifact_version": artifact["version"], "usage": usage,
+                        "model": node_model_config["model"], "model_tier": model_tier, "runtime": runtime_name, "decision": decision,
+                        "validation": validation,
+                        "registered_file_artifact_ids": [item["id"] for item in registered_file_artifacts],
+                        "git_commit_artifact_ids": [item["id"] for item in git_commit_artifacts],
+                        "git_remote_artifact_ids": [item["id"] for item in git_remote_artifacts],
+                        "git_commits": git_commits,
+                        "authority_manifest_sha256": authority_manifest["manifest_sha256"],
+                        "authoritative_artifact_ids": authority_payload["authoritative_artifact_ids"],
+                    },
+                )
                 return node_key, input_tokens + output_tokens, {
                     "title": task["node_name"],
                     "content": content[:4000],
@@ -4775,6 +5047,11 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                         },
                     )
                 handled_rework_interventions.add(str(intervention["id"]))
+                store.update_run(
+                    run_id,
+                    progress=_completed_node_progress(completed, tasks),
+                    token_count=total_tokens,
+                )
                 async with event_lock:
                     if was_queued:
                         store.append_run_event(
@@ -4990,7 +5267,7 @@ async def execute_platform_run(store: PlatformStore, run_id: str) -> None:
                                 "content": feedback, "round": revision_counts[gate_key],
                             },
                         )
-            progress = int((len(completed) / max(len(tasks), 1)) * 100)
+            progress = _completed_node_progress(completed, tasks)
             store.update_run(run_id, progress=progress, token_count=total_tokens)
 
         convergence_events = await asyncio.to_thread(

@@ -169,6 +169,12 @@ const latestRevisionEvent = computed(() => activeRun.value?.latest_revision_even
   String(event.type) === 'gate.rejected' && event.payload?.expected_rejection !== true,
 ))
 const activeRevisionRound = computed(() => Number(latestRevisionEvent.value?.payload?.revision_round ?? 0))
+const activeReworkTasks = computed(() => (activeRun.value?.tasks ?? []).filter((task: Json) =>
+  String(task.status) !== 'completed',
+))
+const activeReworkTaskNames = computed(() => activeReworkTasks.value
+  .map((task: Json) => String(task.node_name ?? task.node_key ?? '未命名节点'))
+  .join('、'))
 const runTimeLimitExhausted = computed(() => Boolean(
   activeRun.value?.status === 'budget_exhausted'
     && (latestFailureEvent.value?.payload?.budget_kind === 'run_time_limit'
@@ -289,9 +295,17 @@ const selectedEvidenceReceipts = computed(() => {
   if (selectedEvidenceDetail.value?.events?.length) return selectedEvidenceDetail.value.events as Json[]
   const artifactId = String(selectedEvidenceArtifact.value?.id ?? '')
   if (!artifactId) return []
-  return (activeRun.value?.events ?? []).filter((event: Json) =>
-    ['artifact.created', 'artifact.collected', 'artifact.download.verified', 'artifact.inherited'].includes(String(event.type))
-      && String(event.payload?.artifact_id ?? '') === artifactId)
+  return (activeRun.value?.events ?? []).filter((event: Json) => {
+    if (![
+      'artifact.created', 'artifact.collected', 'artifact.download.verified', 'artifact.inherited',
+      'artifact.authoritative', 'artifact.authority.frozen', 'artifact.superseded',
+    ].includes(String(event.type))) return false
+    const relatedIds = [
+      ...(Array.isArray(event.payload?.authoritative_artifact_ids) ? event.payload.authoritative_artifact_ids : []),
+      ...(Array.isArray(event.payload?.superseded_artifact_ids) ? event.payload.superseded_artifact_ids : []),
+    ].map(String)
+    return String(event.payload?.artifact_id ?? '') === artifactId || relatedIds.includes(artifactId)
+  })
 })
 const selectedEvidenceAttemptId = computed(() => String(
   selectedEvidenceDetail.value?.attempt_id
@@ -934,7 +948,9 @@ function eventTypeLabel(type: string): string {
     'team.dossier.published': '公共卷宗开放', 'team.communication.round.started': '公开议事开始',
     'team.communication.round.completed': '公开议事完成', 'team.synthesis.started': '负责人开始整合',
     'team.synthesis.completed': '团队完成合议', 'engineering.submission.published': '工程提交已公开',
-    'artifact.created': '产物形成', 'agent.message.sent': '人物公开通信',
+    'artifact.created': '产物形成', 'artifact.collected': '原始字节采集', 'artifact.download.verified': '下载字节复算',
+    'artifact.authoritative': '进入当前权威集合', 'artifact.authority.frozen': '权威集合冻结', 'artifact.superseded': '退出当前权威集合',
+    'agent.message.sent': '人物公开通信',
     'git.workspace.ready': 'Git 工作区就绪', 'git.workspace.unavailable': 'Git 工作区不可用', 'git.delivery.planned': 'Git 交付计划建立',
     'git.delivery.configured': 'Git 交付目标已绑定',
     'git.commit.started': '开始创建 Git Commit', 'git.commit.skipped': 'Git Commit 已明确跳过',
@@ -1394,6 +1410,7 @@ function taskEvidenceEvents(task: Json): Json[] {
   return taskEvents(task).filter((event: Json) => [
     'agent.file.created', 'agent.file.modified', 'agent.file.deleted', 'agent.command.completed', 'agent.test.completed',
     'engineering.submission.published', 'artifact.validation.passed', 'artifact.validation.failed', 'artifact.created',
+    'artifact.collected', 'artifact.download.verified', 'artifact.authoritative', 'artifact.authority.frozen', 'artifact.superseded',
     'git.commit.started', 'git.commit.skipped', 'git.commit.created', 'git.commit.verified', 'git.commit.failed',
     'git.remote.started', 'git.remote.pushed', 'git.remote.failed', 'git.merge_request.created',
   ].includes(String(event.type)))
@@ -3120,7 +3137,7 @@ onUnmounted(() => {
 
         <section v-if="activeRun" class="live-run-panel">
           <header><div><span>事件 {{ activeRun.run_family_id || activeRun.id }} · 第 {{ activeRun.run_version || 1 }} 版</span><h2>{{ runWorkflow(activeRun)?.name ?? '真实执行现场' }}</h2><p>{{ activeRun.task_input }}</p></div><div class="run-meter"><strong>{{ runStatusLabel(activeRun.status) }}</strong><b>{{ activeRun.progress }}%</b><small>当前阶段：{{ activeRun.stage }}</small><progress :value="activeRun.progress" max="100"></progress><div class="run-control-actions"><button v-if="activeRun.status === 'running'" class="run-pause" :disabled="busy" @click="pauseActiveRun">⏸ 暂停并介入</button><button v-if="['pause_requested','paused'].includes(activeRun.status)" class="jh-primary" :disabled="busy" @click="resumeActiveRun">▶ 恢复行动</button><button v-if="['running','pause_requested','paused'].includes(activeRun.status)" class="run-cancel" :disabled="busy" @click="cancelActiveRun">停止本次执行</button></div></div></header>
-          <section v-if="activeRun.status === 'running' && latestRevisionEvent" class="run-revision-notice"><span>↺</span><div><strong>第 {{ activeRevisionRound || '?' }} 轮裁判退回正在返工</strong><p>进度按已完成节点实时计算。最终报告与独立裁决共占 2 个节点，因此裁判退回时会从 90% 回到 80%；历史产物和失败证据没有丢失。</p></div></section>
+          <section v-if="activeRun.status === 'running' && latestRevisionEvent" class="run-revision-notice"><span>↺</span><div><strong>第 {{ activeRevisionRound || '?' }} 轮裁判已经结束，当前正在返工</strong><p>这里的百分比是当前仍有效的已完成节点占比，不是裁判评分。裁判退回会让责任节点及其下游重新变为待完成，所以进度可能下降；当前待完成 {{ activeReworkTasks.length }} 个节点<span v-if="activeReworkTaskNames">（{{ activeReworkTaskNames }}）</span>。历史产物和失败证据没有丢失。</p></div></section>
           <section v-if="activeRun.attempts?.length > 1" class="run-version-history"><div><strong>同一事件的执行版本</strong><small>重试不会创建新事件；每次执行作为不可覆盖的版本保留。</small></div><button v-for="attempt in activeRun.attempts" :key="attempt.id" :class="{ active: attempt.id === activeRun.id }" @click="openRun(attempt.id)">第 {{ attempt.run_version }} 版 · {{ runStatusLabel(attempt.status) }}</button></section>
           <section v-if="['failed','cancelled','budget_exhausted','revision_exhausted'].includes(activeRun.status) && !runTimeLimitExhausted" class="run-failure-station"><div><span>🚨</span><div><strong>{{ activeRun.status === 'revision_exhausted' ? '自动返工已达到配置上限' : (activeRun.status === 'budget_exhausted' ? 'Token 或成本预算已经耗尽' : (activeRun.status === 'cancelled' ? '本次现场已停止' : '本次现场在自动重试后仍然中断')) }}</strong><p>{{ friendlyFailureReason(latestFailureEvent) }}</p><small>{{ activeRun.status === 'budget_exhausted' ? 'Token 或成本上限不会自动放开，需要调整预算策略。' : '恢复会沿用原 Run 和原版本，保留失败证据与已有产物，只执行未完成节点及受影响下游。' }}</small></div></div><div v-if="activeRun.status !== 'budget_exhausted'" class="failure-retry-actions"><button v-if="selectedSceneTask && selectedSceneTask.status !== 'completed'" class="jh-primary" :disabled="busy" @click="recoverActiveRun(selectedSceneTask)"><RefreshCw />从“{{ selectedSceneTask.node_name }}”恢复</button><button class="jh-secondary" :disabled="busy" @click="recoverActiveRun()"><RefreshCw />恢复全部未完成节点</button></div></section>
           <section v-if="runConclusionArtifact" class="run-conclusion-card"><header><div><span>事件结案摘要</span><h3>一页纸结论</h3></div><button type="button" @click="openArtifactInEvidenceCenter(runConclusionArtifact)"><BookOpen />应用内查看</button><button v-if="runConclusionArtifact.relative_path" type="button" @click="downloadArtifact(runConclusionArtifact)"><Download />下载</button></header><pre v-if="runConclusionArtifact.content">{{ runConclusionArtifact.content }}</pre><p v-else>结论正文按需从 Artifact Registry 读取，避免加载事件现场时传输全部历史文件内容。</p></section>
@@ -3299,7 +3316,7 @@ onUnmounted(() => {
                   <section v-if="evidencePreviewText" class="evidence-text-preview"><header><strong>{{ artifactPreviewHeading() }}</strong><small>只读</small></header><pre>{{ evidencePreviewText }}</pre></section>
                   <p v-else-if="evidencePreviewError" class="evidence-preview-notice">{{ evidencePreviewError }}</p>
                   <p v-else-if="!artifactIsImage(selectedEvidenceArtifact) && !artifactCanPreviewText(selectedEvidenceArtifact) && !artifactCanEmbed(selectedEvidenceArtifact)" class="evidence-preview-notice">该二进制格式不在页面内执行；可在这里核对元数据和验证回执，再下载原文件。</p>
-                  <section v-if="selectedEvidenceReceipts.length" class="evidence-receipts"><header><strong>Registry 验证回执</strong><b>{{ selectedEvidenceReceipts.length }}</b></header><ol><li v-for="event in selectedEvidenceReceipts" :key="event.id"><i>{{ event.type === 'artifact.download.verified' ? '✓' : '•' }}</i><div><b>{{ eventTypeLabel(event.type) }}</b><span>sequence {{ event.sequence }} · {{ new Date(event.created_at).toLocaleString('zh-CN') }}</span><code>{{ event.payload?.sha256 ?? selectedEvidenceArtifact.sha256 }}</code></div></li></ol></section>
+                  <section v-if="selectedEvidenceReceipts.length" class="evidence-receipts"><header><strong>Registry 与权威回执</strong><b>{{ selectedEvidenceReceipts.length }}</b></header><ol><li v-for="event in selectedEvidenceReceipts" :key="event.id"><i>{{ ['artifact.download.verified', 'artifact.authoritative', 'artifact.authority.frozen'].includes(String(event.type)) ? '✓' : '•' }}</i><div><b>{{ eventTypeLabel(event.type) }}</b><span>sequence {{ event.sequence }} · {{ new Date(event.created_at).toLocaleString('zh-CN') }}</span><code>{{ event.payload?.authority_manifest_sha256 ?? event.payload?.sha256 ?? selectedEvidenceArtifact.sha256 }}</code></div></li></ol></section>
                   <footer><button type="button" :disabled="!selectedArtifactContentAvailable()" @click="downloadArtifact(selectedEvidenceArtifact)"><Download />{{ selectedArtifactIsDeletionReceipt() ? (selectedArtifactHasResolvedBytes() ? '下载删除前原文件' : '下载删除凭据') : '下载原文件' }}</button><span>{{ selectedArtifactContentAvailable() ? '下载前会先核验 Registry 与实际字节，失败时留在应用内显示原因' : '原始字节不可用，不会跳转到 Not Found 页面' }}</span></footer>
                 </article>
                 <div v-else class="evidence-detail-empty">从左侧选择一份证据查看。</div>

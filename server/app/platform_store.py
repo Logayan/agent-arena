@@ -1434,6 +1434,57 @@ class PlatformStore:
             ).fetchall()
         return [self._artifact(row) for row in rows]
 
+    def mark_task_artifacts_authoritative(
+        self,
+        run_id: str,
+        task_id: str,
+        artifact_ids: list[str],
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Atomically replace one task's authoritative Artifact set.
+
+        Artifact bytes and Registry rows remain immutable. Only the publication
+        status changes: the exact successful Attempt set becomes authoritative,
+        while a previously authoritative set is retained as superseded history.
+        """
+        selected_ids = sorted({str(artifact_id) for artifact_id in artifact_ids if str(artifact_id)})
+        if not selected_ids:
+            raise ValueError("artifact_authority_set_empty")
+        placeholders = ",".join("?" for _ in selected_ids)
+        with self._connect() as db:
+            task_row = db.execute(
+                "SELECT id FROM tasks WHERE id=? AND run_id=?",
+                (task_id, run_id),
+            ).fetchone()
+            if not task_row:
+                raise ValueError("artifact_authority_task_not_found")
+            selected_rows = db.execute(
+                f"SELECT * FROM artifacts WHERE run_id=? AND task_id=? AND id IN ({placeholders})",
+                (run_id, task_id, *selected_ids),
+            ).fetchall()
+            if len(selected_rows) != len(selected_ids):
+                raise ValueError("artifact_authority_scope_mismatch")
+            superseded_rows = db.execute(
+                f"SELECT * FROM artifacts WHERE run_id=? AND task_id=? AND status='authoritative' AND id NOT IN ({placeholders})",
+                (run_id, task_id, *selected_ids),
+            ).fetchall()
+            if superseded_rows:
+                db.execute(
+                    f"UPDATE artifacts SET status='superseded' WHERE run_id=? AND task_id=? AND status='authoritative' AND id NOT IN ({placeholders})",
+                    (run_id, task_id, *selected_ids),
+                )
+            db.execute(
+                f"UPDATE artifacts SET status='authoritative' WHERE run_id=? AND task_id=? AND id IN ({placeholders})",
+                (run_id, task_id, *selected_ids),
+            )
+            authoritative_rows = db.execute(
+                f"SELECT * FROM artifacts WHERE run_id=? AND task_id=? AND id IN ({placeholders}) ORDER BY id",
+                (run_id, task_id, *selected_ids),
+            ).fetchall()
+        return {
+            "authoritative": [self._artifact(row) for row in authoritative_rows],
+            "superseded": [self._artifact(row) for row in superseded_rows],
+        }
+
     def get_artifact_provenance(self, artifact_id: str) -> dict[str, Any] | None:
         """Resolve task, Attempt and verification receipts for one Artifact on demand."""
         with self._connect() as db:
@@ -1466,7 +1517,10 @@ class PlatformStore:
                 f"""SELECT id,sequence,type,title,summary,payload_json,created_at
                    FROM {event_source}
                    WHERE run_id=?
-                     AND type IN ('artifact.created','artifact.collected','artifact.download.verified','artifact.inherited')
+                     AND type IN (
+                       'artifact.created','artifact.collected','artifact.download.verified','artifact.inherited',
+                       'artifact.authoritative','artifact.authority.frozen','artifact.superseded'
+                     )
                      AND created_at BETWEEN ? AND ?
                      AND payload_json LIKE ?
                    ORDER BY sequence""",
@@ -1478,7 +1532,12 @@ class PlatformStore:
                 payload = json.loads(str(event_row["payload_json"] or "{}"))
             except json.JSONDecodeError:
                 payload = {}
-            if str(payload.get("artifact_id") or "") != artifact_id:
+            related_ids = {
+                str(item)
+                for key in ("authoritative_artifact_ids", "superseded_artifact_ids")
+                for item in (payload.get(key) or [])
+            }
+            if str(payload.get("artifact_id") or "") != artifact_id and artifact_id not in related_ids:
                 continue
             event = dict(event_row)
             event.pop("payload_json", None)
