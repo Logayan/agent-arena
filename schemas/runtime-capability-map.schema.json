@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jianghu.local/schemas/runtime-capability-map.schema.json",
+  "title": "OpenClaw to Claude Agent SDK runtime capability map",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "run_id",
+    "platform_attempt_id",
+    "snapshot_id",
+    "evidence_cutoff_sequence",
+    "decision",
+    "capabilities"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "jianghu.openclaw-claude-runtime-capability-mapping.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_"
+    },
+    "platform_attempt_id": {
+      "type": "string",
+      "pattern": "^attempt:"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "pattern": "^attempt-"
+    },
+    "evidence_cutoff_sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "decision": {
+      "type": "object",
+      "required": [
+        "mapping_deliverable",
+        "complete_claude_agent_sdk_runtime_migration",
+        "openclaw_retirement"
+      ],
+      "properties": {
+        "mapping_deliverable": {
+          "const": "CONDITIONAL_PASS_EVIDENCE_BOUND_MAPPING"
+        },
+        "complete_claude_agent_sdk_runtime_migration": {
+          "const": "NO_GO"
+        },
+        "openclaw_retirement": {
+          "const": "NOT_APPROVED"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "capability",
+          "historical_openclaw_actual",
+          "current_owner",
+          "claude_path",
+          "status",
+          "persistence_boundary",
+          "evidence",
+          "residual_path"
+        ]
+      }
+    }
+  }
+}

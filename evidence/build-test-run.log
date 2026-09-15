@@ -1,0 +1,38 @@
+# Final merged build and test run
+workdir=/d/Users/User/My Document/多agent协作与对抗实践/.data/workspaces/project_jianghu/runs/run_6940048dd30f/tmp/claude-agents/agent_cb495a9bea1e/delivery
+
+$ python -m py_compile src/verify_mapping.py tests/test_verify_mapping.py
+exit_code=0
+
+$ python -m unittest discover -s tests -v
+test_all_public_submission_paths_have_decisions (test_verify_mapping.RuntimeMappingVerificationTests.test_all_public_submission_paths_have_decisions) ... ok
+test_all_registered_raw_bytes_and_lifecycles_verify (test_verify_mapping.RuntimeMappingVerificationTests.test_all_registered_raw_bytes_and_lifecycles_verify) ... ok
+test_authorization_matrix_and_policy_probe_are_separate (test_verify_mapping.RuntimeMappingVerificationTests.test_authorization_matrix_and_policy_probe_are_separate) ... ok
+test_claude_route_is_short_window_and_fail_closed (test_verify_mapping.RuntimeMappingVerificationTests.test_claude_route_is_short_window_and_fail_closed) ... ok
+test_critical_objects_are_exact (test_verify_mapping.RuntimeMappingVerificationTests.test_critical_objects_are_exact) ... ok
+test_historical_openclaw_baseline_bytes_are_absent (test_verify_mapping.RuntimeMappingVerificationTests.test_historical_openclaw_baseline_bytes_are_absent) ... ok
+test_iam_probes_are_not_misclassified_as_tool_execution (test_verify_mapping.RuntimeMappingVerificationTests.test_iam_probes_are_not_misclassified_as_tool_execution) ... ok
+test_mapping_and_gap_counts_are_fail_closed (test_verify_mapping.RuntimeMappingVerificationTests.test_mapping_and_gap_counts_are_fail_closed) ... ok
+test_public_collaboration_content_is_not_event_attestation (test_verify_mapping.RuntimeMappingVerificationTests.test_public_collaboration_content_is_not_event_attestation) ... ok
+test_registered_sources_do_not_masquerade_as_current_candidate (test_verify_mapping.RuntimeMappingVerificationTests.test_registered_sources_do_not_masquerade_as_current_candidate) ... ok
+test_residual_openclaw_references_are_explicitly_classified (test_verify_mapping.RuntimeMappingVerificationTests.test_residual_openclaw_references_are_explicitly_classified) ... ok
+test_route_window_is_explicitly_short (test_verify_mapping.RuntimeMappingVerificationTests.test_route_window_is_explicitly_short) ... ok
+test_runtime_and_model_attestation_are_not_conflated (test_verify_mapping.RuntimeMappingVerificationTests.test_runtime_and_model_attestation_are_not_conflated) ... ok
+test_session_and_end_to_end_acceptance_remain_blocked (test_verify_mapping.RuntimeMappingVerificationTests.test_session_and_end_to_end_acceptance_remain_blocked) ... ok
+test_snapshot_projection_and_disclosed_metadata_lag (test_verify_mapping.RuntimeMappingVerificationTests.test_snapshot_projection_and_disclosed_metadata_lag) ... ok
+test_source_hashes_and_registry_source_events_are_bound (test_verify_mapping.RuntimeMappingVerificationTests.test_source_hashes_and_registry_source_events_are_bound) ... ok
+test_tampered_snapshot_fails_closed (test_verify_mapping.RuntimeMappingVerificationTests.test_tampered_snapshot_fails_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.334s
+
+OK
+exit_code=0
+
+$ python src/verify_mapping.py --write-receipt
+VERIFICATION PASS events=94 critical=92 artifacts=13/13 routes=10/10 session_bindings=0 gaps=13 overall=NO_GO
+exit_code=0
+
+$ JSON parse of non-platform delivery JSON files
+JSON PASS files=9
+exit_code=0

@@ -1,0 +1,230 @@
+{
+  "schema_version": "jianghu.runtime-mapping-evidence-index.v1",
+  "run_id": "run_6940048dd30f",
+  "snapshot_id": "attempt-415cb8b318fda11f",
+  "projection": "public_agent_safe",
+  "snapshot_root": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f",
+  "snapshot_files": [
+    {
+      "id": "EVT-1-94",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/events.ndjson",
+      "size_bytes": 95579,
+      "sha256": "f2663c4ec156deb9eecc72b5c80d49f6d2879128e5c16ed72e0a999d2ca4891b",
+      "locator": "sequence 1..94"
+    },
+    {
+      "id": "CRITICAL",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/critical-events.json",
+      "size_bytes": 94542,
+      "sha256": "dd9dbf92f5a805440e3edffef8b61f4035a0d97d8120997a949d37f9343c2372"
+    },
+    {
+      "id": "ART-ALL-13",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/artifact-registry.json",
+      "size_bytes": 14106,
+      "sha256": "aaa67ba117215881a836eae95b59ff768d5dfed294ebb0e44b2e232e8e8b68b9"
+    },
+    {
+      "id": "ATT-RUNTIME",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/runtime-attestation.json",
+      "size_bytes": 1326,
+      "sha256": "5ab05e98d8eaeede8bf85a0fc3655d4fbefd6f8e259f49e437b2b161c7418a64"
+    },
+    {
+      "id": "ATT-SOURCE",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/runtime-source-attestation.json",
+      "size_bytes": 3691,
+      "sha256": "c43e907bb1c0b98ed70dda849a50da3d3282a1ca9a6d740b18050a671161c852"
+    },
+    {
+      "id": "META-RUN",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/run-metadata.json",
+      "size_bytes": 596,
+      "sha256": "e56fe3df6331ce8027db8d78cd05e99220d3defcbc6136a9e411d7fb11080d39"
+    },
+    {
+      "id": "LINEAGE",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/run-lineage.json",
+      "size_bytes": 197,
+      "sha256": "e00b0d0e6ffb1f0f964cee6c58cc5c15a0627eee2025a97e8f6953947cf27a0b"
+    },
+    {
+      "id": "OMISSIONS",
+      "path": ".jianghu-platform-evidence/snapshots/attempt-415cb8b318fda11f/projection-omissions.json",
+      "size_bytes": 232,
+      "sha256": "91acb4b0f30267643a1442391038830c6e43cae2d682353219223d6b5097e085"
+    }
+  ],
+  "event_ranges": [
+    {
+      "id": "EVT-2-41",
+      "sequence": "2..41",
+      "meaning": "13 个生产源码/部署输入各自 created -> collected -> download.verified；seq 41 汇总 13/13。"
+    },
+    {
+      "id": "EVT-42-45",
+      "sequence": "42..45",
+      "meaning": "Run 启动、Runtime ready、Git workspace 与交付计划。"
+    },
+    {
+      "id": "EVT-46-76",
+      "sequence": "46..76",
+      "meaning": "6 个 Agent 的 Read/Write/Edit/Bash allow 与 OpenClawGateway deny IAM 矩阵，共 30 样本。"
+    },
+    {
+      "id": "EVT-77-87",
+      "sequence": "77..87",
+      "meaning": "normal/parallel/judge/rework/recovery/retry/scheduled/callback/manual/background 10 入口路由及汇总。"
+    },
+    {
+      "id": "EVT-88-90",
+      "sequence": "88..90",
+      "meaning": "OpenClaw Runtime 拒绝、Claude 回滚健康、未授权 Tool 拒绝。"
+    },
+    {
+      "id": "EVT-91-94",
+      "sequence": "91..94",
+      "meaning": "当前 Attempt、Task 与两名隔离参与者 started；尚无 completed。"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "artifact_fa7bed6afb42",
+      "source_sequence": 2,
+      "path": "server/app/agent_runtime_registry.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_fa7bed6afb42-2ab7f42bab2d80d6.py",
+      "size_bytes": 2587,
+      "sha256": "2ab7f42bab2d80d6ee0e5adf39a5b3965ee02c8ffacffadda297128e062f50e3",
+      "source_id": "SRC-01"
+    },
+    {
+      "id": "artifact_642f67605eab",
+      "source_sequence": 5,
+      "path": "server/app/main.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_642f67605eab-8c699a216aec032a.py",
+      "size_bytes": 141439,
+      "sha256": "8c699a216aec032addeeef7c1acb7f59c5c2c8eaf96e55e6925d4b40051d7566",
+      "source_id": "SRC-02"
+    },
+    {
+      "id": "artifact_884782192bec",
+      "source_sequence": 8,
+      "path": "server/app/platform_executor.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_884782192bec-faeb25ed535cdd96.py",
+      "size_bytes": 295920,
+      "sha256": "faeb25ed535cdd96f7050ba7ae5f4b50381303211a051d3851aaa3728b5d09b2",
+      "source_id": "SRC-03"
+    },
+    {
+      "id": "artifact_f7b229debd94",
+      "source_sequence": 11,
+      "path": "server/app/platform_store.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_f7b229debd94-a0667d6ac3718069.py",
+      "size_bytes": 291489,
+      "sha256": "a0667d6ac371806930b1df9104fd295270201bb257ab4ecedae43cc3d62e7b89",
+      "source_id": "SRC-04"
+    },
+    {
+      "id": "artifact_de3b19abe481",
+      "source_sequence": 14,
+      "path": "server/app/claude_code_runtime.py",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_de3b19abe481-79efd4215c2c3513.py",
+      "size_bytes": 46405,
+      "sha256": "79efd4215c2c351357c58dbbf21465d6dc02046bef470cf5208a9b54e73846fc",
+      "source_id": "SRC-05"
+    },
+    {
+      "id": "artifact_4972d347b67b",
+      "source_sequence": 17,
+      "path": "server/claude_agent_runtime/bridge.mjs",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_4972d347b67b-28910db5693a4a1b.mjs",
+      "size_bytes": 25426,
+      "sha256": "28910db5693a4a1b26e16e278fe2c7a210b8177cdf870d656142083c56ec2abb",
+      "source_id": "SRC-06"
+    },
+    {
+      "id": "artifact_c3d918b43572",
+      "source_sequence": 20,
+      "path": "server/claude_agent_runtime/package.json",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_c3d918b43572-d6440574ed1ad60d.json",
+      "size_bytes": 354,
+      "sha256": "d6440574ed1ad60d750198580b6989636345f02de6eec4a1b0f21999cc807cd8",
+      "source_id": "SRC-07"
+    },
+    {
+      "id": "artifact_84387ee84712",
+      "source_sequence": 23,
+      "path": "server/claude_agent_runtime/package-lock.json",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_84387ee84712-a6d66ae59fe8f6a6.json",
+      "size_bytes": 53661,
+      "sha256": "a6d66ae59fe8f6a6df6574f7b3c418ba669a2f65a41b82f2ccd368c8054f10a1",
+      "source_id": "SRC-08"
+    },
+    {
+      "id": "artifact_4d0828bcd70a",
+      "source_sequence": 26,
+      "path": "client/src/App.vue",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_4d0828bcd70a-e0963a924852d1c2.vue",
+      "size_bytes": 267547,
+      "sha256": "e0963a924852d1c26f2a9900c9ff575bcfc9e1ad79de7f538fdc922a78bfdf07",
+      "source_id": "SRC-09"
+    },
+    {
+      "id": "artifact_8deec74b6eb1",
+      "source_sequence": 29,
+      "path": "client/src/api.ts",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_8deec74b6eb1-9adbd8dcaaa090fa.ts",
+      "size_bytes": 21207,
+      "sha256": "9adbd8dcaaa090fadbf0a22a7001fdd09799a70d50e181ac624f78b14a1e7984",
+      "source_id": "SRC-10"
+    },
+    {
+      "id": "artifact_df2d04b40371",
+      "source_sequence": 32,
+      "path": "Dockerfile",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_df2d04b40371-19ae22a000046464.bin",
+      "size_bytes": 2899,
+      "sha256": "19ae22a000046464e5becea5d6fde36cda5467c1fc65eb07d6073b830c6a1f8a",
+      "source_id": "SRC-11"
+    },
+    {
+      "id": "artifact_3a7aa238ae26",
+      "source_sequence": 35,
+      "path": "compose.yaml",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_3a7aa238ae26-de89820b7b94c13f.yaml",
+      "size_bytes": 4262,
+      "sha256": "de89820b7b94c13f65656ccfbb0ae8b3bbce6506f2fd0a1cd6b57cd77fcfddd4",
+      "source_id": "SRC-12"
+    },
+    {
+      "id": "artifact_7947e3200fe1",
+      "source_sequence": 38,
+      "path": ".env.docker.example",
+      "materialized_path": ".jianghu-platform-evidence/artifacts/artifact_7947e3200fe1-fe74a6e1bd2d79f9.example",
+      "size_bytes": 794,
+      "sha256": "fe74a6e1bd2d79f9310a74d5a2eff003ca064619e94977b79f31f1821f60b125",
+      "source_id": "SRC-13"
+    }
+  ],
+  "supplemental_public_inputs": [
+    {
+      "id": "COLLAB-PUBLIC-4",
+      "path": "collaboration/public-communication-record.json",
+      "classification": "CONTENT_LEVEL_PASS_EVENT_LEVEL_BLOCKED",
+      "locator": "4 messages / 2 actors / 2 rounds"
+    },
+    {
+      "id": "SUBMISSION-REVIEW-59",
+      "path": "collaboration/submission-review.json",
+      "classification": "PUBLIC_ENGINEERING_SUBMISSION_REVIEW",
+      "locator": "2 manifests / 59 declared paths / 0 undecided"
+    }
+  ],
+  "evidence_classification": {
+    "snapshot_cutoff_sequence": 94,
+    "registered_runtime_source_artifacts": "13/13 verified",
+    "current_node_candidate_artifacts": "0 at frozen cutoff",
+    "public_collaboration_content": "4 messages after cutoff supplied as public node input",
+    "public_collaboration_event_attestation": "0 messages in frozen event projection"
+  }
+}

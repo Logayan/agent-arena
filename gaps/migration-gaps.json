@@ -1,0 +1,105 @@
+{
+  "schema_version": "jianghu.runtime-migration-gaps.v1",
+  "run_id": "run_6940048dd30f",
+  "snapshot_id": "attempt-415cb8b318fda11f",
+  "open_gap_count": 13,
+  "p0_open": 11,
+  "p1_open": 2,
+  "decision": {
+    "complete_claude_agent_sdk_runtime_migration": "NO_GO",
+    "openclaw_retirement": "NOT_APPROVED"
+  },
+  "gaps": [
+    {
+      "id": "GAP-01",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "历史 OpenClaw 能力基线原始字节缺失",
+      "closure": "将冻结 OpenClaw Adapter、契约测试、依赖锁、配置、部署输入和代表性历史事件作为本 Run Registry Artifact 登记，按会话、工具、文件、协作、Memory、暂停和恢复逐项重放。"
+    },
+    {
+      "id": "GAP-02",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "长期零 OpenClaw、无旁路与单写者证明缺失",
+      "closure": "覆盖真实生产周期及全部入口，按 business_invocation_id 绑定请求、响应、路由与回滚 Artifact，证明 OpenClaw 长期零流量、无双写、无静默回退。"
+    },
+    {
+      "id": "GAP-03",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "当前冻结点没有 completed turn 到 SDK Session binding",
+      "closure": "五个要求角色分别取得 agent.turn.completed，并在同一证据对象中绑定 agent_id、platform_session_id、claude_sdk_session_id、sdk_invocation_id 与摘要。"
+    },
+    {
+      "id": "GAP-04",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "真实 Tool Request/Result 与副作用终态链缺失",
+      "closure": "至少一个真实 Tool 形成 schema.validated、authorization.decided、started、completed、side_effect.verified，并绑定 SDK Invocation/Session、request/result digest；增加 schema deny 与 authorization deny 负测。"
+    },
+    {
+      "id": "GAP-05",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "本节点新候选尚无 Registry Artifact 生命周期",
+      "closure": "平台采集当前合议候选精确字节，产生 artifact.created/collected/download.verified，并从正式前端下载后重新计算 size 与 SHA-256。"
+    },
+    {
+      "id": "GAP-06",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "公开协作只有内容级记录，冻结事件级闭环缺失",
+      "closure": "将两轮四条消息物化为 agent.message.sent、round started/completed，形成非空 synthesis/decision 并绑定各自 completed turn 与 SDK Session。"
+    },
+    {
+      "id": "GAP-07",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Judge 退回、返工与再裁决链缺失",
+      "closure": "形成独立 Judge REJECT、gate.rejected、新 Attempt、V2 superseding Artifact 和再次独立 Judge 决定；校验 causation/rework_of/supersedes 语义。"
+    },
+    {
+      "id": "GAP-08",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Memory 写回与跨新上下文精确回读缺失",
+      "closure": "同一 memory_id/value_sha256 完成 candidate/review/commit/persist，并由不同 SDK Session retrieve/use；再执行 namespace deny、supersede/tombstone 负测。"
+    },
+    {
+      "id": "GAP-09",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "主动暂停、Checkpoint、静默窗与恢复未执行",
+      "closure": "真实 pause 请求，排空在途回合后产生 Checkpoint Artifact 三段生命周期和静默窗口，再 resume/load，并证明 SDK continuation 或明确新 Session 语义。"
+    },
+    {
+      "id": "GAP-10",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "失败恢复、fencing 与 exactly-once 终态对账未执行",
+      "closure": "执行可逆 Worker/依赖失败，证明新 epoch lease、旧 writer stale-write deny、checkpoint load、稳定 operation/idempotency identity、工具 terminal reconciliation、duplicate=0。"
+    },
+    {
+      "id": "GAP-11",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Run 仍 running，未形成全局终态收敛",
+      "closure": "完成全部节点、独立 Judge 终判、Artifact/Event/Task 对账，并形成 run.converged 和 run.completed。"
+    },
+    {
+      "id": "GAP-12",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "快照 metadata event_count 与投影行数相差1",
+      "closure": "平台提供单事务 cutoff 或文件集总摘要，使 run-metadata.event_count 与同一冻结点公开事件行数一致，并锁定回归测试。"
+    },
+    {
+      "id": "GAP-13",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "OpenClaw 命名兼容路径仍在生产源码",
+      "closure": "列出旧 status API、事件/UI 别名、错误码和迁移 SQL 的外部依赖者；迁移 generic 接口后删除或设置有期限门禁，并增加禁止新增 OpenClaw 可执行依赖的 CI 扫描。"
+    }
+  ]
+}
